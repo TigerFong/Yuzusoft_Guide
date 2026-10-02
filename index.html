@@ -3,80 +3,172 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>千戀萬花攻略站</title>
+    <title>柚子社攻略站</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="data.js"></script>
-    <script src="script.js"></script>
 </head>
 <body>
-    <div id="homepage">
-        <button id="open_button" onclick="openhomepage2()">點擊此處繼續</button>
-    </div>
-    <div id="homepage2">
-        <div class="menu-buttons">
-            <button id="characterbutton" onclick="gotocharacter()"></button>
-            <button id="storybutton" onclick="gotostory()"></button>
-            <button id="strategybutton" onclick="gotoguidepage()"></button>
-        </div>
-        <button id="linkbutton" onclick="gotolink()"></button>
-    </div>
-    <div id="story">
-        <div id="storybackground">
-            <img id="storyimg" src="picture/story.jpg">
-        </div>
-        <button id="exitbutton" onclick="openhomepage2()"></button>
-        <h1 id="text">劇情簡介</h1>
-    </div>
 
+    <header id="topbar">
+        <div class="topbar-inner">
+            <div class="brand">
+                <div class="brand-text">
+                    <span class="brand-title">柚子社攻略站</span>
+                    <span class="brand-sub">YUZUSOFT GUIDE</span>
+                </div>
+            </div>
 
-    <div id="choosepage">
-        <h1 id="text">請選擇角色</h1>
-        <div class="character-btn-container">
-            <button class="character-btn btn-1" onclick="opencharacter('朝武芳乃')"></button>
-            <button class="character-btn btn-2" onclick="opencharacter('常陸茉子')"></button>
-            <button class="character-btn btn-3" onclick="opencharacter('叢雨')"></button>
-            <button class="character-btn btn-4" onclick="opencharacter('蕾娜·列支敦瑙爾')"></button>
-            <button class="character-btn btn-5" onclick="opencharacter('鞍馬小春')"></button>
-            <button class="character-btn btn-6" onclick="opencharacter('馬庭蘆花')"></button>
+            <div class="search-box">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="7"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input type="text" placeholder="搜索角色 / 攻略 / 關鍵字…" />
+            </div>
+
+            <button id="menuButton" onclick="openMenu()" aria-label="開啟選單">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
         </div>
-        <button id="exitbutton" onclick="openhomepage2()"></button>
-    </div>
-    <div id="character">
-        <div class="characterbutton">
-            <h1 id="name">名稱</h1>
-            <button id="age">年齡</button>
-            <button id="height">身高</button>
-            <button id="body_type">體型</button>
-            <button id="personality">性格</button>
-            <button id="identity">身份</button>
-            <button id="likes">喜好</button>
-            <button id="dislikes">討厭</button>
-            <button id="clothes">服裝</button>
+
+            <!-- 引導提示 -->
+        <div id="guideTip" class="guide-tip">
+            <div class="guide-tip-text">點擊這裡開啟選單<br>選擇遊戲開始探索</div>
+            <div class="guide-tip-arrow"></div>
         </div>
-        <div id="content_box"> 
-            <h1 id="content"></h1>
+    </header>
+
+    <aside id="sideMenu">
+        <div class="menu-header">
+            <div class="menu-title-wrap">
+                <span class="menu-brand-title">柚子社攻略站</span>
+                <span class="menu-brand-sub">Yuzusoft Guide</span>
+            </div>
+            <button id="closeButton" onclick="closeMenu()" aria-label="關閉選單">✕</button>
         </div>
-        <button id="backbutton" onclick="back()"></button>
-        <div id="characterpicture"></div>
-    </div>
-    <div id="guidepage">
-        <h1 id="text">請選擇角色</h1>
-        <div class="character-btn-container">
-            <button class="character-btn btn-1" onclick="openguide('朝武芳乃')"></button>
-            <button class="character-btn btn-2" onclick="openguide('常陸茉子')"></button>
-            <button class="character-btn btn-3" onclick="openguide('叢雨')"></button>
-            <button class="character-btn btn-4" onclick="openguide('蕾娜·列支敦瑙爾')"></button>
-            <button class="character-btn btn-5" onclick="openguide('鞍馬小春')"></button>
-            <button class="character-btn btn-6" onclick="openguide('馬庭蘆花')"></button>
+
+        <div class="menu-group">
+            <div class="group-title">選擇遊戲</div>
+            <nav class="menu-list" id="gameList">
+                <a href="#" data-game="千戀＊萬花" onclick="selectGame('千戀＊萬花')">千戀＊萬花</a>
+                <a href="#" data-game="天使紛擾" onclick="selectGame('天使紛擾')">天使紛擾</a>
+                <a href="#" data-game="星光咖啡館與死神之蝶" onclick="selectGame('星光咖啡館與死神之蝶')">星光咖啡館與死神之蝶</a>
+                <a href="#" data-game="魔女的夜宴" onclick="selectGame('魔女的夜宴')">魔女的夜宴</a>
+                <a href="#" id="clearGameBtn" class="clear-game" onclick="clearGame()">✕ 取消選擇</a>
+            </nav>
         </div>
-        <button id="exitbutton" onclick="openhomepage2()"></button>
-    </div>
-    <div id="guide">
-        <div id="content_box2">
-            <h1 id="guide_content"></h1>
+
+        <div class="menu-group">
+            <div class="group-title">功能</div>
+            <nav class="menu-list" id="featureList">
+                <a href="#home" onclick="scrollToSection('home')">首頁</a>
+                                <a href="#story" class="game-feature disabled" onclick="scrollToSection('story')">故事介紹</a>
+                <a href="#character" class="game-feature disabled" onclick="scrollToSection('character')">角色介紹</a>
+                <a href="#guide" class="game-feature disabled" onclick="scrollToSection('guide')">攻略</a>
+                <a href="#about" onclick="scrollToSection('about')">關於本站</a>
+            </nav>
         </div>
-        <div id="characterimg"></div>
-        <button id="backbutton" onclick="backtoguidepage()"></button>
-    </div>
+    </aside>
+
+    <div id="overlay" onclick="closeMenu()"></div>
+
+    <main id="mainContent">
+
+        <!-- 首頁 -->
+        <section id="home" class="section section-hero">
+            <div class="section-inner">
+                <div class="section-header">
+                    <h2 class="section-title" id="homeTitle">柚子社攻略站</h2>
+                    <p class="section-sub" id="homeSub">yuzusoft guide</p>
+                </div>
+                <p class="hero-desc" id="homeDesc">柚子社（YUZUSOFT）是一家成立於2006年的日本知名美少女遊戲（Galgame）品牌，長期以來以製作風格輕鬆溫馨、戀愛日常甜蜜、角色塑造討喜且視覺與介面製作精緻高水準的萌系視覺小說聞名，並在《千戀＊萬花》、《RIDDLE JOKER》以及《天使☆騷動 RE-BOOT!》等多部熱門作品的推動下，成為亞洲Galgame界最具代表性與影響力的頂尖品牌之一。</p>
+                <div class="scroll-hint">
+                    <span>往下滑動</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </div>
+            </div>
+        </section>
+
+        <!-- 故事介紹 -->
+        <section id="story" class="section game-section">
+            <div class="section-inner">
+                <div class="section-header">
+                    <h2 class="section-title">故事介紹</h2>
+                    <p class="section-sub">story</p>
+                </div>
+                <div class="content-box story-box">
+                    <img id="storyImage" src="" alt="故事介紹" class="story-image">
+                    <p class="placeholder-text" id="storyPlaceholder">選擇遊戲後，這裡會顯示該作品的劇情簡介。</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 攻略 -->
+        <section id="guide" class="section game-section">
+            <div class="section-inner">
+                <div class="section-header">
+                    <h2 class="section-title">攻略</h2>
+                    <p class="section-sub">guide</p>
+                </div>
+                <div class="content-box">
+                    <p class="placeholder-text">選擇遊戲後，這裡會顯示該角色的攻略選項與路線。</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 關於本站 -->
+        <section id="about" class="section">
+            <div class="section-inner">
+                <div class="section-header">
+                    <h2 class="section-title">關於本站</h2>
+                    <p class="section-sub">about</p>
+                </div>
+                <div class="content-box">
+                    <div class="about-list">
+                        <div class="about-row">
+                            <div class="about-key">項目</div>
+                            <div class="about-value">柚子社攻略站 · Yuzusoft Guide</div>
+                        </div>
+                        <div class="about-row">
+                            <div class="about-key">定位</div>
+                            <div class="about-value">非官方攻略資料站，收錄柚子社歷代作品的角色資料、劇情簡介與攻略路線，讓玩家能快速查找想要的資訊。</div>
+                        </div>
+                        <div class="about-row">
+                            <div class="about-key">建站</div>
+                            <div class="about-value">2026 年 10 月</div>
+                        </div>
+                        <div class="about-row">
+                            <div class="about-key">板塊</div>
+                            <div class="about-value">首頁 · 角色介紹 · 故事介紹 · 攻略 · 關於本站</div>
+                        </div>
+                        <div class="about-row">
+                            <div class="about-key">技術</div>
+                            <div class="about-value">Python（Flask）+ 原生 HTML / CSS / JavaScript</div>
+                        </div>
+                        <div class="about-row">
+                            <div class="about-key">說明</div>
+                            <div class="about-value">本站為非官方粉絲站，所有作品名稱、角色與商標歸柚子社（Yuzusoft）所有；站內資料僅供學習與參考用途，不構成任何商業推薦。</div>
+                        </div>
+                        <div class="about-row">
+                            <div class="about-key">版本</div>
+                            <div class="about-value">v1.2</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="site-footer">
+            <p>柚子社攻略站 · YUZUSOFT GUIDE</p>
+        </footer>
+
+    </main>
+
+    <script src="script.js"></script>
 </body>
 </html>
