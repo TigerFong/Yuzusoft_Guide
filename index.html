@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>千戀萬花攻略站</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+</head>
+<body>
+    <div id="homepage">
+        <button id="open_button" onclick="openhomepage2()">點擊此處繼續</button>
+    </div>
+    <div id="homepage2">
+        <div class="menu-buttons">
+            <button id="characterbutton" onclick="gotocharacter()"></button>
+            <button id="storybutton" onclick="gotostory()"></button>
+            <button id="strategybutton" onclick="gotoguidepage()"></button>
+        </div>
+        <button id="linkbutton" onclick="gotolink()"></button>
+    </div>
+    <div id="story">
+        <div id="storybackground">
+            <img id="storyimg" src="picture/story.jpg">
+        </div>
+        <button id="exitbutton" onclick="openhomepage2()"></button>
+        <h1 id="text">劇情簡介</h1>
+    </div>
+
+
+    <div id="choosepage">
+        <h1 id="text">請選擇角色</h1>
+        <div class="character-btn-container">
+            <button class="character-btn btn-1" onclick="opencharacter('朝武芳乃')"></button>
+            <button class="character-btn btn-2" onclick="opencharacter('常陸茉子')"></button>
+            <button class="character-btn btn-3" onclick="opencharacter('叢雨')"></button>
+            <button class="character-btn btn-4" onclick="opencharacter('蕾娜·列支敦瑙爾')"></button>
+            <button class="character-btn btn-5" onclick="opencharacter('鞍馬小春')"></button>
+            <button class="character-btn btn-6" onclick="opencharacter('馬庭蘆花')"></button>
+        </div>
+        <button id="exitbutton" onclick="openhomepage2()"></button>
+    </div>
+    <div id="character">
+        <div class="characterbutton">
+            <h1 id="name">名稱</h1>
+            <button id="age">年齡</button>
+            <button id="height">身高</button>
+            <button id="body_type">體型</button>
+            <button id="personality">性格</button>
+            <button id="identity">身份</button>
+            <button id="likes">喜好</button>
+            <button id="dislikes">討厭</button>
+            <button id="clothes">服裝</button>
+        </div>
+        <div id="content_box"> 
+            <h1 id="content"></h1>
+        </div>
+        <button id="backbutton" onclick="back()"></button>
+        <div id="characterpicture"></div>
+    </div>
+    <div id="guidepage">
+        <h1 id="text">請選擇角色</h1>
+        <div class="character-btn-container">
+            <button class="character-btn btn-1" onclick="openguide('朝武芳乃')"></button>
+            <button class="character-btn btn-2" onclick="openguide('常陸茉子')"></button>
+            <button class="character-btn btn-3" onclick="openguide('叢雨')"></button>
+            <button class="character-btn btn-4" onclick="openguide('蕾娜·列支敦瑙爾')"></button>
+            <button class="character-btn btn-5" onclick="openguide('鞍馬小春')"></button>
+            <button class="character-btn btn-6" onclick="openguide('馬庭蘆花')"></button>
+        </div>
+        <button id="exitbutton" onclick="openhomepage2()"></button>
+    </div>
+    <div id="guide">
+        <div id="content_box2">
+            <h1 id="guide_content"></h1>
+        </div>
+        <div id="characterimg"></div>
+        <button id="backbutton" onclick="backtoguidepage()"></button>
+    </div>
+</body>
+</html>
