@@ -1,99 +1,9 @@
-# data.py
-class Character:
-    def __init__(self, data_dict):
-        self.name = data_dict["name"]
-        self.age = data_dict["age"]
-        self.gender = data_dict["gender"]
-        self.height = data_dict["height"]
-        self.body_type = data_dict["body_type"]
-        self.personality = data_dict["personality"]
-        self.identity = data_dict["identity"]
-        self.likes = data_dict["likes"]
-        self.dislikes = data_dict["dislikes"]
-        self.clothes = data_dict["clothes"]
-
-    def __str__(self):
-        return f"【{self.name}】 (年齡:{self.age} | 身高:{self.height} | 身分:{self.identity})"
-
-    def show_details(self):
-        print(f"姓名: {self.name}")
-        print(f"年齡: {self.age} | 性別: {self.gender} | 身高: {self.height} | 體型: {self.body_type}")
-        print(f"性格: {self.personality}")
-        print(f"身分: {self.identity}")
-        print(f"喜好: {', '.join(self.likes)}")
-        print(f"討厭: {', '.join(self.dislikes)}")
-        print(f"服裝: {', '.join(self.clothes)}")
-        print("-" * 40)
-
-    # 新增方法：獲取所有資訊類型
-    def get_info_types(self):
-        return ['name', 'age', 'gender', 'height', 'body_type', 'personality', 'identity', 'likes', 'dislikes', 'clothes']
-
-    # 新增方法：獲取特定資訊
-    def get_info(self, info_type):
-        if info_type == 'name':
-            return self.name
-        elif info_type == 'age':
-            return self.age
-        elif info_type == 'gender':
-            return self.gender
-        elif info_type == 'height':
-            return self.height
-        elif info_type == 'body_type':
-            return self.body_type
-        elif info_type == 'personality':
-            return self.personality
-        elif info_type == 'identity':
-            return self.identity
-        elif info_type == 'likes':
-            return self.likes
-        elif info_type == 'dislikes':
-            return self.dislikes
-        elif info_type == 'clothes':
-            return self.clothes
-        else:
-            return getattr(self, info_type, None)
-
-
-# 新增攻略類
-class CharacterGuide:
-    def __init__(self, character_name, options=None):
-        self.character_name = character_name
-        self.options = options if options is not None else []
-
-    def add_option(self, option_text):
-        self.options.append(option_text)
-
-    def get_option(self, index):
-        if 1 <= index <= len(self.options):
-            return self.options[index - 1]
-        else:
-            return None
-
-    def get_all_options(self):
-        return [option for option in self.options if option.strip()]  # 過濾掉空選項
-
-    def __str__(self):
-        filtered_options = [option for option in self.options if option.strip()]
-        option_lines = [f"選項{index + 1}：{option}" for index, option in enumerate(filtered_options)]
-        
-        if option_lines:
-            option_str = "\n".join(option_lines)
-            return f"角色：{self.character_name}\n{option_str}"
-        else:
-            return f"角色：{self.character_name}\n"
-
-
-class CharacterManager:
-    def __init__(self):
-        self.characters = {}
-        self.guides = {}  # 存儲攻略數據
-        self.current_character = None  # 追蹤當前角色
-        self._load_data()
-        self._load_guide_data()  # 加載攻略數據
-
-    def _load_data(self):
-        data = [
+GAME_DATA = {
+    # =========================================================
+    # 千戀＊萬花
+    # =========================================================
+    "千戀＊萬花": {
+        "characters": [
             {
                 "name": "叢雨",
                 "age": "實際存在時間約 500 年，作為寄宿於神刀「叢雨丸」的刀靈存在，生前為幼年夭折的少女，外表約為十歲左右的幼女形象。",
@@ -235,9 +145,77 @@ class CharacterManager:
                     "工作服（日式甜品店「田心屋」制服）是平時在店裡經營時穿著融入和風元素的傳統工作服或圍裙，搭配黑褲襪或質樸的服飾，整體給人溫婉、整潔且充滿日式傳統風情的印象。",
                     "日常便服是私底下多穿著款式成熟、舒適的休閒服裝，符合她溫柔體貼的大姐姐形象。"
                 ]
-            },
+            }
+        ],
+        "guides": {
+            "朝武芳乃": [
+                "敷衍過去",
+                "不好説",
+                "看著不奇怪",
+                "釣魚",
+                "不行",
+                "用言語感謝",
+                "有點擔心",
+                "讓她放心"
+            ],
+            "叢雨": [
+                "敷衍過去",
+                "不好説",
+                "看著不奇怪",
+                "單獨行動",
+                "摸頭感謝",
+                "有點擔心",
+                "少説兩句",
+                ""
+            ],
+            "常陸茉子": [
+                "敷衍過去",
+                "不好説",
+                "看著不奇怪",
+                "挖野菜",
+                "用言語感謝",
+                "有點擔心",
+                "少説兩句",
+                ""
+            ],
+            "蕾娜·列支敦瑙爾": [
+                "敷衍過去",
+                "不好説",
+                "我覺得很可愛",
+                "釣魚",
+                "好吧",
+                "用言語感謝",
+                "有點擔心",
+                "讓她放心"
+            ],
+            "馬庭蘆花": [
+                "説實話",
+                "不好説",
+                "看著不奇怪",
+                "單獨行動",
+                "用言語感謝",
+                "相信小春",
+                "少説兩句",
+                "蘆花的笑容"
+            ],
+            "鞍馬小春": [
+                "説實話",
+                "不好説",
+                "看著不奇怪",
+                "單獨行動",
+                "用言語感謝",
+                "相信小春",
+                "少説兩句",
+                "小春的笑容"
+            ]
+        }
+    },
 
-            # ===== 新增：天使紛擾 =====
+    # =========================================================
+    # 天使紛擾
+    # =========================================================
+    "天使紛擾": {
+        "characters": [
             {
                 "name": "白雪乃爱",
                 "age": "外表幼小，实际年龄可能比李空还大",
@@ -309,9 +287,110 @@ class CharacterManager:
                 "likes": ["暂无明确设定"],
                 "dislikes": ["暂无明确设定"],
                 "clothes": ["教师职业装"]
-            },
+            }
+        ],
+        "guides": {
+            "白雪乃爱": [
+                "陪乃爱",
+                "（随便）",
+                "给她看看吧……",
+                "（随便）",
+                "（随便）",
+                "（随便）",
+                "（随便）",
+                "（随便）",
+                "（随便）",
+                "（随便）",
+                "（随便）",
+                "不是不愿意……",
+                "（随便）",
+                "（随便）"
+            ],
+            "谷风天音": [
+                "（随便）",
+                "问问自己在意的事",
+                "不给她看",
+                "（随便）",
+                "还是我来吧",
+                "（随便）",
+                "（随便）",
+                "夸奖天音的泳装",
+                "（随便）",
+                "（随便）",
+                "（随便）",
+                "（随便）",
+                "（随便）",
+                "（随便）"
+            ],
+            "小云雀来海": [
+                "（随便）",
+                "（随便）（速通玩家建议选择“已经足够了”）",
+                "不给她看",
+                "（随便）",
+                "（随便）",
+                "（随便）",
+                "（随便）",
+                "称赞来海的泳装",
+                "继续看管行李",
+                "（随便）",
+                "（随便）",
+                "（随便）"
+            ],
+            "星河辉耶": [
+                "（随便）",
+                "（随便）（速通玩家建议选择“已经足够了”）",
+                "不给她看",
+                "（随便）",
+                "拜托你了",
+                "（随便）",
+                "辉耶",
+                "（随便）",
+                "一起去",
+                "（随便）",
+                "（随便）",
+                "（随便）",
+                "（随便）",
+                "（随便）"
+            ],
+            "高楯欧丽叶": [
+                "（随便）",
+                "（随便）（速通玩家建议选择“已经足够了”）",
+                "不给她看",
+                "（随便）",
+                "（随便）（建议选择“拜托你了”）",
+                "（随便）",
+                "（随便）",
+                "夸奖来海的泳装",
+                "我也找找看",
+                "说出来",
+                "（随便）",
+                "（随便）",
+                "（随便）",
+                "（随便）"
+            ],
+            "百里风实花": [
+                "先休息再说",
+                "（随便）",
+                "不给她看",
+                "（随便）",
+                "还是我来吧（风实花太可怜了！这个选“拜托你了”就到辉耶线去了！）",
+                "那……就去问问",
+                "随便",
+                "称赞来海的泳装",
+                "“一起去”或者“我也去找找看”（速通玩家建议选择“一起去”）",
+                "不说",
+                "（随便）",
+                "（随便）",
+                "（随便）"
+            ]
+        }
+    },
 
-            # ===== 新增：星光咖啡館與死神之蝶 =====
+    # =========================================================
+    # 星光咖啡館與死神之蝶
+    # =========================================================
+    "星光咖啡館與死神之蝶": {
+        "characters": [
             {
                 "name": "明月栞那",
                 "age": "外表年輕，實際超過100歲",
@@ -371,9 +450,70 @@ class CharacterManager:
                 "likes": ["做甜點", "喝酒"],
                 "dislikes": ["降低品質的甜點方案"],
                 "clothes": ["廚師服", "常服"]
-            },
+            }
+        ],
+        "guides": {
+            "明月栞那": [
+                "献出记忆",
+                "接受打工邀请",
+                "品尝蛋包饭",
+                "陪栞那练习",
+                "照常练习",
+                "我先休息",
+                "和凉音姐一起回去"
+            ],
+            "四季夏目": [
+                "献出记忆",
+                "接受打工邀请",
+                "品尝红茶",
+                "陪希练习",
+                "先休息一会儿",
+                "让凉音姐先休息",
+                "和凉音姐一起回去"
+            ],
+            "墨染希": [
+                "献出记忆",
+                "接受打工邀请",
+                "品尝红茶",
+                "陪希练习",
+                "接待也要练习",
+                "我先休息",
+                "送希回家"
+            ],
+            "火打谷愛衣": [
+                "献出记忆",
+                "接受打工邀请",
+                "品尝蛋包饭",
+                "陪爱衣练习",
+                "去用餐区看看",
+                "我先休息",
+                "和凉音姐一起回去"
+            ],
+            "汐山涼音": [
+                "献出记忆",
+                "接受打工邀请",
+                "品尝红茶",
+                "陪希练习",
+                "照常练习",
+                "我先休息",
+                "和凉音姐一起回去"
+            ],
+            "普通结局": [
+                "接受邀请",
+                "品尝红茶",
+                "陪希练习",
+                "照常练习",
+                "我先休息",
+                "送希回家"
+            ]
+        }
+    },
 
-            # ===== 新增：魔女的夜宴 =====
+    # =========================================================
+    # 魔女的夜宴
+    # =========================================================
+    "魔女的夜宴": {
+        "characters": [
             {
                 "name": "綾地寧寧",
                 "age": "約16～17歲（穗織學園2年級）",
@@ -434,295 +574,186 @@ class CharacterManager:
                 "dislikes": ["在公眾場合展現自己"],
                 "clothes": ["姬松學園校服", "咖啡廳打工制服"]
             }
-        ]
-
-        for item in data:
-            char = Character(item)
-            self.characters[char.name] = char
-
-    # 加載攻略數據
-    def _load_guide_data(self):
-        guide_data = {
-            '朝武芳乃': [
-                '敷衍過去',
-                '不好説',
-                '看著不奇怪',
-                '釣魚',
-                '不行',
-                '用言語感謝',
-                '有點擔心',
-                '讓她放心'
+        ],
+        "guides": {
+            "因幡巡": [
+                "2-1选择：再老实地夸一次",
+                "2-2选择：就这样和因幡继续下去（重要）",
+                "3-2选择：……纠结（重要）、……这也算演练的一环（重要）、没什么吧（重要）",
+                "3-3选择：正常说话",
+                "3-7选择：岔开话题",
+                "4-2选择：机会难得，找个人请教一下吧",
+                "4-6选择：这种话我实在是说不出口",
+                "4-7选择：夸她、可能会投给因幡吧（重要）",
+                "选完后进入因幡巡后半剧情，之后的选项任意",
+                "9-6后剧情结束",
+                "因幡巡线剧情结束",
+                "（不要忘记有追加剧情）（追加剧情很搞笑）"
             ],
-            '叢雨': [
-                '敷衍過去',
-                '不好説',
-                '看著不奇怪',
-                '單獨行動',
-                '摸頭感謝',
-                '有點擔心',
-                '少説兩句',
-                ''
+            "椎葉紬": [
+                "2-1选择：再老实地夸一次",
+                "2-2选择：拜托绫地",
+                "3-2选择：改变观影时间、继续跟大家一起行动、也许吧",
+                "3-3选择：正常说话",
+                "3-7选择：实话实说",
+                "4-2选择：放弃学习，换换心情（重要）",
+                "4-6选择：拜托她再握一次",
+                "4-7选择：移开目光、现在我满脑子都是乐队的事，没空想这个（重要）",
+                "选完后进入椎叶䌷后半剧情，之后的选项任意",
+                "7-1有约会剧情和很好看的CG",
+                "8-7后剧情结束",
+                "椎叶䌷线剧情结束",
+                "（不要忘记有追加剧情）"
             ],
-            '常陸茉子': [
-                '敷衍過去',
-                '不好説',
-                '看著不奇怪',
-                '挖野菜',
-                '用言語感謝',
-                '有點擔心',
-                '少説兩句',
-                ''
+            "戶隱憧子": [
+                "2-1选择：再老实地夸一次",
+                "2-2选择：就这样和因幡继续下去",
+                "3-2选择：……纠结、……这也算演练的一环、没什么吧",
+                "3-3选择：正常说话",
+                "3-7选择：岔开话题",
+                "4-2选择：机会难得，找个人请教一下吧（重要）",
+                "4-6选择：这种话我实在是说不出口",
+                "4-7选择：夸她、那当然是……户隐学姐？（重要）",
+                "选完后进入户隐憧子后半剧情，之后的选项任意",
+                "7-1有约会剧情和很好看的CG",
+                "9-4后剧情结束",
+                "户隐憧子线剧情结束",
+                "（不要忘记有追加剧情）"
             ],
-            '蕾娜·列支敦瑙爾': [
-                '敷衍過去',
-                '不好説',
-                '我覺得很可愛',
-                '釣魚',
-                '好吧',
-                '用言語感謝',
-                '有點擔心',
-                '讓她放心'
-            ],
-            '馬庭蘆花': [
-                '説實話',
-                '不好説',
-                '看著不奇怪',
-                '單獨行動',
-                '用言語感謝',
-                '相信小春',
-                '少説兩句',
-                '蘆花的笑容'
-            ],
-            '鞍馬小春': [
-                '説實話',
-                '不好説',
-                '看著不奇怪',
-                '單獨行動',
-                '用言語感謝',
-                '相信小春',
-                '少説兩句',
-                '小春的笑容'
-            ],
-
-            # ===== 新增：天使紛擾 攻略 =====
-            '白雪乃爱': [
-                '陪乃爱',
-                '（随便）',
-                '给她看看吧……',
-                '（随便）',
-                '（随便）',
-                '（随便）',
-                '（随便）',
-                # 原：*（如果第3个选项选择“问问自己在意的事”会出现一个新的选项）
-                '（随便）',
-                '（随便）',
-                '（随便）',
-                '（随便）',
-                '不是不愿意……',
-                '（随便）',
-                '（随便）'
-            ],
-            '谷风天音': [
-                '（随便）',
-                '问问自己在意的事',
-                '不给她看',
-                '（随便）',
-                '还是我来吧',
-                '（随便）',
-                '（随便）',
-                '夸奖天音的泳装',
-                '（随便）',
-                '（随便）',
-                '（随便）',
-                '（随便）',
-                '（随便）',
-                '（随便）'
-            ],
-            '小云雀来海': [
-                '（随便）',
-                '（随便）（速通玩家建议选择“已经足够了”）',
-                '不给她看',
-                '（随便）',
-                '（随便）',
-                '（随便）',
-                '（随便）',
-                # 原：*（如果第3个选项选择“问问自己在意的事”会出现一个新的选项）
-                '称赞来海的泳装',
-                '继续看管行李',
-                '（随便）',
-                '（随便）',
-                '（随便）'
-            ],
-            '星河辉耶': [
-                '（随便）',
-                '（随便）（速通玩家建议选择“已经足够了”）',
-                '不给她看',
-                '（随便）',
-                '拜托你了',
-                '（随便）',
-                '辉耶',
-                # 原：*（如果第3个选项选择“问问自己在意的事”会出现一个新的选项）
-                '（随便）',
-                '一起去',
-                '（随便）',
-                '（随便）',
-                '（随便）',
-                '（随便）',
-                '（随便）'
-            ],
-            '高楯欧丽叶': [
-                '（随便）',
-                '（随便）（速通玩家建议选择“已经足够了”）',
-                '不给她看',
-                '（随便）',
-                '（随便）（建议选择“拜托你了”）',
-                '（随便）',
-                '（随便）',
-                # 原：*（如果第3个选项选择“问问自己在意的事”会出现一个新的选项）
-                '夸奖来海的泳装',
-                '我也找找看',
-                '说出来',
-                '（随便）',
-                '（随便）',
-                '（随便）',
-                '（随便）'
-            ],
-            '百里风实花': [
-                '先休息再说',
-                '（随便）',
-                '不给她看',
-                '（随便）',
-                '还是我来吧（风实花太可怜了！这个选“拜托你了”就到辉耶线去了！）',
-                '那……就去问问',
-                '随便',
-                # 原：*（如果第3个选项选择“问问自己在意的事”会出现一个新的选项）
-                '称赞来海的泳装',
-                '“一起去”或者“我也去找找看”（速通玩家建议选择“一起去”）',
-                # 原：*（上一个选项选择“我也去找找看”的玩家）
-                '不说',
-                '（随便）',
-                '（随便）',
-                '（随便）'
-            ],
-
-            # ===== 新增：星光咖啡館與死神之蝶 攻略 =====
-            '明月栞那': [
-                '献出记忆',
-                '接受打工邀请',
-                '品尝蛋包饭',
-                '陪栞那练习',
-                '照常练习',
-                '我先休息',
-                '和凉音姐一起回去'
-            ],
-            '四季夏目': [
-                '献出记忆',
-                '接受打工邀请',
-                '品尝红茶',
-                '陪希练习',
-                '先休息一会儿',
-                '让凉音姐先休息',
-                '和凉音姐一起回去'
-            ],
-            '墨染希': [
-                '献出记忆',
-                '接受打工邀请',
-                '品尝红茶',
-                '陪希练习',
-                '接待也要练习',
-                '我先休息',
-                '送希回家'
-            ],
-            '火打谷愛衣': [
-                '献出记忆',
-                '接受打工邀请',
-                '品尝蛋包饭',
-                '陪爱衣练习',
-                '去用餐区看看',
-                '我先休息',
-                '和凉音姐一起回去'
-            ],
-            '汐山涼音': [
-                '献出记忆',
-                '接受打工邀请',
-                '品尝红茶',
-                '陪希练习',
-                '照常练习',
-                '我先休息',
-                '和凉音姐一起回去'
-            ],
-            '普通结局': [
-                '接受邀请',
-                '品尝红茶',
-                '陪希练习',
-                '照常练习',
-                '我先休息',
-                '送希回家'
-            ],
-
-            # ===== 新增：魔女的夜宴 攻略 =====
-            '因幡巡': [
-                '2-1选择：再老实地夸一次',
-                '2-2选择：就这样和因幡继续下去（重要）',
-                '3-2选择：……纠结（重要）、……这也算演练的一环（重要）、没什么吧（重要）',
-                '3-3选择：正常说话',
-                '3-7选择：岔开话题',
-                '4-2选择：机会难得，找个人请教一下吧',
-                '4-6选择：这种话我实在是说不出口',
-                '4-7选择：夸她、可能会投给因幡吧（重要）',
-                '选完后进入因幡巡后半剧情，之后的选项任意',
-                '9-6后剧情结束',
-                '因幡巡线剧情结束',
-                '（不要忘记有追加剧情）（追加剧情很搞笑）'
-            ],
-            '椎葉紬': [
-                '2-1选择：再老实地夸一次',
-                '2-2选择：拜托绫地',
-                '3-2选择：改变观影时间、继续跟大家一起行动、也许吧',
-                '3-3选择：正常说话',
-                '3-7选择：实话实说',
-                '4-2选择：放弃学习，换换心情（重要）',
-                '4-6选择：拜托她再握一次',
-                '4-7选择：移开目光、现在我满脑子都是乐队的事，没空想这个（重要）',
-                '选完后进入椎叶䌷后半剧情，之后的选项任意',
-                '7-1有约会剧情和很好看的CG',
-                '8-7后剧情结束',
-                '椎叶䌷线剧情结束',
-                '（不要忘记有追加剧情）'
-            ],
-            '戶隱憧子': [
-                '2-1选择：再老实地夸一次',
-                '2-2选择：就这样和因幡继续下去',
-                '3-2选择：……纠结、……这也算演练的一环、没什么吧',
-                '3-3选择：正常说话',
-                '3-7选择：岔开话题',
-                '4-2选择：机会难得，找个人请教一下吧（重要）',
-                '4-6选择：这种话我实在是说不出口',
-                '4-7选择：夸她、那当然是……户隐学姐？（重要）',
-                '选完后进入户隐憧子后半剧情，之后的选项任意',
-                '7-1有约会剧情和很好看的CG',
-                '9-4后剧情结束',
-                '户隐憧子线剧情结束',
-                '（不要忘记有追加剧情）'
-            ],
-            '仮屋和奏': [
-                '（二周目后）',
-                '2-1选择：再老实的夸她一次（重要）',
-                '2-2选择：拜托绫地同学示范',
-                '3-2选择：改变观影时间（重要）、想要先填饱肚子（重要）、也许吧',
-                '3-3选择：试着开个玩笑（重要）',
-                '3-7选择：岔开话题',
-                '4-2选择：机会难得，找个人请教一下吧',
-                '6-1：好人卡场面',
-                '6-7后剧情结束',
-                '假屋和奏线剧情结束'
+            "仮屋和奏": [
+                "（二周目后）",
+                "2-1选择：再老实的夸她一次（重要）",
+                "2-2选择：拜托绫地同学示范",
+                "3-2选择：改变观影时间（重要）、想要先填饱肚子（重要）、也许吧",
+                "3-3选择：试着开个玩笑（重要）",
+                "3-7选择：岔开话题",
+                "4-2选择：机会难得，找个人请教一下吧",
+                "6-1：好人卡场面",
+                "6-7后剧情结束",
+                "假屋和奏线剧情结束"
             ]
         }
+    }
+}
 
-        # 創建攻略對象並存儲
-        for char_name, options in guide_data.items():
-            self.guides[char_name] = CharacterGuide(char_name, options)
 
+class Character:
+    def __init__(self, data_dict):
+        self.name = data_dict["name"]
+        self.age = data_dict["age"]
+        self.gender = data_dict["gender"]
+        self.height = data_dict["height"]
+        self.body_type = data_dict["body_type"]
+        self.personality = data_dict["personality"]
+        self.identity = data_dict["identity"]
+        self.likes = data_dict["likes"]
+        self.dislikes = data_dict["dislikes"]
+        self.clothes = data_dict["clothes"]
+
+    def __str__(self):
+        return f"【{self.name}】 (年齡:{self.age} | 身高:{self.height} | 身分:{self.identity})"
+
+    def show_details(self):
+        print(f"姓名: {self.name}")
+        print(f"年齡: {self.age} | 性別: {self.gender} | 身高: {self.height} | 體型: {self.body_type}")
+        print(f"性格: {self.personality}")
+        print(f"身分: {self.identity}")
+        print(f"喜好: {', '.join(self.likes)}")
+        print(f"討厭: {', '.join(self.dislikes)}")
+        print(f"服裝: {', '.join(self.clothes)}")
+        print("-" * 40)
+
+    def get_info_types(self):
+        return ['name', 'age', 'gender', 'height', 'body_type', 'personality', 'identity', 'likes', 'dislikes', 'clothes']
+
+    def get_info(self, info_type):
+        if info_type == 'name':
+            return self.name
+        elif info_type == 'age':
+            return self.age
+        elif info_type == 'gender':
+            return self.gender
+        elif info_type == 'height':
+            return self.height
+        elif info_type == 'body_type':
+            return self.body_type
+        elif info_type == 'personality':
+            return self.personality
+        elif info_type == 'identity':
+            return self.identity
+        elif info_type == 'likes':
+            return self.likes
+        elif info_type == 'dislikes':
+            return self.dislikes
+        elif info_type == 'clothes':
+            return self.clothes
+        else:
+            return getattr(self, info_type, None)
+
+
+class CharacterGuide:
+    def __init__(self, character_name, options=None):
+        self.character_name = character_name
+        self.options = options if options is not None else []
+
+    def add_option(self, option_text):
+        self.options.append(option_text)
+
+    def get_option(self, index):
+        if 1 <= index <= len(self.options):
+            return self.options[index - 1]
+        else:
+            return None
+
+    def get_all_options(self):
+        return [option for option in self.options if option.strip()]
+
+    def __str__(self):
+        filtered_options = [option for option in self.options if option.strip()]
+        option_lines = [f"選項{index + 1}：{option}" for index, option in enumerate(filtered_options)]
+
+        if option_lines:
+            option_str = "\n".join(option_lines)
+            return f"角色：{self.character_name}\n{option_str}"
+        else:
+            return f"角色：{self.character_name}\n"
+
+
+class CharacterManager:
+    def __init__(self):
+        self.games = {}
+        self.characters = {}
+        self.guides = {}
+        self.current_character = None
+        self._load_data()
+        self._load_guide_data()
+
+    def _load_data(self):
+        for game_name, game_data in GAME_DATA.items():
+            self.games[game_name] = {
+                "characters": {},
+                "guides": {}
+            }
+
+            for item in game_data.get("characters", []):
+                char = Character(item)
+                self.characters[char.name] = char
+                self.games[game_name]["characters"][char.name] = char
+
+    def _load_guide_data(self):
+        for game_name, game_data in GAME_DATA.items():
+            if game_name not in self.games:
+                self.games[game_name] = {
+                    "characters": {},
+                    "guides": {}
+                }
+
+            for char_name, options in game_data.get("guides", {}).items():
+                guide = CharacterGuide(char_name, options)
+                self.guides[char_name] = guide
+                self.games[game_name]["guides"][char_name] = guide
+
+    # ===== 基本查詢 =====
     def get_character(self, name):
         return self.characters.get(name)
 
@@ -732,16 +763,55 @@ class CharacterManager:
     def get_all_names(self):
         return list(self.characters.keys())
 
-    # 新增方法：設置當前角色
+    # ===== 遊戲分組查詢 =====
+    def get_games(self):
+        return list(self.games.keys())
+
+    def get_characters_by_game(self, game_name):
+        game = self.games.get(game_name)
+        if not game:
+            return []
+        return list(game["characters"].keys())
+
+    def get_guides_by_game(self, game_name):
+        game = self.games.get(game_name)
+        if not game:
+            return []
+        return list(game["guides"].keys())
+
+    def get_character_in_game(self, game_name, name):
+        game = self.games.get(game_name)
+        if not game:
+            return None
+        return game["characters"].get(name)
+
+    def get_guide_in_game(self, game_name, name):
+        game = self.games.get(game_name)
+        if not game:
+            return None
+        return game["guides"].get(name)
+
+    def get_game_of_character(self, name):
+        for game_name, game in self.games.items():
+            if name in game["characters"]:
+                return game_name
+        return None
+
+    def get_game_of_guide(self, name):
+        for game_name, game in self.games.items():
+            if name in game["guides"]:
+                return game_name
+        return None
+
+    # ===== 當前角色 =====
     def set_current_character(self, name):
         self.current_character = self.get_character(name)
         return self.current_character
 
-    # 新增方法：獲取當前角色
     def get_current_character(self):
         return self.current_character
 
-    # 新增方法：獲取特定角色的特定資訊
+    # ===== 角色資訊 =====
     def get_character_info(self, name, info_type):
         character = self.get_character(name)
         if not character:
@@ -771,7 +841,7 @@ class CharacterManager:
             guide = self.get_guide(name)
             if guide and guide.get_all_options():
                 options = guide.get_all_options()
-                options_str = ', '.join([f"選項{idx+1}:{opt}" for idx, opt in enumerate(options)])
+                options_str = ', '.join([f"選項{idx + 1}:{opt}" for idx, opt in enumerate(options)])
                 return f"攻略選項: {options_str}"
             else:
                 return "攻略選項: 無"
@@ -779,14 +849,13 @@ class CharacterManager:
             value = getattr(character, info_type, '未知')
             return f"{info_type}: {value}"
 
-    # 獲取角色的特定攻略選項
+    # ===== 攻略選項 =====
     def get_character_guide_option(self, character_name, option_index):
         guide = self.get_guide(character_name)
         if not guide:
             return None
         return guide.get_option(option_index)
 
-    # 獲取角色的所有攻略選項
     def get_character_all_guide_options(self, character_name):
         guide = self.get_guide(character_name)
         if not guide:
