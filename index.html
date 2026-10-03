@@ -73,6 +73,7 @@
                                 <a href="#story" class="game-feature disabled" onclick="scrollToSection('story')">故事介紹</a>
                 <a href="#character" class="game-feature disabled" onclick="scrollToSection('character')">角色介紹</a>
                 <a href="#guide" class="game-feature disabled" onclick="scrollToSection('guide')">攻略</a>
+                <a href="#matchmaker" onclick="scrollToSection('matchmaker')">命運邂逅</a>
                 <a href="#about" onclick="scrollToSection('about')">關於本站</a>
             </nav>
         </div>
@@ -89,7 +90,7 @@
                     <h2 class="section-title" id="homeTitle">柚子社攻略站</h2>
                     <p class="section-sub" id="homeSub">yuzusoft guide</p>
                 </div>
-                <p class="hero-desc" id="homeDesc">柚子社（YUZUSOFT）是一家成立於2006年的日本知名美少女遊戲（Galgame）品牌，長期以來以製作風格輕鬆溫馨、戀愛日常甜蜜、角色塑造討喜且視覺與介面製作精緻高水準的萌系視覺小說聞名，並在《千戀＊萬花》、《RIDDLE JOKER》以及《天使☆騷動 RE-BOOT!》等多部熱門作品的推動下，成為亞洲Galgame界最具代表性與影響力的頂尖品牌之一。</p>
+                <p class="hero-desc" id="homeDesc">這個網站--柚子社攻略站(Yuzusoft Guide)是一個非官方粉絲站，專門收錄柚子社（YUZUSOFT）歷代作品的角色資料、劇情簡介與全路線攻略，涵蓋《千戀＊萬花》、《天使紛擾》、《星光咖啡館與死神之蝶》、《魔女的夜宴》等作品。網站提供角色查詢、故事介紹、路線攻略、全站搜索與角色篩選等功能，讓玩家能快速查找所需資訊。所有遊戲名稱、角色人設與相關版權均歸 YUZUSOFT 所有，本站僅供學習與交流使用。</p>
                 <div class="scroll-hint">
                     <span>往下滑動</span>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -159,6 +160,72 @@
             </div>
         </section>
 
+        <!-- 命運邂逅 -->
+        <section id="matchmaker" class="section">
+            <div class="section-inner">
+                <div class="section-header">
+                    <h2 class="section-title">命運邂逅</h2>
+                    <p class="section-sub">encounter</p>
+                </div>
+                <div class="content-box matchmaker-box">
+                    <div class="mm-form">
+                        <div class="mm-row">
+                            <span class="mm-label">身高</span>
+                            <div class="mm-btns" id="mmHeight">
+                                <button data-val="all" class="active">不限</button>
+                                <button data-val="short">&lt;150cm</button>
+                                <button data-val="medium">150-160cm</button>
+                                <button data-val="tall">160cm+</button>
+                            </div>
+                        </div>
+                        <div class="mm-row">
+                            <span class="mm-label">體型</span>
+                            <div class="mm-btns" id="mmBody">
+                                <button data-val="all" class="active">不限</button>
+                                <button data-val="蘿莉">蘿莉</button>
+                                <button data-val="少女">少女</button>
+                                <button data-val="御姐">御姐</button>
+                                <button data-val="其他">其他</button>
+                            </div>
+                        </div>
+                        <div class="mm-row">
+                            <span class="mm-label">年齡</span>
+                            <div class="mm-btns" id="mmAge">
+                                <button data-val="all" class="active">不限</button>
+                                <button data-val="teen">10-19</button>
+                                <button data-val="young">20-29</button>
+                                <button data-val="old">30+</button>
+                                <button data-val="unknown">未知</button>
+                            </div>
+                        </div>
+                        <div class="mm-row">
+                            <span class="mm-label">性格</span>
+                            <div class="mm-btns" id="mmPersonality">
+                                <button data-val="all" class="active">不限</button>
+                                <button data-val="認真">認真</button>
+                                <button data-val="溫柔">溫柔</button>
+                                <button data-val="開朗">開朗</button>
+                                <button data-val="調皮">調皮</button>
+                                <button data-val="害羞">害羞</button>
+                                <button data-val="冷靜">冷靜</button>
+                            </div>
+                        </div>
+
+                        <div class="mm-actions">
+                            <button id="mmSearch" class="mm-roll">
+                                <span class="mm-dice">🔍</span>
+                                尋找適合你的角色
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mm-result" id="mmResult">
+                        <p class="mm-hint">設定條件後，點擊「尋找適合你的角色」</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- 關於本站 -->
         <section id="about" class="section">
             <div class="section-inner">
@@ -178,7 +245,7 @@
                         </div>
                         <div class="about-row">
                             <div class="about-key">建站</div>
-                            <div class="about-value">2026 年 10 月</div>
+                            <div class="about-value">2026 年 10 月 3 日</div>
                         </div>
                         <div class="about-row">
                             <div class="about-key">板塊</div>
@@ -194,7 +261,7 @@
                         </div>
                         <div class="about-row">
                             <div class="about-key">版本</div>
-                            <div class="about-value">v1.2</div>
+                            <div class="about-value">v1.2.1</div>
                         </div>
                     </div>
                 </div>
@@ -206,6 +273,10 @@
         </footer>
 
     </main>
+
+    <button id="returnTop" class="return-top" onclick="scrollToTop()" aria-label="回到頂部">
+        <div class="return-top-avatar"></div>
+    </button>
 
     <script src="script.js"></script>
 </body>

@@ -1050,6 +1050,675 @@ body.has-game .menu-list a.clear-game {
     border-radius: 3px;
 }
 
+/* ===== 命運邂逅 ===== */
+.matchmaker-box {
+    padding: clamp(24px, 4vw, 44px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(24px, 3vh, 36px);
+}
+
+.mm-form {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(12px, 1.8vh, 18px);
+}
+
+.mm-row {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px, 1.5vw, 16px);
+    flex-wrap: wrap;
+    padding-bottom: clamp(10px, 1.5vh, 14px);
+    border-bottom: 1px dashed rgba(180, 140, 80, 0.35);
+}
+
+.mm-row:last-of-type {
+    border-bottom: none;
+}
+
+.mm-label {
+    flex-shrink: 0;
+    width: clamp(40px, 5vw, 52px);
+    font-size: clamp(13px, 1.2vw, 15px);
+    font-weight: 700;
+    color: #8b1010;
+    letter-spacing: 0.08em;
+}
+
+.mm-btns {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+.mm-btns button {
+    padding: clamp(6px, 1vh, 9px) clamp(14px, 1.8vw, 20px);
+    font-size: clamp(12px, 1.1vw, 14px);
+    font-weight: 600;
+    font-family: inherit;
+    color: #8b1010;
+    background: rgba(255, 240, 220, 0.9);
+    border: 1.5px solid rgba(180, 140, 80, 0.45);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.mm-btns button:hover {
+    background: #fff5e0;
+    transform: translateY(-1px);
+}
+
+.mm-btns button.active {
+    color: #ffd700;
+    background: linear-gradient(180deg, #e03818 0%, #b81a1a 100%);
+    border-color: #8b1010;
+    box-shadow: inset 0 0 0 1px #d4af37;
+}
+
+.mm-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: clamp(8px, 1.5vh, 14px);
+}
+
+.mm-roll {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: clamp(12px, 1.8vh, 16px) clamp(30px, 4vw, 48px);
+    font-size: clamp(15px, 1.4vw, 18px);
+    font-weight: 800;
+    font-family: inherit;
+    letter-spacing: 0.12em;
+    color: #ffd700;
+    background: linear-gradient(180deg, #e03818 0%, #b81a1a 100%);
+    border: 3px solid #8b1010;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow:
+        inset 0 0 0 2px #d4af37,
+        0 6px 18px rgba(184, 26, 26, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.mm-roll:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        inset 0 0 0 2px #d4af37,
+        0 10px 26px rgba(184, 26, 26, 0.5);
+}
+
+.mm-roll:active {
+    transform: translateY(0);
+}
+
+.mm-roll:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.mm-dice {
+    font-size: 1.2em;
+    display: inline-block;
+}
+
+.mm-roll.rolling .mm-dice {
+    animation: diceSpin 0.5s linear infinite;
+}
+
+@keyframes diceSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+.mm-result {
+    min-height: clamp(200px, 30vh, 280px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(20px, 3vh, 30px);
+    background: rgba(255, 248, 235, 0.65);
+    border: 1px solid rgba(180, 140, 80, 0.3);
+    border-radius: 14px;
+}
+
+.mm-hint {
+    font-size: clamp(13px, 1.2vw, 15px);
+    color: #a09080;
+    text-align: center;
+    margin: 0;
+}
+
+.mm-card {
+    display: flex;
+    align-items: center;
+    gap: clamp(16px, 2.5vw, 32px);
+    animation: mmCardIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+@keyframes mmCardIn {
+    from {
+        opacity: 0;
+        transform: scale(0.85) translateY(20px);
+        filter: blur(6px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0);
+    }
+}
+
+.mm-card-portrait {
+    width: clamp(120px, 16vw, 180px);
+    height: clamp(160px, 22vw, 240px);
+    background: #fdfaf3 center bottom / auto 100% no-repeat;
+    border-radius: 12px;
+    border: 2px solid #d4af37;
+    box-shadow:
+        0 0 0 4px rgba(184, 26, 26, 0.15),
+        0 8px 24px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.mm-card-info {
+    flex: 1;
+    min-width: 220px;
+    text-align: left;
+}
+
+.mm-card-label {
+    font-size: clamp(11px, 1vw, 13px);
+    font-weight: 700;
+    color: #b8860b;
+    letter-spacing: 0.35em;
+    margin-bottom: 6px;
+}
+
+.mm-card-name {
+    font-size: clamp(24px, 3vw, 36px);
+    font-weight: 800;
+    color: #8b1010;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+    text-shadow: 0 2px 6px rgba(184, 26, 26, 0.15);
+}
+
+.mm-card-game {
+    font-size: clamp(12px, 1.1vw, 14px);
+    color: #b8860b;
+    letter-spacing: 0.15em;
+    margin-bottom: clamp(12px, 1.8vh, 18px);
+}
+
+.mm-card-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: clamp(12px, 1.8vh, 18px);
+}
+
+.mm-stat {
+    padding: 4px 12px;
+    font-size: clamp(11px, 1vw, 13px);
+    font-weight: 600;
+    color: #5a4a38;
+    background: rgba(255, 240, 220, 0.9);
+    border: 1px solid rgba(180, 140, 80, 0.4);
+    border-radius: 999px;
+}
+
+.mm-card-personality {
+    font-size: clamp(13px, 1.2vw, 15px);
+    color: #5a4a38;
+    line-height: 1.7;
+    margin-bottom: clamp(14px, 2vh, 20px);
+}
+
+.mm-card-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.mm-btn {
+    padding: clamp(8px, 1.2vh, 11px) clamp(18px, 2.2vw, 26px);
+    font-size: clamp(13px, 1.2vw, 15px);
+    font-weight: 700;
+    font-family: inherit;
+    letter-spacing: 0.06em;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.mm-btn-view {
+    color: #ffd700;
+    background: linear-gradient(180deg, #e03818 0%, #b81a1a 100%);
+    border: 2px solid #8b1010;
+    box-shadow: inset 0 0 0 1px #d4af37;
+}
+
+.mm-btn-view:hover {
+    transform: translateY(-2px);
+}
+
+.mm-btn-again {
+    color: #8b1010;
+    background: rgba(255, 240, 220, 0.9);
+    border: 1.5px solid rgba(180, 140, 80, 0.5);
+}
+
+.mm-btn-again:hover {
+    transform: translateY(-2px);
+    background: #fff5e0;
+}
+
+.mm-empty {
+    text-align: center;
+    padding: clamp(30px, 5vh, 50px) 20px;
+}
+
+.mm-empty-title {
+    font-size: clamp(15px, 1.4vw, 18px);
+    font-weight: 700;
+    color: #8b1010;
+    margin-bottom: 10px;
+}
+
+.mm-empty-desc {
+    font-size: clamp(12px, 1.1vw, 14px);
+    color: #a09080;
+    margin: 0;
+}
+
+/* ===== 命運邂逅：結果列表 ===== */
+.mm-result-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: clamp(12px, 1.6vw, 18px);
+    width: 100%;
+    animation: mmCardIn 0.5s ease both;
+}
+
+.mm-result-count {
+    grid-column: 1 / -1;
+    font-size: clamp(12px, 1.1vw, 14px);
+    font-weight: 700;
+    color: #b8860b;
+    text-align: center;
+    letter-spacing: 0.1em;
+    margin-bottom: clamp(6px, 1vh, 10px);
+}
+
+.mm-result-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 8px;
+    background: rgba(255, 252, 247, 0.9);
+    border: 1.5px solid rgba(180, 140, 80, 0.35);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease,
+                box-shadow 0.15s ease;
+}
+
+.mm-result-item:hover {
+    transform: translateY(-4px);
+    border-color: #d4af37;
+    box-shadow: 0 6px 18px rgba(184, 26, 26, 0.2);
+}
+
+.mm-result-thumb {
+    width: clamp(56px, 6vw, 72px);
+    height: clamp(56px, 6vw, 72px);
+    border-radius: 50%;
+    background: #fff8ec center/cover no-repeat;
+    border: 3px solid #d4af37;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+    transition: border-color 0.15s ease;
+}
+
+.mm-result-item:hover .mm-result-thumb {
+    border-color: #b81a1a;
+}
+
+.mm-result-name {
+    font-size: clamp(12px, 1.1vw, 14px);
+    font-weight: 700;
+    color: #8b1010;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.mm-result-game {
+    font-size: clamp(10px, 0.9vw, 11px);
+    color: #b8860b;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.mm-result-stats {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 2px;
+}
+
+.mm-result-stat {
+    padding: 2px 7px;
+    font-size: clamp(9px, 0.85vw, 10px);
+    font-weight: 600;
+    color: #5a4a38;
+    background: rgba(255, 240, 220, 0.9);
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.mm-random-row {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    margin-top: clamp(10px, 1.5vh, 14px);
+}
+
+.mm-btn-random {
+    padding: clamp(8px, 1.2vh, 11px) clamp(20px, 2.5vw, 30px);
+    font-size: clamp(13px, 1.2vw, 15px);
+    font-weight: 700;
+    font-family: inherit;
+    letter-spacing: 0.06em;
+    color: #ffd700;
+    background: linear-gradient(180deg, #e03818 0%, #b81a1a 100%);
+    border: 2px solid #8b1010;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: inset 0 0 0 1px #d4af37;
+    transition: transform 0.15s ease;
+}
+
+.mm-btn-random:hover {
+    transform: translateY(-2px);
+}
+
+/* ===== 打字機效果 ===== */
+.hero-desc.typing {
+    border-right: 3px solid #b81a1a;
+    animation: cursorBlink 0.7s step-end infinite;
+}
+
+/* 打字進行中顯示提示 */
+.hero-desc.typing::after {
+    content: "點擊跳過";
+    position: absolute;
+    right: 14px;
+    bottom: 8px;
+    font-size: clamp(10px, 0.9vw, 12px);
+    color: #a09080;
+    letter-spacing: 0.1em;
+    opacity: 0.7;
+    animation: tipFadeIn 0.5s ease;
+}
+
+@keyframes tipFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 0.7; }
+}
+
+.hero-desc.done {
+    border-right: none;
+    animation: none;
+    transition: border-color 0.5s ease;
+}
+
+@keyframes cursorBlink {
+    0%, 100% { border-color: transparent; }
+    50%      { border-color: #b81a1a; }
+}
+
+/* ===== 回到頂部按鈕 ===== */
+.return-top {
+    position: fixed;
+    right: clamp(12px, 2vw, 24px);
+    bottom: clamp(12px, 2vh, 24px);
+    width: clamp(80px, 9vw, 110px);
+    height: clamp(80px, 9vw, 110px);
+
+    background-image: url('picture/return-top.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-color: transparent;
+
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    z-index: 90;
+
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(20px);
+    transition: opacity 0.35s ease, transform 0.35s ease, visibility 0.35s;
+}
+
+.return-top.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.return-top:hover {
+    transform: translateY(-6px) scale(1.05);
+    filter: drop-shadow(0 8px 16px rgba(184, 26, 26, 0.5));
+}
+
+.return-top:active {
+    transform: translateY(-2px) scale(0.98);
+}
+
+/* ===== 彩蛋：角色雨 ===== */
+.easter-rain {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+.rain-drop {
+    position: absolute;
+    top: -80px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #fff8ec center/cover no-repeat;
+    border: 2px solid #d4af37;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    animation: rainFall linear forwards;
+}
+
+@keyframes rainFall {
+    0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(calc(100vh + 100px)) rotate(720deg);
+        opacity: 0.7;
+    }
+}
+
+/* ===== 彩蛋：提示框 ===== */
+.easter-toast {
+    position: fixed;
+    top: clamp(80px, 12vh, 120px);
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    padding: clamp(14px, 2vh, 18px) clamp(20px, 3vw, 30px);
+    background: linear-gradient(180deg, #b81a1a 0%, #8b1010 100%);
+    color: #ffd700;
+    border: 2px solid #d4af37;
+    border-radius: 12px;
+    font-family: 'Courier New', '微軟正黑體', sans-serif;
+    font-weight: 700;
+    font-size: clamp(13px, 1.2vw, 15px);
+    letter-spacing: 0.06em;
+    text-align: center;
+    line-height: 1.6;
+    z-index: 10000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.35s ease, transform 0.35s ease, visibility 0.35s;
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 215, 0, 0.3),
+        0 12px 36px rgba(0, 0, 0, 0.5);
+    max-width: 90vw;
+    pointer-events: none;
+}
+
+.easter-toast.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+.easter-toast .toast-title {
+    display: block;
+    font-size: clamp(14px, 1.4vw, 17px);
+    margin-bottom: 4px;
+    color: #ffd700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.easter-toast .toast-desc {
+    display: block;
+    font-size: clamp(11px, 1vw, 13px);
+    color: #fff0c0;
+    font-weight: 500;
+    opacity: 0.9;
+}
+
+/* 搜索彩蛋：因幡巡特殊卡片 */
+.search-result-special {
+    background: linear-gradient(135deg,
+        rgba(255, 215, 0, 0.15) 0%,
+        rgba(184, 26, 26, 0.15) 100%);
+    border-left: 4px solid #ffd700;
+}
+
+.search-result-special .search-result-name {
+    color: #b8860b;
+}
+
+.search-result-special .search-result-game::after {
+    content: "  ⭐ Ciallo～(∠·ω< )⌒★";
+    color: #d4af37;
+    font-weight: 700;
+}
+
+/* 品牌標題：可點擊提示 */
+.brand {
+    cursor: default;
+    user-select: none;
+}
+
+.brand.pressed {
+    animation: brandShake 0.3s ease;
+}
+
+@keyframes brandShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-3px); }
+    75% { transform: translateX(3px); }
+}
+
+/* ===== 彩蛋：愛心飛散 ===== */
+@keyframes heartFly {
+    0% {
+        transform: translate(-50%, -50%) scale(0.3) rotate(0deg);
+        opacity: 1;
+    }
+    60% {
+        opacity: 1;
+    }
+    100% {
+        transform: translate(
+            calc(-50% + var(--dx)),
+            calc(-50% + var(--dy))
+        ) scale(1.2) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+/* 手機：變小 */
+@media (max-width: 640px) {
+    .return-top {
+        width: 70px;
+        height: 70px;
+        right: 10px;
+        bottom: 10px;
+    }
+}
+
+/* 尊重「減少動態」設定 */
+@media (prefers-reduced-motion: reduce) {
+    .return-top {
+        transition: opacity 0.2s ease, visibility 0.2s;
+    }
+    .return-top.show {
+        transform: none;
+    }
+    .return-top:hover {
+        transform: none;
+        filter: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .mm-result-grid {
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .mm-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .mm-label {
+        width: auto;
+    }
+    .mm-card {
+        flex-direction: column;
+        text-align: center;
+    }
+    .mm-card-info {
+        text-align: center;
+    }
+    .mm-card-stats {
+        justify-content: center;
+    }
+    .mm-card-actions {
+        justify-content: center;
+    }
+}
+
 /* 手機 */
 @media (max-width: 560px) {
     .search-wrap {
