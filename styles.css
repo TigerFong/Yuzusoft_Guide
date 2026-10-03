@@ -951,6 +951,118 @@ body.has-game .menu-list a.clear-game {
     scrollbar-color: #b8860b rgba(180, 140, 80, 0.1);
 }
 
+/* ===== 搜索 ===== */
+.search-wrap {
+    flex: 1;
+    min-width: 0;
+    max-width: 720px;
+    margin: 0 auto;
+    position: relative;
+}
+
+.search-results {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    background: #fdfaf3;
+    border: 1px solid rgba(180, 140, 80, 0.4);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(60, 30, 10, 0.35);
+    overflow: hidden;
+    z-index: 120;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.search-results.show {
+    display: block;
+}
+
+.search-result-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(180, 140, 80, 0.15);
+    transition: background 0.15s ease;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.search-result-item:hover,
+.search-result-item.highlight {
+    background: rgba(232, 180, 58, 0.15);
+}
+
+.search-result-thumb {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #fff8ec center/cover no-repeat;
+    border: 2px solid #d4af37;
+    flex-shrink: 0;
+}
+
+.search-result-info {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+}
+
+.search-result-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #8b1010;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.search-result-game {
+    font-size: 11px;
+    color: #b8860b;
+    letter-spacing: 0.05em;
+    margin-top: 2px;
+}
+
+.search-result-empty {
+    padding: 20px;
+    text-align: center;
+    color: #a09080;
+    font-size: 13px;
+}
+
+/* 搜索框捲軸 */
+.search-results::-webkit-scrollbar {
+    width: 6px;
+}
+.search-results::-webkit-scrollbar-track {
+    background: rgba(180, 140, 80, 0.1);
+}
+.search-results::-webkit-scrollbar-thumb {
+    background: #d4af37;
+    border-radius: 3px;
+}
+
+/* 手機 */
+@media (max-width: 560px) {
+    .search-wrap {
+        max-width: none;
+    }
+    .search-result-item {
+        padding: 8px 12px;
+    }
+    .search-result-thumb {
+        width: 34px;
+        height: 34px;
+    }
+}
 
 /* ===== 響應式 ===== */
 @media (max-width: 780px) {

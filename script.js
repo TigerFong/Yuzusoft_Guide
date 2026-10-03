@@ -466,3 +466,163 @@ function selectGuide(guides, index, code, map) {
     html += '</ol>';
     optionsEl.innerHTML = html;
 }
+
+// ===== 搜索 =====
+let searchIndex = null;
+let searchBuilt = false;
+
+// 建立搜索索引（首次聚焦時才建）
+async function buildSearchIndex() {
+    if (searchBuilt) return searchIndex;
+
+    searchIndex = [];
+    const games = Object.keys(GAME_CODES);
+
+    for (const game of games) {
+        try {
+            const res = await fetch(`/api/games/${encodeURIComponent(game)}/characters`);
+            if (res.ok) {
+                const names = await res.json();
+                const code = GAME_CODES[game];
+                names.forEach((name, i) => {
+                    searchIndex.push({
+                        name,
+                        game,
+                        code,
+                        index: i + 1
+                    });
+                });
+            }
+        } catch (e) {
+            console.error('建立索引失敗:', game, e);
+        }
+    }
+
+    searchBuilt = true;
+    return searchIndex;
+}
+
+// 執行搜索
+async function performSearch(query) {
+    const resultsEl = document.getElementById('searchResults');
+    const q = query.trim().toLowerCase();
+
+    if (!q) {
+        resultsEl.classList.remove('show');
+        resultsEl.innerHTML = '';
+        return;
+    }
+
+    const index = await buildSearchIndex();
+    const matches = index.filter(item =>
+        item.name.toLowerCase().includes(q) ||
+        item.game.toLowerCase().includes(q)
+    ).slice(0, 10);
+
+    if (matches.length === 0) {
+        resultsEl.innerHTML = '<div class="search-result-empty">沒有找到符合的角色</div>';
+        resultsEl.classList.add('show');
+        return;
+    }
+
+    resultsEl.innerHTML = '';
+    matches.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'search-result-item';
+
+        const thumb = document.createElement('div');
+        thumb.className = 'search-result-thumb';
+        thumb.style.backgroundImage = `url('picture/thumb-${item.code}-${item.index}.png')`;
+
+        const info = document.createElement('div');
+        info.className = 'search-result-info';
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'search-result-name';
+        nameEl.textContent = item.name;
+
+        const gameEl = document.createElement('div');
+        gameEl.className = 'search-result-game';
+        gameEl.textContent = item.game;
+
+        info.appendChild(nameEl);
+        info.appendChild(gameEl);
+        el.appendChild(thumb);
+        el.appendChild(info);
+
+        el.addEventListener('click', () => {
+            goToCharacter(item.game, item.name);
+        });
+
+        resultsEl.appendChild(el);
+    });
+
+    resultsEl.classList.add('show');
+}
+
+// 跳轉到指定角色
+async function goToCharacter(gameName, charName) {
+    // 清空搜索
+    const input = document.getElementById('searchInput');
+    const resultsEl = document.getElementById('searchResults');
+    input.value = '';
+    resultsEl.classList.remove('show');
+    resultsEl.innerHTML = '';
+    input.blur();
+
+    // 切換遊戲（如果不同）
+    if (currentGame !== gameName) {
+        await selectGame(gameName);
+    }
+
+    // 等 DOM 更新
+    await new Promise(r => setTimeout(r, 50));
+
+    // 找到角色按鈕並點擊
+    const navItems = document.querySelectorAll('#charNav .char-nav-item');
+    for (const item of navItems) {
+        const label = item.querySelector('.char-nav-label');
+        if (label && label.textContent === charName) {
+            item.click();
+            break;
+        }
+    }
+
+    // 滾動到角色介紹
+    scrollToSection('character');
+}
+
+// 綁定搜索事件
+document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('searchInput');
+    if (!input) return;
+
+    let debounceTimer = null;
+
+    input.addEventListener('input', (e) => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            performSearch(e.target.value);
+        }, 150);
+    });
+
+    input.addEventListener('focus', async () => {
+        await buildSearchIndex();
+        if (input.value.trim()) performSearch(input.value);
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            input.value = '';
+            document.getElementById('searchResults').classList.remove('show');
+            input.blur();
+        }
+    });
+});
+
+// 點擊空白處收起搜索結果
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.search-wrap')) {
+        document.getElementById('searchResults')?.classList.remove('show');
+    }
+});
