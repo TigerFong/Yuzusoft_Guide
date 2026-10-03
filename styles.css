@@ -701,6 +701,257 @@ body.has-game .menu-list a.clear-game {
     display: none;
 }
 
+/* ===== 角色介紹 ===== */
+.character-box {
+    padding: clamp(20px, 3vw, 36px);
+}
+
+/* 頂部頭像欄 */
+.char-nav {
+    display: flex;
+    justify-content: center;
+    gap: clamp(10px, 2vw, 26px);
+    flex-wrap: wrap;
+    padding-bottom: clamp(16px, 2.5vh, 28px);
+    border-bottom: 2px solid rgba(180, 140, 80, 0.35);
+    margin-bottom: clamp(20px, 3vh, 34px);
+}
+
+.char-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.char-nav-item:hover {
+    transform: translateY(-4px);
+}
+
+.char-nav-thumb {
+    width: clamp(52px, 6.5vw, 78px);
+    height: clamp(52px, 6.5vw, 78px);
+    border-radius: 50%;
+    background: #fff8ec center/cover no-repeat;
+    border: 3px solid #d4af37;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.char-nav-item.active .char-nav-thumb {
+    border-color: #b81a1a;
+    box-shadow: 0 0 0 3px rgba(184, 26, 26, 0.25),
+                0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.char-nav-label {
+    font-size: clamp(11px, 1.1vw, 13px);
+    font-weight: 700;
+    color: #8b1010;
+    letter-spacing: 0.05em;
+    padding: 2px 8px;
+    background: rgba(255, 240, 220, 0.9);
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.char-nav-item.active .char-nav-label {
+    background: #b81a1a;
+    color: #ffd700;
+}
+
+/* 中間展示區 */
+.char-display {
+    display: flex;
+    gap: clamp(20px, 3vw, 40px);
+    align-items: stretch;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.char-portrait {
+    flex: 0 0 auto;
+    width: min(420px, 42%);
+    height: clamp(420px, 55vh, 520px);      /* min-height → height */
+    background: #fdfaf3 center bottom / auto 100% no-repeat;   /* contain → auto 100% */
+    border-radius: 12px;
+    border: 1px solid rgba(180, 140, 80, 0.35);
+    box-shadow: inset 0 0 20px rgba(180, 140, 80, 0.1);
+    overflow: hidden;                        /* 防止图太宽溢出 */
+}
+
+.char-detail {
+    flex: 1;
+    min-width: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(12px, 2vh, 20px);
+}
+
+.char-name {
+    font-size: clamp(24px, 3vw, 40px);
+    font-weight: 800;
+    color: #8b1010;
+    letter-spacing: 0.12em;
+    padding-bottom: 10px;
+    border-bottom: 3px double #d4af37;
+    text-shadow: 0 2px 6px rgba(180, 140, 80, 0.25);
+}
+
+.char-cv {
+    font-size: clamp(12px, 1.2vw, 14px);
+    font-weight: 600;
+    color: #b8860b;
+    letter-spacing: 0.15em;
+}
+
+.char-desc {
+    font-size: clamp(14px, 1.4vw, 17px);
+    color: #5a4a38;
+    line-height: 1.9;
+    white-space: pre-line;
+}
+
+.char-desc .row {
+    display: flex;
+    gap: 12px;
+    padding: 6px 0;
+    border-bottom: 1px dashed rgba(180, 140, 80, 0.35);
+}
+
+.char-desc .row:last-child {
+    border-bottom: none;
+}
+
+.char-desc .key {
+    flex-shrink: 0;
+    width: 62px;
+    font-weight: 700;
+    color: #8b1010;
+}
+
+.char-desc .val {
+    flex: 1;
+    color: #5a4a38;
+}
+
+/* ===== 攻略 ===== */
+.guide-box {
+    padding: clamp(20px, 3vw, 36px);
+}
+
+.guide-display {
+    display: flex;
+    gap: clamp(20px, 3vw, 40px);
+    align-items: stretch;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.guide-portrait {
+    flex: 0 0 auto;
+    width: min(320px, 32%);
+    height: clamp(360px, 50vh, 480px);
+    background: #fdfaf3 center bottom / auto 100% no-repeat;
+    border-radius: 12px;
+    border: 1px solid rgba(180, 140, 80, 0.35);
+    box-shadow: inset 0 0 20px rgba(180, 140, 80, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.guide-content {
+    flex: 1;
+    min-width: 280px;
+    height: clamp(360px, 50vh, 480px);     /* 新增，和立繪同高 */
+    display: flex;
+    flex-direction: column;
+    gap: clamp(12px, 2vh, 20px);
+    overflow: hidden;                       /* 防止子元素撐開 */
+}
+
+.guide-options {
+    flex: 1;                                /* 填滿剩餘高度 */
+    min-height: 0;                          /* 允許 flex 子元素壓縮 */
+    background: rgba(255, 248, 235, 0.9);
+    border: 1px solid rgba(180, 140, 80, 0.35);
+    border-radius: 12px;
+    padding: clamp(12px, 2vw, 20px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.guide-option-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: option;
+}
+
+.guide-option-item {
+    position: relative;
+    padding: clamp(8px, 1.2vh, 12px) 0 clamp(8px, 1.2vh, 12px) 48px;  /* 縮小 */
+    font-size: clamp(13px, 1.2vw, 15px);                                /* 縮小 */
+    color: #5a4a38;
+    line-height: 1.6;
+    border-bottom: 1px dashed rgba(180, 140, 80, 0.4);
+    counter-increment: option;
+}
+
+.guide-option-item::before {
+    content: counter(option);
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 13px;
+    color: #ffd700;
+    background: linear-gradient(180deg, #e03818 0%, #b81a1a 100%);
+    border: 2px solid #8b1010;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px #d4af37;
+}
+
+.guide-option-item:last-child {
+    border-bottom: none;
+}
+
+/* ===== 攻略選項滾動條 ===== */
+.guide-options::-webkit-scrollbar {
+    width: 8px;
+}
+
+.guide-options::-webkit-scrollbar-track {
+    background: rgba(180, 140, 80, 0.1);
+    border-radius: 4px;
+    margin: 6px 0;
+}
+
+.guide-options::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #d4af37 0%, #b8860b 100%);
+    border-radius: 4px;
+    border: 1px solid rgba(139, 16, 16, 0.3);
+}
+
+.guide-options::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #e8b43a 0%, #d4af37 100%);
+}
+
+/* Firefox 相容 */
+.guide-options {
+    scrollbar-width: thin;
+    scrollbar-color: #b8860b rgba(180, 140, 80, 0.1);
+}
+
+
 /* ===== 響應式 ===== */
 @media (max-width: 780px) {
     .brand-sub {
@@ -741,5 +992,42 @@ body.has-game .menu-list a.clear-game {
     .about-key {
         width: auto;
         color: #b8860b;
+    }
+}
+
+/* 手機版：頭像欄橫向滾動 */
+@media (max-width: 640px) {
+    .char-nav {
+        justify-content: flex-start;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 14px;
+        -webkit-overflow-scrolling: touch;
+    }
+    .char-nav-item {
+        flex-shrink: 0;
+    }
+    .char-display {
+        flex-direction: column;
+    }
+    .char-portrait {
+        width: 100%;
+        min-height: 300px;
+    }
+}
+
+@media (max-width: 640px) {
+    .guide-display {
+        flex-direction: column;
+    }
+    .guide-portrait {
+        width: 100%;
+        min-height: 260px;
+    }
+    .guide-content {
+        height: auto;        /* 手機版放開高度 */
+    }
+    .guide-options {
+        max-height: 50vh;    /* 但選項框仍限制高度，內部滾動 */
     }
 }

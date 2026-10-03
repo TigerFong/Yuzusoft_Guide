@@ -54,6 +54,33 @@ const GAME_STORIES = {
     '魔女的夜宴': 'picture/story-sabbat.jpg'
 };
 
+// 角色索引快取（角色名 → 圖片編號）
+const charIndexCache = {};
+
+async function getCharIndexMap(gameName) {
+    if (charIndexCache[gameName]) return charIndexCache[gameName];
+    try {
+        const res = await fetch(`/api/games/${encodeURIComponent(gameName)}/characters`);
+        if (res.ok) {
+            const names = await res.json();
+            const map = {};
+            names.forEach((n, i) => map[n] = i + 1);
+            charIndexCache[gameName] = map;
+            return map;
+        }
+    } catch (e) {
+        console.error('讀取角色索引失敗:', e);
+    }
+    return {};
+}
+// 遊戲代碼（用於圖片命名）
+const GAME_CODES = {
+    '千戀＊萬花': 'senren',
+    '天使紛擾': 'tenshi',
+    '星光咖啡館與死神之蝶': 'cafe',
+    '魔女的夜宴': 'sabbat'
+};
+
 // ===== 選單開關 =====
 function openMenu() {
     document.getElementById('sideMenu').classList.add('open');
@@ -74,7 +101,7 @@ function setBackground(image, size, color) {
 }
 
 // ===== 選擇遊戲 =====
-function selectGame(gameName) {
+async function selectGame(gameName) {
     currentGame = gameName;
 
     document.querySelectorAll('#gameList a').forEach(a => {
@@ -92,36 +119,37 @@ function selectGame(gameName) {
     }
 
     updateHomeContent(gameName);
-    updateStoryContent(gameName);   // ← 加這行
+    updateStoryContent(gameName);
     document.body.classList.add('has-game');
 
     closeMenu();
+
+    await Promise.all([
+        renderCharacters(gameName),
+        renderGuides(gameName)
+    ]);
 }
 
 // ===== 取消選擇遊戲 =====
 function clearGame() {
     currentGame = null;
 
-    // 移除遊戲高亮
     document.querySelectorAll('#gameList a').forEach(a => {
         a.classList.remove('active');
     });
 
-    // 鎖定遊戲專屬功能
     document.querySelectorAll('#featureList a.game-feature').forEach(a => {
         a.classList.add('disabled');
     });
 
-    // 移除 body 的 has-game 標記（隱藏遊戲區塊）
     document.body.classList.remove('has-game');
 
-    // 背景還原成柚子社 logo
     setBackground(DEFAULT_BG.image, DEFAULT_BG.size, DEFAULT_BG.color);
 
-    // 首頁內容還原成預設
     updateHomeContent(null);
+    updateStoryContent(null);
+    renderCharacters(null);
 
-    // 回到首頁
     scrollToSection('home');
 
     closeMenu();
@@ -217,3 +245,224 @@ openMenu = function () {
 
 // 8 秒後自動隱藏
 setTimeout(hideGuideTip, 8000);
+
+// ===== 渲染角色介紹（從 API 讀取） =====
+async function renderCharacters(gameName) {
+    const navEl = document.getElementById('charNav');
+    const portraitEl = document.getElementById('charPortrait');
+    const nameEl = document.getElementById('charName');
+    const cvEl = document.getElementById('charCv');
+    const descEl = document.getElementById('charDesc');
+
+    navEl.innerHTML = '';
+
+    // 未選遊戲 → 清空
+    if (!gameName) {
+        portraitEl.style.backgroundImage = '';
+        nameEl.textContent = '';
+        cvEl.textContent = '';
+        descEl.innerHTML = '';
+        return;
+    }
+
+    // 1. 從 API 取得角色名稱列表
+    let names = [];
+    try {
+        const res = await fetch(`/api/games/${encodeURIComponent(gameName)}/characters`);
+        if (res.ok) names = await res.json();
+    } catch (e) {
+        console.error('讀取角色列表失敗:', e);
+    }
+
+    if (names.length === 0) {
+        descEl.innerHTML = '<p class="placeholder-text">無法載入角色資料。</p>';
+        return;
+    }
+
+    // 2. 並行取得每個角色的詳細資料
+    const chars = await Promise.all(names.map(async (name) => {
+        try {
+            const res = await fetch(`/api/characters/${encodeURIComponent(name)}`);
+            if (res.ok) return await res.json();
+        } catch (e) {
+            console.error('讀取角色失敗:', name, e);
+        }
+        return { name };
+    }));
+
+    const code = GAME_CODES[gameName] || 'game';
+
+    // 3. 產生頂部頭像按鈕
+    chars.forEach((char, index) => {
+        const item = document.createElement('div');
+        item.className = 'char-nav-item' + (index === 0 ? ' active' : '');
+
+        const thumb = document.createElement('div');
+        thumb.className = 'char-nav-thumb';
+        thumb.style.backgroundImage = `url('picture/thumb-${code}-${index + 1}.png')`;
+
+        const label = document.createElement('div');
+        label.className = 'char-nav-label';
+        label.textContent = char.name;
+
+        item.appendChild(thumb);
+        item.appendChild(label);
+        item.addEventListener('click', () => selectCharacter(chars, index, code));
+        navEl.appendChild(item);
+    });
+
+    // 4. 預設顯示第一位
+    selectCharacter(chars, 0, code);
+}
+
+// ===== 切換角色 =====
+function selectCharacter(chars, index, code) {
+    const char = chars[index];
+    const portraitEl = document.getElementById('charPortrait');
+    const nameEl = document.getElementById('charName');
+    const cvEl = document.getElementById('charCv');
+    const descEl = document.getElementById('charDesc');
+
+    document.querySelectorAll('#charNav .char-nav-item').forEach((item, i) => {
+        item.classList.toggle('active', i === index);
+    });
+
+    portraitEl.style.backgroundImage = `url('picture/char-${code}-${index + 1}.png')`;
+
+    nameEl.textContent = char.name;
+    cvEl.textContent = char.cv ? 'CV：' + char.cv : '';
+
+    // 資料列（依 data.py 欄位）
+    const rows = [
+        ['年齡', char.age],
+        ['身高', char.height],
+        ['體型', char.body_type],
+        ['身份', char.identity],
+        ['性格', char.personality],
+        ['喜好', Array.isArray(char.likes) ? char.likes.join('、') : char.likes],
+        ['討厭', Array.isArray(char.dislikes) ? char.dislikes.join('、') : char.dislikes],
+        ['服裝', Array.isArray(char.clothes) ? char.clothes.join('、') : char.clothes]
+    ];
+
+    let html = '';
+    rows.forEach(([key, val]) => {
+        if (val && val !== '暫無明確設定' && val !== '暂无明确设定') {
+            html += `<div class="row"><div class="key">${key}</div><div class="val">${val}</div></div>`;
+        }
+    });
+
+    descEl.innerHTML = html || '<p class="placeholder-text">暫無資料。</p>';
+}
+
+// ===== 渲染攻略（從 API 讀取） =====
+async function renderGuides(gameName) {
+    const navEl = document.getElementById('guideNav');
+    const portraitEl = document.getElementById('guidePortrait');
+    const nameEl = document.getElementById('guideName');
+    const routeEl = document.getElementById('guideRoute');
+    const optionsEl = document.getElementById('guideOptions');
+
+    navEl.innerHTML = '';
+
+    if (!gameName) {
+        portraitEl.style.backgroundImage = '';
+        nameEl.textContent = '';
+        routeEl.textContent = '';
+        optionsEl.innerHTML = '';
+        return;
+    }
+
+    // 攻略名單
+    let guideNames = [];
+    try {
+        const res = await fetch(`/api/games/${encodeURIComponent(gameName)}/guides`);
+        if (res.ok) guideNames = await res.json();
+    } catch (e) {
+        console.error('讀取攻略列表失敗:', e);
+    }
+
+    if (guideNames.length === 0) {
+        optionsEl.innerHTML = '<p class="placeholder-text">暫無攻略資料。</p>';
+        return;
+    }
+
+    // 角色索引（和角色介紹區同一套圖）
+    const map = await getCharIndexMap(gameName);
+
+    // 攻略詳情
+    const guides = await Promise.all(guideNames.map(async (name) => {
+        try {
+            const res = await fetch(`/api/guides/${encodeURIComponent(name)}`);
+            if (res.ok) return await res.json();
+        } catch (e) {
+            console.error('讀取攻略失敗:', name, e);
+        }
+        return { character_name: name, options: [] };
+    }));
+
+    const code = GAME_CODES[gameName] || 'game';
+
+    // 頂部頭像
+    guides.forEach((guide, index) => {
+        const item = document.createElement('div');
+        item.className = 'char-nav-item' + (index === 0 ? ' active' : '');
+
+        const thumb = document.createElement('div');
+        thumb.className = 'char-nav-thumb';
+
+        const n = map[guide.character_name];
+        if (n) {
+            thumb.style.backgroundImage = `url('picture/thumb-${code}-${n}.png')`;
+        }
+
+        const label = document.createElement('div');
+        label.className = 'char-nav-label';
+        label.textContent = guide.character_name;
+
+        item.appendChild(thumb);
+        item.appendChild(label);
+        item.addEventListener('click', () => selectGuide(guides, index, code, map));
+        navEl.appendChild(item);
+    });
+
+    selectGuide(guides, 0, code, map);
+}
+
+// ===== 切換攻略 =====
+function selectGuide(guides, index, code, map) {
+    const guide = guides[index];
+    const portraitEl = document.getElementById('guidePortrait');
+    const nameEl = document.getElementById('guideName');
+    const routeEl = document.getElementById('guideRoute');
+    const optionsEl = document.getElementById('guideOptions');
+
+    document.querySelectorAll('#guideNav .char-nav-item').forEach((item, i) => {
+        item.classList.toggle('active', i === index);
+    });
+
+    // 立繪（和角色介紹區同一套圖）
+    const n = map[guide.character_name];
+    if (n) {
+        portraitEl.style.backgroundImage = `url('picture/char-${code}-${n}.png')`;
+    } else {
+        portraitEl.style.backgroundImage = '';
+    }
+
+    nameEl.textContent = guide.character_name;
+    routeEl.textContent = '路線攻略';
+
+    const options = guide.options || [];
+    if (options.length === 0) {
+        optionsEl.innerHTML = '<p class="placeholder-text">暫無攻略選項。</p>';
+        return;
+    }
+
+    let html = '<ol class="guide-option-list">';
+    options.forEach((opt) => {
+        if (opt && opt.trim()) {
+            html += `<li class="guide-option-item">${opt}</li>`;
+        }
+    });
+    html += '</ol>';
+    optionsEl.innerHTML = html;
+}
