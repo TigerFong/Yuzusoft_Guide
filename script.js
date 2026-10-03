@@ -604,60 +604,65 @@ function selectGuide(guides, index, code, map) {
 
 // ===== 搜索 =====
 let searchIndex = null;
-let searchBuilt = false;
+let searchIndexPromise = null;   // ← 改成 Promise 缓存
 
-// 建立搜索索引（首次聚焦時才建）
 async function buildSearchIndex() {
-    if (searchBuilt) return searchIndex;
+    // 已经建好了 → 直接返回
+    if (searchIndex) return searchIndex;
 
-    searchIndex = [];
-    const games = Object.keys(GAME_CODES);
+    // 正在建 → 返回同一个 Promise，避免重复执行
+    if (searchIndexPromise) return searchIndexPromise;
 
-    for (const game of games) {
-        try {
-            const res = await fetch(`/api/games/${encodeURIComponent(game)}/characters`);
-            if (!res.ok) continue;
-            const names = await res.json();
-            const code = GAME_CODES[game];
+    searchIndexPromise = (async () => {
+        const index = [];
+        const games = Object.keys(GAME_CODES);
 
-            for (let i = 0; i < names.length; i++) {
-                try {
-                    const r = await fetch(`/api/characters/${encodeURIComponent(names[i])}`);
-                    if (!r.ok) continue;
-                    const char = await r.json();
+        for (const game of games) {
+            try {
+                const res = await fetch(`/api/games/${encodeURIComponent(game)}/characters`);
+                if (!res.ok) continue;
+                const names = await res.json();
+                const code = GAME_CODES[game];
 
-                    // 把所有可搜尋的欄位拼成一個大字串
-                    const searchText = [
-                        char.name || '',
-                        char.age || '',
-                        char.height || '',
-                        char.body_type || '',
-                        char.personality || '',
-                        char.identity || '',
-                        (char.likes || []).join(' '),
-                        (char.dislikes || []).join(' '),
-                        (char.clothes || []).join(' ')
-                    ].join(' ').toLowerCase();
+                for (let i = 0; i < names.length; i++) {
+                    try {
+                        const r = await fetch(`/api/characters/${encodeURIComponent(names[i])}`);
+                        if (!r.ok) continue;
+                        const char = await r.json();
 
-                    searchIndex.push({
-                        name: char.name,
-                        game,
-                        code,
-                        index: i + 1,
-                        searchText,
-                        // 保留原文給結果顯示用
-                        body_type: char.body_type || '',
-                        identity: char.identity || ''
-                    });
-                } catch (e) {}
+                        const searchText = [
+                            char.name || '',
+                            char.age || '',
+                            char.height || '',
+                            char.body_type || '',
+                            char.personality || '',
+                            char.identity || '',
+                            (char.likes || []).join(' '),
+                            (char.dislikes || []).join(' '),
+                            (char.clothes || []).join(' ')
+                        ].join(' ').toLowerCase();
+
+                        index.push({
+                            name: char.name,
+                            game,
+                            code,
+                            index: i + 1,
+                            searchText,
+                            body_type: char.body_type || '',
+                            identity: char.identity || ''
+                        });
+                    } catch (e) {}
+                }
+            } catch (e) {
+                console.error('建立索引失敗:', game, e);
             }
-        } catch (e) {
-            console.error('建立索引失敗:', game, e);
         }
-    }
 
-    searchBuilt = true;
-    return searchIndex;
+        searchIndex = index;
+        return index;
+    })();
+
+    return searchIndexPromise;
 }
 
 // 執行搜索
