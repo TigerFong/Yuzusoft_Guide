@@ -1,5 +1,67 @@
 let currentGame = null;
 
+// ===== 簡轉繁（只轉用戶輸入，數據本身是繁體） =====
+const SIMP_TO_TRAD = {
+    // 名字常用字
+    '丛':'叢','陆':'陸','马':'馬','芦':'蘆','爱':'愛','风':'風','音':'音',
+    '云':'雲','辉':'輝','欧':'歐','丽':'麗','叶':'葉','实':'實','花':'花',
+    '绫':'綾','宁':'寧','叶':'葉','䌷':'紬','户':'戶','隐':'隱','凉':'涼',
+    '伪':'偽','仮':'仮',
+    // 體型 / 年齡
+    '萝':'蘿','莉':'莉','娇':'嬌','小':'小','丰':'豐','满':'滿','纤':'纖',
+    '细':'細','标':'標','准':'準','匀':'勻','称':'稱','高':'高','挑':'挑',
+    '岁':'歲',
+    // 性格
+    '认':'認','真':'真','温':'溫','柔':'柔','开':'開','朗':'朗','调':'調',
+    '皮':'皮','害':'害','羞':'羞','冷':'冷','静':'靜','活':'活','泼':'潑',
+    '乖':'乖','巧':'巧','直':'直','率':'率','随':'隨','和':'和','爽':'爽',
+    '拘':'拘','节':'節','执':'執','着':'著','板':'板','眼':'眼','变':'變',
+    '通':'通','显':'顯','笨':'笨','拙':'拙','私':'私','下':'下','黏':'黏',
+    '人':'人','熟':'熟','寂':'寂','寞':'寞','恶':'惡','作':'作','剧':'劇',
+    '疼':'疼','软':'軟','糯':'糯','容':'容','易':'易','恋':'戀','后':'後',
+    '很':'很','怀':'懷','母':'母','性':'性','关':'關','照':'照','顾':'顧',
+    '体':'體','贴':'貼','照':'照','顾':'顧','强':'強','调':'調','皮':'皮',
+    '纯':'純','情':'情','靦':'靦','腆':'腆','内':'內','向':'向','沉':'沉',
+    '稳':'穩','理':'理','成':'成','熟':'熟','公':'公','反':'反','差':'差',
+    '大':'大','私':'私',
+    // 身份
+    '织':'織','穗':'穗','建':'建','神':'神','社':'社','巫':'巫','女':'女',
+    '姬':'姬','护':'護','卫':'衛','寄':'寄','宿':'宿','刀':'刀','灵':'靈',
+    '魂':'魂','管':'管','理':'理','者':'者','守':'守','魔':'魔','王':'王',
+    '转':'轉','世':'世','主':'主','人':'人','公':'公','天':'天','使':'使',
+    '留':'留','学':'學','生':'生','芬':'芬','兰':'蘭','来':'來','日':'日',
+    '本':'本','镇':'鎮','表':'表','妹':'妹','死':'死','员':'員','馆':'館',
+    '店':'店','学':'學','生':'生','会':'會','长':'長','侍':'侍','从':'從',
+    '师':'師','教':'教','班':'班','主':'主','任':'任','旧':'舊','识':'識',
+    '大':'大','学':'學','生':'生','西':'西','点':'點','甜':'甜','品':'品',
+    // 喜好 / 討厭
+    '恶':'惡','作':'作','剧':'劇','读':'讀','漫':'漫','画':'畫','动':'動',
+    '画':'畫','食':'食','美':'美','游':'遊','戏':'戲','朋':'朋','友':'友',
+    '玩':'玩','猫':'貓','甜':'甜','食':'食','毛':'毛','绒':'絨','具':'具',
+    '厨':'廚','房':'房','学':'學','习':'習','研':'研','磨':'磨','咖':'咖',
+    '啡':'啡','宁':'寧','静':'靜','氛':'氛','围':'圍','喧':'喧','闹':'鬧',
+    '打':'打','扰':'擾','粗':'粗','制':'製','滥':'濫','造':'造','浪':'浪',
+    '费':'費','骄':'驕','傲':'傲','独':'獨','处':'處','排':'排','挤':'擠',
+    '继':'繼','承':'承','体':'體','重':'重','增':'增','加':'加','幽':'幽',
+    '灵':'靈','鬼':'鬼','怪':'怪','孤':'孤','独':'獨','寂':'寂','寞':'寞',
+    '恐':'恐','怖':'怖','故':'故','事':'事','戳':'戳','破':'破','心':'心',
+    '事':'事',
+    // 服裝
+    '服':'服','装':'裝','巫':'巫','女':'女','和':'和','校':'校','经':'經',
+    '典':'典','忍':'忍','者':'者','私':'私','便':'便','神':'神','刀':'刀',
+    '甜':'甜','点':'點','店':'店','工':'工','作':'作','天':'天','使':'使',
+    '侍':'侍','从':'從','教':'教','师':'師','职':'職','业':'業','死':'死',
+    '神':'神','咖':'咖','啡':'啡','馆':'館','女':'女','仆':'僕','厨':'廚',
+    '师':'師','常':'常','泳':'泳','装':'裝','浴':'浴','衣':'衣','魔':'魔',
+    '星':'星','币':'幣','斗':'斗','篷':'篷','粉':'粉','色':'色','荷':'荷',
+    '叶':'葉','边':'邊','套':'套','袖':'袖'
+};
+
+function simpToTrad(str) {
+    if (!str) return '';
+    return String(str).split('').map(c => SIMP_TO_TRAD[c] || c).join('');
+}
+
 // 各遊戲的背景圖
 const GAME_BACKGROUNDS = {
     '千戀＊萬花': 'picture/bg-senren.jpg',
@@ -554,17 +616,40 @@ async function buildSearchIndex() {
     for (const game of games) {
         try {
             const res = await fetch(`/api/games/${encodeURIComponent(game)}/characters`);
-            if (res.ok) {
-                const names = await res.json();
-                const code = GAME_CODES[game];
-                names.forEach((name, i) => {
+            if (!res.ok) continue;
+            const names = await res.json();
+            const code = GAME_CODES[game];
+
+            for (let i = 0; i < names.length; i++) {
+                try {
+                    const r = await fetch(`/api/characters/${encodeURIComponent(names[i])}`);
+                    if (!r.ok) continue;
+                    const char = await r.json();
+
+                    // 把所有可搜尋的欄位拼成一個大字串
+                    const searchText = [
+                        char.name || '',
+                        char.age || '',
+                        char.height || '',
+                        char.body_type || '',
+                        char.personality || '',
+                        char.identity || '',
+                        (char.likes || []).join(' '),
+                        (char.dislikes || []).join(' '),
+                        (char.clothes || []).join(' ')
+                    ].join(' ').toLowerCase();
+
                     searchIndex.push({
-                        name,
+                        name: char.name,
                         game,
                         code,
-                        index: i + 1
+                        index: i + 1,
+                        searchText,
+                        // 保留原文給結果顯示用
+                        body_type: char.body_type || '',
+                        identity: char.identity || ''
                     });
-                });
+                } catch (e) {}
             }
         } catch (e) {
             console.error('建立索引失敗:', game, e);
@@ -578,7 +663,7 @@ async function buildSearchIndex() {
 // 執行搜索
 async function performSearch(query) {
     const resultsEl = document.getElementById('searchResults');
-    const q = query.trim().toLowerCase();
+    const q = simpToTrad(query.trim().toLowerCase());
 
     if (!q) {
         resultsEl.classList.remove('show');
@@ -588,9 +673,8 @@ async function performSearch(query) {
 
     const index = await buildSearchIndex();
     const matches = index.filter(item =>
-        item.name.toLowerCase().includes(q) ||
-        item.game.toLowerCase().includes(q)
-    ).slice(0, 10);
+        item.searchText.includes(q)
+    ).slice(0, 15);
 
     if (matches.length === 0) {
         resultsEl.innerHTML = '<div class="search-result-empty">沒有找到符合的角色</div>';
@@ -616,7 +700,17 @@ async function performSearch(query) {
 
         const gameEl = document.createElement('div');
         gameEl.className = 'search-result-game';
+        // 顯示遊戲 + 匹配到的屬性關鍵字
         gameEl.textContent = item.game;
+
+        // 如果搜到的不是名字或遊戲名，顯示匹配原因
+        if (!item.name.toLowerCase().includes(q) &&
+            !item.game.toLowerCase().includes(q)) {
+            const hint = document.createElement('span');
+            hint.className = 'search-result-hint';
+            hint.textContent = ' · ' + highlightKeyword(item.searchText, q);
+            gameEl.appendChild(hint);
+        }
 
         info.appendChild(nameEl);
         info.appendChild(gameEl);
@@ -631,6 +725,24 @@ async function performSearch(query) {
     });
 
     resultsEl.classList.add('show');
+}
+
+// 從 searchText 中找出匹配的關鍵字上下文
+function highlightKeyword(text, keyword) {
+    const idx = text.indexOf(keyword);
+    if (idx === -1) return '';
+
+    // 從匹配位置往前後各取 12 字
+    const start = Math.max(0, idx - 12);
+    const end = Math.min(text.length, idx + keyword.length + 12);
+
+    let snippet = text.slice(start, end);
+
+    // 加前後省略號
+    if (start > 0) snippet = '…' + snippet;
+    if (end < text.length) snippet = snippet + '…';
+
+    return snippet;
 }
 
 // 跳轉到指定角色

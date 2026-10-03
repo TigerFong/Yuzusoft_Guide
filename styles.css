@@ -1666,6 +1666,14 @@ body.has-game .menu-list a.clear-game {
     }
 }
 
+/* ===== 搜索結果：匹配原因 ===== */
+.search-result-hint {
+    color: #a09080;
+    font-weight: 500;
+    font-size: clamp(10px, 0.9vw, 11px);
+    font-style: italic;
+}
+
 /* 手機：變小 */
 @media (max-width: 640px) {
     .return-top {
