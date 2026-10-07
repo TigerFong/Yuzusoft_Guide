@@ -446,12 +446,12 @@ async function renderCharacters(gameName) {
         navEl.appendChild(item);
     });
 
-    // 4. 預設顯示第一位
-    selectCharacter(chars, 0, code);
+    // 4. 預設顯示第一位（不上報瀏覽量）
+    selectCharacter(chars, 0, code, false);
 }
 
 // ===== 切換角色 =====
-function selectCharacter(chars, index, code) {
+function selectCharacter(chars, index, code, trackView = true) {
     const char = chars[index];
     const portraitEl = document.getElementById('charPortrait');
     const nameEl = document.getElementById('charName');
@@ -465,6 +465,14 @@ function selectCharacter(chars, index, code) {
     portraitEl.style.backgroundImage = `url('picture/char-${code}-${index + 1}.png')`;
 
     nameEl.textContent = char.name;
+
+    // 記錄瀏覽量（只有用户主动点击时才上报）
+    if (trackView && char.name) {
+        fetch(`/api/view/${encodeURIComponent(char.name)}`, { method: 'POST' })
+            .then(() => refreshRanking())
+            .catch(() => {});
+    }
+
     cvEl.textContent = char.cv ? 'CV：' + char.cv : '';
 
     // 資料列（依 data.py 欄位）
@@ -602,57 +610,240 @@ function selectGuide(guides, index, code, map) {
     optionsEl.innerHTML = html;
 }
 
-// ===== 搜索 =====
+// =========================================================
+// 搜索（增强版：字段权重 + 排除 + 同义词 + 攻略 + 高亮 + 历史 + 键盘 + 拼音 + 建议 + 分组）
+// =========================================================
+
+const WEIGHT_HIGH = 3;
+const WEIGHT_MID  = 2;
+const WEIGHT_LOW  = 1;
+const _EXACT  = 60;
+const _PREFIX = 40;
+const _SUBSTR = 20;
+const _MAX_SCORE = 100;
+const HISTORY_KEY = 'yuzu-search-history';
+const HISTORY_MAX = 8;
+
+// ===== 角色名拼音（首字母 + 全拼）=====
+const PINYIN_MAP = {
+    '朝武芳乃': ['cwfn', 'chaowufangnai'],
+    '常陸茉子': ['clmz', 'changlumuozi'],
+    '叢雨':     ['cy',   'congyu'],
+    '蕾娜·列支敦瑙爾': ['ln', 'leina'],
+    '鞍馬小春': ['amxc', 'anmaxiaochun'],
+    '馬庭蘆花': ['mtlh', 'matingluhua'],
+    '白雪乃愛': ['bxna', 'baixuenai'],
+    '谷風天音': ['gfty', 'gufengtianyin'],
+    '小雲雀來海': ['xyqlh', 'xiaoyunquelaihai'],
+    '星河輝耶': ['xhy', 'xinghehuiye'],
+    '高楯歐麗葉': ['gsole', 'gaoshunouliye'],
+    '百里風實花': ['blfsh', 'bailifengshihua'],
+    '明月栞那': ['mykn', 'mingyuekanna'],
+    '四季夏目': ['sjxm', 'sijixiamu'],
+    '墨染希':   ['mrx',  'muranxi'],
+    '火打谷愛衣': ['hdgay', 'huodaguaiyi'],
+    '汐山涼音': ['xsly', 'xishanliangyin'],
+    '綾地寧寧': ['ldnn', 'lingdiningning'],
+    '因幡巡':   ['yfx',  'yinfanxun'],
+    '椎葉紬':   ['zyc',  'zhuiyechou'],
+    '戶隱憧子': ['hytz', 'huyintongzi'],
+    '仮屋和奏': ['jwhz', 'jiawuhezou'],
+};
+
+function getPinyin(name) {
+    return (PINYIN_MAP[name] || []).join(' ');
+}
+
+// ===== 同义词 =====
+const SYNONYMS = {
+    '蘿莉': ['蘿莉', '萝莉', 'loli'],
+    '少女': ['少女', 'girl'],
+    '御姐': ['御姐', '御姊'],
+    '巫女': ['巫女', 'miko'],
+    '魔女': ['魔女', 'witch'],
+    '死神': ['死神', 'reaper'],
+    '學生': ['學生', '学生'],
+    '甜食': ['甜食', '甜點', '甜点'],
+};
+
+function expandKeyword(kw) {
+    const lower = kw.toLowerCase();
+    for (const group of Object.values(SYNONYMS)) {
+        if (group.map(g => g.toLowerCase()).includes(lower)) {
+            return group.map(g => g.toLowerCase());
+        }
+    }
+    return [lower];
+}
+
+// ===== 字段权重 =====
+function buildCharFields(char) {
+    return [
+        { label: '名稱', value: char.name        || '', weight: WEIGHT_HIGH },
+        { label: '身份', value: char.identity    || '', weight: WEIGHT_HIGH },
+        { label: '體型', value: char.body_type   || '', weight: WEIGHT_MID  },
+        { label: '性格', value: char.personality || '', weight: WEIGHT_MID  },
+        { label: '喜好', value: (char.likes    || []).join(' '), weight: WEIGHT_MID },
+        { label: '討厭', value: (char.dislikes || []).join(' '), weight: WEIGHT_MID },
+        { label: '服裝', value: (char.clothes  || []).join(' '), weight: WEIGHT_MID },
+        { label: '年齡', value: char.age         || '', weight: WEIGHT_LOW  },
+        { label: '身高', value: char.height      || '', weight: WEIGHT_LOW  },
+    ];
+}
+
+// ===== 解析查询 =====
+function parseQuery(raw) {
+    if (!raw) return { include: [], exclude: [] };
+    const tokens = raw.replace(/\u3000/g, ' ').split(/\s+/).filter(Boolean);
+    const include = [], exclude = [];
+    for (const t of tokens) {
+        if (t.startsWith('-') && t.length > 1) exclude.push(t.slice(1));
+        else include.push(t);
+    }
+    return { include, exclude };
+}
+
+// ===== 打分 =====
+function scoreObject(item, fields, includeGroups, excludeGroups, pinyinText) {
+    if (includeGroups.length === 0) return null;
+
+    // 拼音也算入搜索文本
+    const allFields = pinyinText
+        ? [...fields, { label: '拼音', value: pinyinText, weight: WEIGHT_MID }]
+        : fields;
+
+    // 排除检查
+    for (const group of excludeGroups) {
+        for (const f of allFields) {
+            const text = (f.value || '').toLowerCase();
+            if (!text) continue;
+            for (const kw of group) {
+                if (kw && text.includes(kw)) return null;
+            }
+        }
+    }
+
+    // 包含 + 打分
+    let total = 0;
+    const matchedFields = [];
+    const matchedKeywords = [];
+
+    for (const group of includeGroups) {
+        const primary = group[0];
+        let groupHit = false;
+        for (const f of allFields) {
+            const text = (f.value || '').toLowerCase();
+            if (!text) continue;
+            for (const kw of group) {
+                if (!kw) continue;
+                if (text === kw)              { total += _EXACT  * f.weight; groupHit = true; }
+                else if (text.startsWith(kw)) { total += _PREFIX * f.weight; groupHit = true; }
+                else if (text.includes(kw))   { total += _SUBSTR * f.weight; groupHit = true; }
+                else continue;
+                if (!matchedFields.includes(f.label)) matchedFields.push(f.label);
+                break;
+            }
+        }
+        if (!groupHit) return null;
+        matchedKeywords.push(primary);
+    }
+
+    return { item, score: Math.min(total, _MAX_SCORE), matchedFields, matchedKeywords };
+}
+
+// ===== 高亮 =====
+function highlightText(text, keywords) {
+    if (!text) return '';
+    if (!keywords || !keywords.length) return escapeHtml(text);
+
+    let out = escapeHtml(text);
+    const sorted = [...new Set(keywords.filter(Boolean))].sort((a, b) => b.length - a.length);
+
+    for (const kw of sorted) {
+        const re = new RegExp(escapeRegex(kw), 'gi');
+        out = out.replace(re, m => `<mark>${m}</mark>`);
+    }
+    return out;
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+
+function escapeRegex(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// ===== 索引 =====
 let searchIndex = null;
-let searchIndexPromise = null;   // ← 改成 Promise 缓存
+let searchIndexPromise = null;
 
 async function buildSearchIndex() {
-    // 已经建好了 → 直接返回
     if (searchIndex) return searchIndex;
-
-    // 正在建 → 返回同一个 Promise，避免重复执行
     if (searchIndexPromise) return searchIndexPromise;
 
     searchIndexPromise = (async () => {
         const index = [];
-        const games = Object.keys(GAME_CODES);
 
-        for (const game of games) {
+        for (const game of Object.keys(GAME_CODES)) {
             try {
                 const res = await fetch(`/api/games/${encodeURIComponent(game)}/characters`);
                 if (!res.ok) continue;
                 const names = await res.json();
                 const code = GAME_CODES[game];
 
+                // 角色
                 for (let i = 0; i < names.length; i++) {
                     try {
                         const r = await fetch(`/api/characters/${encodeURIComponent(names[i])}`);
                         if (!r.ok) continue;
                         const char = await r.json();
-
-                        const searchText = [
-                            char.name || '',
-                            char.age || '',
-                            char.height || '',
-                            char.body_type || '',
-                            char.personality || '',
-                            char.identity || '',
-                            (char.likes || []).join(' '),
-                            (char.dislikes || []).join(' '),
-                            (char.clothes || []).join(' ')
-                        ].join(' ').toLowerCase();
-
                         index.push({
+                            type: 'character',
                             name: char.name,
-                            game,
-                            code,
+                            game, code,
                             index: i + 1,
-                            searchText,
-                            body_type: char.body_type || '',
-                            identity: char.identity || ''
+                            fields: buildCharFields(char),
+                            pinyin: getPinyin(char.name),
+                            raw: char,
                         });
                     } catch (e) {}
                 }
+
+                // 攻略
+                try {
+                    const gr = await fetch(`/api/games/${encodeURIComponent(game)}/guides`);
+                    if (gr.ok) {
+                        const guideNames = await gr.json();
+                        for (const gname of guideNames) {
+                            try {
+                                const rr = await fetch(`/api/guides/${encodeURIComponent(gname)}`);
+                                if (!rr.ok) continue;
+                                const guide = await rr.json();
+                                const charIdx = names.indexOf(gname) + 1;
+                                (guide.options || []).forEach((opt, oi) => {
+                                    if (!opt || !opt.trim()) return;
+                                    index.push({
+                                        type: 'guide',
+                                        name: gname,
+                                        option: opt,
+                                        optionIndex: oi + 1,
+                                        game, code,
+                                        index: charIdx,
+                                        fields: [
+                                            { label: '攻略選項', value: opt, weight: WEIGHT_HIGH },
+                                            { label: '角色', value: gname, weight: WEIGHT_MID },
+                                        ],
+                                        pinyin: '',
+                                    });
+                                });
+                            } catch (e) {}
+                        }
+                    }
+                } catch (e) {}
+
             } catch (e) {
                 console.error('建立索引失敗:', game, e);
             }
@@ -665,150 +856,509 @@ async function buildSearchIndex() {
     return searchIndexPromise;
 }
 
-// 執行搜索
-async function performSearch(query) {
-    const resultsEl = document.getElementById('searchResults');
-    const q = simpToTrad(query.trim().toLowerCase());
+// ===== 搜索历史 =====
+function loadHistory() {
+    try {
+        return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    } catch (e) { return []; }
+}
 
-    if (!q) {
+function pushHistory(q) {
+    if (!q || !q.trim()) return;
+    const list = loadHistory().filter(x => x !== q);
+    list.unshift(q);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, HISTORY_MAX)));
+}
+
+function clearHistory() {
+    localStorage.removeItem(HISTORY_KEY);
+}
+
+// ===== 建议 =====
+function getSuggestions(query, index) {
+    const q = query.toLowerCase();
+    const words = new Set();
+    for (const item of index) {
+        for (const f of item.fields) {
+            const v = (f.value || '').trim();
+            if (!v) continue;
+            if (v.toLowerCase().includes(q) && v.length <= 12) {
+                words.add(v);
+            }
+        }
+    }
+    return [...words].sort((a, b) => a.length - b.length).slice(0, 6);
+}
+
+// ===== UI 状态 =====
+let searchState = {
+    hits: [],
+    selectedIndex: -1,
+    activeTab: 'all',
+    showHistory: false,
+};
+
+// ===== 渲染结果 =====
+function renderSearchResults(resultsEl, hits, keywords) {
+    searchState._id = 0;
+
+    // 顶部建议（用输入框当前词）
+    const input = document.getElementById('searchInput');
+    const currentQ = (input?.value || '').trim();
+    const suggestionsHtml = buildSuggestionsHtml(currentQ);
+
+    if (hits.length === 0) {
+        resultsEl.innerHTML = suggestionsHtml +
+            '<div class="search-result-empty">沒有找到符合的角色</div>';
+        resultsEl.classList.add('show');
+        bindSuggestionClicks(resultsEl);
+        return;
+    }
+
+    // Tab 过滤
+    let filtered = hits;
+    if (searchState.activeTab === 'character') filtered = hits.filter(h => h.item.type === 'character');
+    if (searchState.activeTab === 'guide')     filtered = hits.filter(h => h.item.type === 'guide');
+
+    // 按游戏分组
+    const groups = {};
+    filtered.forEach(h => {
+        const g = h.item.game;
+        if (!groups[g]) groups[g] = [];
+        groups[g].push(h);
+    });
+
+    // Tab 栏
+    let html = suggestionsHtml + '<div class="search-tabs">';
+    const counts = {
+        all: hits.length,
+        character: hits.filter(h => h.item.type === 'character').length,
+        guide: hits.filter(h => h.item.type === 'guide').length,
+    };
+    html += `<button class="search-tab ${searchState.activeTab === 'all' ? 'active' : ''}" data-tab="all">全部 ${counts.all}</button>`;
+    html += `<button class="search-tab ${searchState.activeTab === 'character' ? 'active' : ''}" data-tab="character">角色 ${counts.character}</button>`;
+    html += `<button class="search-tab ${searchState.activeTab === 'guide' ? 'active' : ''}" data-tab="guide">攻略 ${counts.guide}</button>`;
+    html += '</div>';
+
+    if (filtered.length === 0) {
+        html += '<div class="search-result-empty">此分類下無結果</div>';
+    } else {
+        for (const [gameName, list] of Object.entries(groups)) {
+            html += `<div class="search-group-title">${escapeHtml(gameName)}</div>`;
+            list.forEach(h => {
+                const item = h.item;
+                const idx = ++searchState._id;
+                let nameText, gameText;
+
+                if (item.type === 'character') {
+                    nameText = highlightText(item.name, keywords);
+                    const otherFields = h.matchedFields.filter(f => f !== '名稱' && f !== '拼音');
+                    gameText = otherFields.length ? '· ' + otherFields.join('、') : '';
+                } else {
+                    nameText = highlightText(item.name, keywords) +
+                               ' <span class="guide-tag">攻略 ' + item.optionIndex + '</span>';
+                    gameText = '· ' + highlightText(item.option, keywords);
+                }
+
+                const isSelected = (idx - 1) === searchState.selectedIndex;
+
+                html += `
+                    <div class="search-result-item ${isSelected ? 'selected' : ''}"
+                         data-idx="${idx - 1}">
+                        <div class="search-result-thumb"
+                             style="background-image: url('picture/thumb-${item.code}-${item.index}.png')"></div>
+                        <div class="search-result-info">
+                            <div class="search-result-name">${nameText}</div>
+                            <div class="search-result-game">${escapeHtml(item.game)} ${gameText}</div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+    }
+
+    resultsEl.innerHTML = html;
+    resultsEl.classList.add('show');
+
+    // 绑定 Tab
+    resultsEl.querySelectorAll('.search-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            e.stopPropagation();
+            searchState.activeTab = tab.dataset.tab;
+            searchState.selectedIndex = -1;
+            renderSearchResults(resultsEl, hits, keywords);
+        });
+    });
+
+    // 绑定结果点击
+    resultsEl.querySelectorAll('.search-result-item').forEach(el => {
+        el.addEventListener('click', () => {
+            const idx = parseInt(el.dataset.idx, 10);
+            goToHit(filtered[idx]);
+        });
+    });
+
+    // 绑定建议点击
+    bindSuggestionClicks(resultsEl);
+}
+
+// ===== 绑定建议点击（共用）=====
+function bindSuggestionClicks(resultsEl) {
+    resultsEl.querySelectorAll('.search-suggest-item').forEach(el => {
+        el.addEventListener('mousedown', (e) => {
+            e.preventDefault();                    // ← 防止 input 失焦
+            e.stopPropagation();
+            const input = document.getElementById('searchInput');
+            input.value = el.dataset.q;
+            input.focus();
+            performSearch(el.dataset.q);
+        });
+    });
+}
+
+// ===== 历史管理 =====
+function removeHistoryItem(q) {
+    const list = loadHistory().filter(x => x !== q);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+}
+
+// ===== 渲染历史 =====
+function renderSearchHistory(resultsEl) {
+    const history = loadHistory();
+    if (history.length === 0) {
         resultsEl.classList.remove('show');
-        resultsEl.innerHTML = '';
+        return;
+    }
+
+    let html = '<div class="search-history">';
+    html += '<div class="search-history-head"><span>🕐 最近搜尋</span><button class="clear-history">全部清除</button></div>';
+
+    history.forEach(q => {
+        html += `
+            <div class="search-history-item" data-q="${escapeHtml(q)}">
+                <span class="history-text">${escapeHtml(q)}</span>
+                <button class="history-remove" data-q="${escapeHtml(q)}" title="刪除">✕</button>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    resultsEl.innerHTML = html;
+    resultsEl.classList.add('show');
+
+    // 全部清除
+    resultsEl.querySelector('.clear-history')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (confirm('確定要清除全部搜尋記錄嗎？')) {
+            clearHistory();
+            resultsEl.classList.remove('show');
+        }
+    });
+
+    // 单项删除
+    resultsEl.querySelectorAll('.history-remove').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const q = btn.dataset.q;
+            removeHistoryItem(q);
+            // 重新渲染
+            renderSearchHistory(resultsEl);
+        });
+    });
+
+    resultsEl.querySelectorAll('.search-history-item').forEach(el => {
+        el.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('history-remove')) return;
+            e.preventDefault();                    // ← 防止 input 失焦
+            const input = document.getElementById('searchInput');
+            input.value = el.dataset.q;
+            input.focus();                         // ← 确保保持焦点
+            performSearch(el.dataset.q);
+        });
+    });
+}
+
+// ===== 跳转到命中 =====
+function goToHit(hit) {
+    const item = hit.item;
+    if (item.type === 'guide') {
+        goToGuide(item.game, item.name);
+    } else {
+        goToCharacter(item.game, item.name);
+    }
+}
+
+// ===== 生成建议=====
+function buildSuggestionsHtml(q) {
+    if (!q || !searchIndex) return '';
+    const suggestions = getSuggestions(q, searchIndex);
+    if (suggestions.length === 0) return '';
+
+    let html = '<div class="search-suggest-head">建議</div>';
+    suggestions.slice(0, 4).forEach(s => {
+        html += `<div class="search-suggest-item" data-q="${escapeHtml(s)}">
+                    <span class="suggest-icon">🔍</span>
+                    <span class="suggest-text">${highlightText(s, [q])}</span>
+                 </div>`;
+    });
+    return html;
+}
+
+// ===== 显示建议 =====
+async function showSuggestions(input, resultsEl) {
+    const q = input.value.trim();
+    if (!q) {
+        renderSearchHistory(resultsEl);
         return;
     }
 
     const index = await buildSearchIndex();
-    const matches = index.filter(item =>
-        item.searchText.includes(q)
-    ).slice(0, 15);
+    const suggestions = getSuggestions(q, index);
+    const history = loadHistory().filter(h => h.toLowerCase().includes(q.toLowerCase()));
 
-    if (matches.length === 0) {
-        resultsEl.innerHTML = '<div class="search-result-empty">沒有找到符合的角色</div>';
+    if (suggestions.length === 0 && history.length === 0) {
+        resultsEl.classList.remove('show');
+        return;
+    }
+
+    let html = '';
+    if (suggestions.length > 0) {
+        html += '<div class="search-suggest-head">建議</div>';
+        suggestions.forEach(s => {
+            html += `<div class="search-suggest-item" data-q="${escapeHtml(s)}">
+                        <span class="suggest-icon">🔍</span>
+                        <span class="suggest-text">${highlightText(s, [q])}</span>
+                     </div>`;
+        });
+    }
+    if (history.length > 0) {
+        html += '<div class="search-suggest-head">🕐 最近</div>';
+        history.slice(0, 3).forEach(h => {
+            html += `<div class="search-suggest-item" data-q="${escapeHtml(h)}">
+                        <span class="suggest-icon">🕐</span>
+                        <span class="suggest-text">${escapeHtml(h)}</span>
+                     </div>`;
+        });
+    }
+
+    resultsEl.innerHTML = html;
+    resultsEl.classList.add('show');
+
+    bindSuggestionClicks(resultsEl);
+}
+
+// ===== 执行搜索 =====
+async function performSearch(query) {
+    const resultsEl = document.getElementById('searchResults');
+    const raw = simpToTrad((query || '').trim());
+
+    if (!raw) {
+        searchState.hits = [];
+        searchState.selectedIndex = -1;
+        renderSearchHistory(resultsEl);
+        return;
+    }
+
+    const parsed = parseQuery(raw.toLowerCase());
+    if (parsed.include.length === 0) {
+        resultsEl.innerHTML = '<div class="search-result-empty">請輸入正向關鍵詞</div>';
         resultsEl.classList.add('show');
         return;
     }
 
-    resultsEl.innerHTML = '';
-    matches.forEach(item => {
-        const el = document.createElement('div');
-        el.className = 'search-result-item';
+    const includeGroups = parsed.include.map(expandKeyword);
+    const excludeGroups = parsed.exclude.map(expandKeyword);
+    const flatKeywords = parsed.include;
 
-        const thumb = document.createElement('div');
-        thumb.className = 'search-result-thumb';
-        thumb.style.backgroundImage = `url('picture/thumb-${item.code}-${item.index}.png')`;
+    const index = await buildSearchIndex();
 
-        const info = document.createElement('div');
-        info.className = 'search-result-info';
+    const hits = [];
+    for (const item of index) {
+        const hit = scoreObject(item, item.fields, includeGroups, excludeGroups, item.pinyin);
+        if (hit) hits.push(hit);
+    }
+    hits.sort((a, b) => b.score - a.score);
 
-        const nameEl = document.createElement('div');
-        nameEl.className = 'search-result-name';
-        nameEl.textContent = item.name;
+    searchState.hits = hits;
+    searchState.selectedIndex = -1;
+    searchState.activeTab = 'all';
+    searchState._id = 0;
 
-        const gameEl = document.createElement('div');
-        gameEl.className = 'search-result-game';
-        // 顯示遊戲 + 匹配到的屬性關鍵字
-        gameEl.textContent = item.game;
-
-        // 如果搜到的不是名字或遊戲名，顯示匹配原因
-        if (!item.name.toLowerCase().includes(q) &&
-            !item.game.toLowerCase().includes(q)) {
-            const hint = document.createElement('span');
-            hint.className = 'search-result-hint';
-            hint.textContent = ' · ' + highlightKeyword(item.searchText, q);
-            gameEl.appendChild(hint);
-        }
-
-        info.appendChild(nameEl);
-        info.appendChild(gameEl);
-        el.appendChild(thumb);
-        el.appendChild(info);
-
-        el.addEventListener('click', () => {
-            goToCharacter(item.game, item.name);
-        });
-
-        resultsEl.appendChild(el);
-    });
-
-    resultsEl.classList.add('show');
+    renderSearchResults(resultsEl, hits, flatKeywords);
 }
 
-// 從 searchText 中找出匹配的關鍵字上下文
+// 保留给彩蛋 2
 function highlightKeyword(text, keyword) {
-    const idx = text.indexOf(keyword);
+    const idx = text.toLowerCase().indexOf(keyword.toLowerCase());
     if (idx === -1) return '';
-
-    // 從匹配位置往前後各取 12 字
     const start = Math.max(0, idx - 12);
     const end = Math.min(text.length, idx + keyword.length + 12);
-
     let snippet = text.slice(start, end);
-
-    // 加前後省略號
     if (start > 0) snippet = '…' + snippet;
     if (end < text.length) snippet = snippet + '…';
-
     return snippet;
 }
 
-// 跳轉到指定角色
-async function goToCharacter(gameName, charName) {
-    // 清空搜索
-    const input = document.getElementById('searchInput');
-    const resultsEl = document.getElementById('searchResults');
-    input.value = '';
-    resultsEl.classList.remove('show');
-    resultsEl.innerHTML = '';
-    input.blur();
-
-    // 切換遊戲（如果不同）
-    if (currentGame !== gameName) {
-        await selectGame(gameName);
-    }
-
-    // 等 DOM 更新
-    await new Promise(r => setTimeout(r, 50));
-
-    // 找到角色按鈕並點擊
-    const navItems = document.querySelectorAll('#charNav .char-nav-item');
-    for (const item of navItems) {
-        const label = item.querySelector('.char-nav-label');
-        if (label && label.textContent === charName) {
-            item.click();
-            break;
-        }
-    }
-
-    // 滾動到角色介紹
-    scrollToSection('character');
-}
-
-// 綁定搜索事件
+// ===== 事件绑定 =====
 document.addEventListener('DOMContentLoaded', () => {
     const input = document.getElementById('searchInput');
-    if (!input) return;
+    const resultsEl = document.getElementById('searchResults');
+    if (!input || !resultsEl) return;
 
     let debounceTimer = null;
 
     input.addEventListener('input', (e) => {
         clearTimeout(debounceTimer);
+        const val = e.target.value;
+
+        // 立刻显示建议
+        showSuggestions(input, resultsEl);
+
+        // 300ms 后再正式搜索
         debounceTimer = setTimeout(() => {
-            performSearch(e.target.value);
-        }, 150);
+            if (val.trim()) {
+                performSearch(val);
+            }
+        }, 300);
     });
 
     input.addEventListener('focus', async () => {
         await buildSearchIndex();
-        if (input.value.trim()) performSearch(input.value);
+        if (!input.value.trim()) {
+            renderSearchHistory(resultsEl);
+        } else {
+            performSearch(input.value);
+        }
     });
 
+    // 键盘导航
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             input.value = '';
-            document.getElementById('searchResults').classList.remove('show');
+            resultsEl.classList.remove('show');
             input.blur();
+            return;
+        }
+
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const total = searchState.hits.length;
+            if (total === 0) return;
+
+            if (e.key === 'ArrowDown') {
+                searchState.selectedIndex = (searchState.selectedIndex + 1) % total;
+            } else {
+                searchState.selectedIndex = (searchState.selectedIndex - 1 + total) % total;
+            }
+
+            // 重绘（只改高亮）
+            const items = resultsEl.querySelectorAll('.search-result-item');
+            items.forEach((el, i) => {
+                el.classList.toggle('selected', i === searchState.selectedIndex);
+            });
+            items[searchState.selectedIndex]?.scrollIntoView({ block: 'nearest' });
+        }
+
+        if (e.key === 'Enter') {
+            if (searchState.selectedIndex >= 0 && searchState.hits[searchState.selectedIndex]) {
+                goToHit(searchState.hits[searchState.selectedIndex]);
+            } else if (input.value.trim()) {
+                pushHistory(input.value.trim());
+            }
         }
     });
+
+    // 回车保存历史
+    input.addEventListener('change', () => {
+        if (input.value.trim()) pushHistory(input.value.trim());
+    });
 });
+
+// 跳轉到指定角色
+async function goToCharacter(gameName, charName) {
+    // 1. 清空搜索
+    const input = document.getElementById('searchInput');
+    const resultsEl = document.getElementById('searchResults');
+    if (input) { input.value = ''; input.blur(); }
+    if (resultsEl) {
+        resultsEl.classList.remove('show');
+        resultsEl.innerHTML = '';
+    }
+
+    // 2. 切換遊戲
+    if (currentGame !== gameName) {
+        await selectGame(gameName);
+    }
+
+    // 3. 等一下讓 DOM 渲染完
+    await new Promise(r => setTimeout(r, 120));
+
+    // 4. 找到角色按鈕並點擊
+    const navItems = document.querySelectorAll('#charNav .char-nav-item');
+    let found = false;
+    for (const item of navItems) {
+        const label = item.querySelector('.char-nav-label');
+        if (label && label.textContent === charName) {
+            item.click();
+            found = true;
+            break;
+        }
+    }
+
+    // 5. 滾動到角色介紹區（不依賴 scrollToSection 的 disabled 檢查）
+    const target = document.getElementById('character');
+    if (target) {
+        const topbar = document.querySelector('.topbar-inner');
+        const topbarHeight = topbar ? topbar.offsetHeight + 30 : 100;
+        const targetY = target.getBoundingClientRect().top + window.scrollY - topbarHeight;
+        window.scrollTo({ top: targetY, behavior: 'smooth' });
+    }
+
+    return found;
+}
+
+// 跳轉到指定角色的攻略
+async function goToGuide(gameName, charName) {
+    // 1. 清空搜索
+    const input = document.getElementById('searchInput');
+    const resultsEl = document.getElementById('searchResults');
+    if (input) { input.value = ''; input.blur(); }
+    if (resultsEl) {
+        resultsEl.classList.remove('show');
+        resultsEl.innerHTML = '';
+    }
+
+    // 2. 切換遊戲
+    if (currentGame !== gameName) {
+        await selectGame(gameName);
+    }
+
+    // 3. 等一下讓 DOM 渲染完
+    await new Promise(r => setTimeout(r, 120));
+
+    // 4. 在攻略區找到該角色按鈕並點擊
+    const navItems = document.querySelectorAll('#guideNav .char-nav-item');
+    let found = false;
+    for (const item of navItems) {
+        const label = item.querySelector('.char-nav-label');
+        if (label && label.textContent === charName) {
+            item.click();
+            found = true;
+            break;
+        }
+    }
+
+    // 5. 滾動到攻略區
+    const target = document.getElementById('guide');
+    if (target) {
+        const topbar = document.querySelector('.topbar-inner');
+        const topbarHeight = topbar ? topbar.offsetHeight + 30 : 100;
+        const targetY = target.getBoundingClientRect().top + window.scrollY - topbarHeight;
+        window.scrollTo({ top: targetY, behavior: 'smooth' });
+    }
+
+    return found;
+}
 
 // 點擊空白處收起搜索結果
 document.addEventListener('click', (e) => {
@@ -1333,3 +1883,78 @@ performSearch = async function(query) {
 
     return _originalPerformSearch2.call(this, query);
 };
+
+// =========================================================
+// 人氣排行榜
+// =========================================================
+let rankingLoaded = false;
+
+async function loadRanking() {
+    const listEl = document.getElementById('rankingList');
+    if (!listEl) return;
+
+    try {
+        const res = await fetch('/api/ranking');
+        if (!res.ok) throw new Error('API 失敗');
+        const data = await res.json();
+
+        if (data.length === 0) {
+            listEl.innerHTML = '<p class="ranking-empty">還沒有人瀏覽過，快來成為第一個吧！</p>';
+            return;
+        }
+
+        let html = '';
+        data.forEach(item => {
+            html += `
+                <div class="ranking-item rank-${item.rank}"
+                     data-game="${escapeHtml(item.game)}"
+                     data-name="${escapeHtml(item.name)}">
+                    <div class="ranking-rank">${item.rank}</div>
+                    <div class="ranking-thumb"
+                         style="background-image: url('picture/thumb-${item.code}-${item.index}.png')"></div>
+                    <div class="ranking-info">
+                        <div class="ranking-name">${escapeHtml(item.name)}</div>
+                        <div class="ranking-game">${escapeHtml(item.game)}</div>
+                    </div>
+                    <div class="ranking-count">${item.count} 次</div>
+                </div>
+            `;
+        });
+
+        listEl.innerHTML = html;
+        rankingLoaded = true;
+
+        // 点击跳转
+        listEl.querySelectorAll('.ranking-item').forEach(el => {
+            el.addEventListener('click', () => {
+                goToCharacter(el.dataset.game, el.dataset.name);
+            });
+        });
+
+    } catch (e) {
+        listEl.innerHTML = '<p class="ranking-empty">排行榜載入失敗，請稍後再試</p>';
+    }
+}
+
+// 滚到排行榜时才加载
+const rankingObserver = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting && !rankingLoaded) {
+        loadRanking();
+    }
+}, { threshold: 0.1 });
+
+document.addEventListener('DOMContentLoaded', () => {
+    const section = document.getElementById('ranking');
+    if (section) rankingObserver.observe(section);
+});
+
+// 刷新排行榜（浏览后调用）
+let refreshTimer = null;
+function refreshRanking() {
+    if (!rankingLoaded) return;   // 还没加载过就不用刷
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(async () => {
+        rankingLoaded = false;
+        await loadRanking();
+    }, 300);
+}

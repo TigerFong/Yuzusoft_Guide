@@ -2,8 +2,39 @@
 import os
 from flask import Flask, jsonify, send_from_directory
 from data import CharacterManager
+import json
+from collections import OrderedDict
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# 游戏代码映射
+GAME_CODES = {
+    '千戀＊萬花': 'senren',
+    '天使紛擾': 'tenshi',
+    '星光咖啡館與死神之蝶': 'cafe',
+    '魔女的夜宴': 'sabbat'
+}
+
+VIEW_COUNT_FILE = os.path.join(BASE_DIR, 'view_counts.json')
+
+def load_view_counts():
+    if os.path.exists(VIEW_COUNT_FILE):
+        try:
+            with open(VIEW_COUNT_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print('載入瀏覽量失敗:', e)
+    return {}
+
+def save_view_counts():
+    try:
+        with open(VIEW_COUNT_FILE, 'w', encoding='utf-8') as f:
+            json.dump(view_counts, f, ensure_ascii=False)
+    except Exception as e:
+        print('保存瀏覽量失敗:', e)
+
+view_counts = load_view_counts()
 
 app = Flask(__name__, static_folder=BASE_DIR, static_url_path='')
 manager = CharacterManager()
@@ -59,6 +90,42 @@ def api_guide(name):
         'character_name': guide.character_name,
         'options': guide.get_all_options()
     })
+
+# ---------- API：瀏覽量 ----------
+@app.route('/api/view/<path:name>', methods=['POST'])
+def api_view(name):
+    """記錄一次瀏覽"""
+    if manager.get_character(name):
+        view_counts[name] = view_counts.get(name, 0) + 1
+        save_view_counts()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/ranking')
+def api_ranking():
+    """返回瀏覽量排行（前 20）"""
+    sorted_items = sorted(view_counts.items(), key=lambda x: -x[1])
+
+    result = []
+    for rank, (name, count) in enumerate(sorted_items[:20], start=1):
+        char = manager.get_character(name)
+        if not char:
+            continue
+
+        game = manager.get_game_of_character(name)
+        chars_in_game = manager.get_characters_by_game(game)
+        idx = chars_in_game.index(name) + 1 if name in chars_in_game else 0
+
+        result.append({
+            'rank': rank,
+            'name': name,
+            'game': game,
+            'count': count,
+            'code': GAME_CODES.get(game, 'game'),
+            'index': idx,
+        })
+
+    return jsonify(result)
 
 
 # ---------- API：遊戲分組 ----------
