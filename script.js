@@ -466,9 +466,9 @@ function selectCharacter(chars, index, code, trackView = true) {
 
     nameEl.textContent = char.name;
 
-    // 記錄瀏覽量：前端去重（同一天同角色只上報一次）
-    if (trackView && char.name && !hasViewedToday(char.name)) {
-        markViewedToday(char.name);   // 先標記，避免連點重複送
+    // 記錄瀏覽量：前端去重（同角色每 10 分鐘只上報一次）
+    if (trackView && char.name && !hasViewedRecently(char.name)) {
+        markViewed(char.name);   // 先標記，避免連點重複送
 
         fetch(`/api/view/${encodeURIComponent(char.name)}`, { method: 'POST' })
             .then(res => res.json())
