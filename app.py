@@ -1,15 +1,19 @@
 # app.py
 import os
-from flask import Flask, jsonify, send_from_directory
-from data import CharacterManager
 import json
+from time import time
+from collections import defaultdict
+
 import psycopg2
 from psycopg2 import pool
+from flask import Flask, jsonify, send_from_directory, request
+
+from data import CharacterManager
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# 游戏代码映射
+# 遊戲代碼映射（用於圖片命名）
 GAME_CODES = {
     '千戀＊萬花': 'senren',
     '天使紛擾': 'tenshi',
@@ -17,7 +21,7 @@ GAME_CODES = {
     '魔女的夜宴': 'sabbat'
 }
 
-# ===== Neon 数据库配置 =====
+# ===== Neon 資料庫配置 =====
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 db_pool = None
@@ -27,8 +31,13 @@ if DATABASE_URL:
         print("Neon 資料庫連線池建立成功")
     except Exception as e:
         print("資料庫連線池建立失敗:", e)
+else:
+    print("未設定 DATABASE_URL，將使用本地 view_counts.json（開發模式）")
 
 
+# =========================================================
+# 資料庫初始化與讀寫
+# =========================================================
 def init_db():
     """初始化資料庫：建立存瀏覽量的表"""
     if not db_pool:
@@ -52,15 +61,14 @@ def init_db():
 
 
 def load_view_counts():
-    """從資料庫載入所有瀏覽量"""
+    """從資料庫載入所有瀏覽量；沒 DB 時 fallback 到本地 JSON"""
     if not db_pool:
-        # 沒設 DATABASE_URL → 用本地文件（開發用）
         if os.path.exists('view_counts.json'):
             try:
                 with open('view_counts.json', 'r', encoding='utf-8') as f:
                     return json.load(f)
-            except Exception:
-                pass
+            except Exception as e:
+                print("讀取本地 view_counts.json 失敗:", e)
         return {}
 
     try:
@@ -76,27 +84,76 @@ def load_view_counts():
         return {}
 
 
-def save_view_counts():
-    """將記憶體中的瀏覽量全量同步到資料庫（備用，主要用增量更新）"""
-    if not db_pool or not view_counts:
-        return
-    try:
-        conn = db_pool.getconn()
-        cur = conn.cursor()
-        for name, count in view_counts.items():
-            cur.execute("""
-                INSERT INTO view_counts (character_name, count)
-                VALUES (%s, %s)
-                ON CONFLICT (character_name)
-                DO UPDATE SET count = EXCLUDED.count
-            """, (name, count))
-        conn.commit()
-        cur.close()
-        db_pool.putconn(conn)
-    except Exception as e:
-        print("保存瀏覽量失敗:", e)
+# =========================================================
+# 防刷：IP 限流 + 角色冷卻
+# =========================================================
+VIEW_COOLDOWN = 600         # 同一 IP 對同一角色，10 分鐘內只算一次
+GLOBAL_LIMIT_PER_MIN = 30    # 同一 IP 每分鐘最多打 30 次 /api/view
+CLEANUP_THRESHOLD = 5000     # 追蹤的 IP 數超過這個就觸發清理
+
+_view_guard = {}                  # {ip: {name: timestamp}}
+_ip_rate = defaultdict(list)      # {ip: [timestamps]}
 
 
+def get_client_ip():
+    """
+    取得客戶端真實 IP。
+    Render 走反向代理，X-Forwarded-For 會 append 真實 IP 到最後，
+    因此取「最右邊」的值才不會被偽造（取最左邊客戶端可自行填）。
+    """
+    xff = request.headers.get('X-Forwarded-For')
+    if xff:
+        # 取最右邊那個（Render 代理附加的真實 IP）
+        return xff.split(',')[-1].strip()
+    return request.remote_addr or 'unknown'
+
+
+def _cleanup_guard(now):
+    """清理過期的 IP 記錄，避免記憶體無限增長"""
+    cutoff = now - VIEW_COOLDOWN
+    for k in list(_view_guard.keys()):
+        _view_guard[k] = {n: t for n, t in _view_guard[k].items() if t > cutoff}
+        if not _view_guard[k]:
+            del _view_guard[k]
+
+    for k in list(_ip_rate.keys()):
+        _ip_rate[k] = [t for t in _ip_rate[k] if now - t < 60]
+        if not _ip_rate[k]:
+            del _ip_rate[k]
+
+
+def check_view_allowed(ip, name):
+    """
+    回傳 (是否允許計數, 原因)
+    只有全部檢查通過才會記帳（append timestamp）
+    """
+    now = time()
+
+    # 1. 全域頻率限制（防腳本爆打）
+    hits = _ip_rate[ip]
+    hits[:] = [t for t in hits if now - t < 60]
+    if len(hits) >= GLOBAL_LIMIT_PER_MIN:
+        return False, 'rate_limit'
+
+    # 2. 同 IP + 同角色冷卻
+    per_char = _view_guard.setdefault(ip, {})
+    if now - per_char.get(name, 0) < VIEW_COOLDOWN:
+        return False, 'cooldown'
+
+    # 3. 全部通過 → 記帳
+    hits.append(now)
+    per_char[name] = now
+
+    # 4. 定期清理（門檻觸發，避免每次都掃）
+    if len(_view_guard) > CLEANUP_THRESHOLD:
+        _cleanup_guard(now)
+
+    return True, 'ok'
+
+
+# =========================================================
+# Flask App
+# =========================================================
 view_counts = load_view_counts()
 
 app = Flask(__name__, static_folder=BASE_DIR, static_url_path='')
@@ -158,29 +215,37 @@ def api_guide(name):
 # ---------- API：瀏覽量 ----------
 @app.route('/api/view/<path:name>', methods=['POST'])
 def api_view(name):
-    """記錄一次瀏覽（直接更新資料庫）"""
-    if manager.get_character(name):
-        # 更新記憶體
-        view_counts[name] = view_counts.get(name, 0) + 1
+    """記錄一次瀏覽（帶 IP 限流）"""
+    if not manager.get_character(name):
+        return jsonify({'ok': False, 'error': '角色不存在'}), 404
 
-        # 增量更新資料庫（只更新這一條）
-        if db_pool:
-            try:
-                conn = db_pool.getconn()
-                cur = conn.cursor()
-                cur.execute("""
-                    INSERT INTO view_counts (character_name, count)
-                    VALUES (%s, 1)
-                    ON CONFLICT (character_name)
-                    DO UPDATE SET count = view_counts.count + 1
-                """, (name,))
-                conn.commit()
-                cur.close()
-                db_pool.putconn(conn)
-            except Exception as e:
-                print("更新瀏覽量失敗:", e)
+    ip = get_client_ip()
+    allowed, reason = check_view_allowed(ip, name)
 
-    return jsonify({'ok': True})
+    if not allowed:
+        # 被限流：不回錯誤碼（避免前端報錯），只是 counted=False
+        return jsonify({'ok': True, 'counted': False, 'reason': reason})
+
+    # === 通過限流，才真的 +1 ===
+    view_counts[name] = view_counts.get(name, 0) + 1
+
+    if db_pool:
+        try:
+            conn = db_pool.getconn()
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO view_counts (character_name, count)
+                VALUES (%s, 1)
+                ON CONFLICT (character_name)
+                DO UPDATE SET count = view_counts.count + 1
+            """, (name,))
+            conn.commit()
+            cur.close()
+            db_pool.putconn(conn)
+        except Exception as e:
+            print("更新瀏覽量失敗:", e)
+
+    return jsonify({'ok': True, 'counted': True})
 
 
 @app.route('/api/ranking')
@@ -188,14 +253,9 @@ def api_ranking():
     """返回瀏覽量排行（前 5）"""
     result = []
 
-    # 遍歷所有角色（包括 0 次的）
     all_names = manager.get_all_names()
     items = [(name, view_counts.get(name, 0)) for name in all_names]
-
-    # 按瀏覽量降序
     items.sort(key=lambda x: -x[1])
-
-    # 只取前 5 名
     items = items[:5]
 
     for rank, (name, count) in enumerate(items, start=1):
@@ -235,7 +295,39 @@ def api_game_guides(game):
     return jsonify(manager.get_guides_by_game(game))
 
 
-# 初始化資料庫
+# ---------- 健康檢查（可選，方便驗證 Neon） ----------
+@app.route('/health')
+def health():
+    info = {
+        'database_url_set': bool(DATABASE_URL),
+        'db_pool_available': db_pool is not None,
+        'using_db': False,
+        'tracked_ips': len(_view_guard),
+        'db_check': None,
+    }
+
+    if db_pool:
+        try:
+            conn = db_pool.getconn()
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*), COALESCE(SUM(count), 0) FROM view_counts")
+            distinct_count, total = cur.fetchone()
+            cur.close()
+            db_pool.putconn(conn)
+            info['using_db'] = True
+            info['db_check'] = {
+                'distinct_characters': distinct_count,
+                'total_views': total,
+            }
+        except Exception as e:
+            info['db_check'] = f'ERROR: {e}'
+
+    return jsonify(info)
+
+
+# =========================================================
+# 初始化 & 啟動
+# =========================================================
 init_db()
 
 

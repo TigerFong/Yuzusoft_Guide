@@ -466,10 +466,16 @@ function selectCharacter(chars, index, code, trackView = true) {
 
     nameEl.textContent = char.name;
 
-    // 記錄瀏覽量（只有用户主动点击时才上报）
-    if (trackView && char.name) {
+    // 記錄瀏覽量：前端去重（同一天同角色只上報一次）
+    if (trackView && char.name && !hasViewedToday(char.name)) {
+        markViewedToday(char.name);   // 先標記，避免連點重複送
+
         fetch(`/api/view/${encodeURIComponent(char.name)}`, { method: 'POST' })
-            .then(() => refreshRanking())
+            .then(res => res.json())
+            .then(data => {
+                // 只有後端真的 +1 才刷新排行榜
+                if (data.counted) refreshRanking();
+            })
             .catch(() => {});
     }
 
@@ -1957,4 +1963,37 @@ function refreshRanking() {
         rankingLoaded = false;
         await loadRanking();
     }, 300);
+}
+
+// ===== 前端防刷：同一瀏覽器同角色每 10 分鐘上報一次 =====
+const VIEW_LOCAL_KEY = 'yuzu-view-recent';
+const VIEW_INTERVAL_MS = 10 * 60 * 1000;   // 10 分鐘
+
+function getViewRecords() {
+    try {
+        const raw = localStorage.getItem(VIEW_LOCAL_KEY);
+        if (!raw) return {};
+        const data = JSON.parse(raw);
+        // 清掉超過 24 小時的舊記錄（避免無限增長）
+        const now = Date.now();
+        const cleaned = {};
+        for (const [name, ts] of Object.entries(data)) {
+            if (now - ts < 24 * 60 * 60 * 1000) {
+                cleaned[name] = ts;
+            }
+        }
+        return cleaned;
+    } catch { return {}; }
+}
+
+function markViewed(name) {
+    const data = getViewRecords();
+    data[name] = Date.now();
+    localStorage.setItem(VIEW_LOCAL_KEY, JSON.stringify(data));
+}
+
+function hasViewedRecently(name) {
+    const ts = getViewRecords()[name];
+    if (!ts) return false;
+    return Date.now() - ts < VIEW_INTERVAL_MS;
 }
