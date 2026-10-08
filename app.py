@@ -103,17 +103,23 @@ def api_view(name):
 
 @app.route('/api/ranking')
 def api_ranking():
-    """返回瀏覽量排行（前 20）"""
-    sorted_items = sorted(view_counts.items(), key=lambda x: -x[1])
-
+    """返回全部角色的瀏覽量排行"""
     result = []
-    for rank, (name, count) in enumerate(sorted_items[:20], start=1):
+
+    # 遍历所有角色（包括 0 次的）
+    all_names = manager.get_all_names()
+    items = [(name, view_counts.get(name, 0)) for name in all_names]
+
+    # 按浏览量降序
+    items.sort(key=lambda x: -x[1])
+
+    for rank, (name, count) in enumerate(items, start=1):
         char = manager.get_character(name)
         if not char:
             continue
 
-        game = manager.get_game_of_character(name)
-        chars_in_game = manager.get_characters_by_game(game)
+        game = manager.get_game_of_character(name) or ''
+        chars_in_game = manager.get_characters_by_game(game) if game else []
         idx = chars_in_game.index(name) + 1 if name in chars_in_game else 0
 
         result.append({
@@ -126,7 +132,6 @@ def api_ranking():
         })
 
     return jsonify(result)
-
 
 # ---------- API：遊戲分組 ----------
 @app.route('/api/games')
