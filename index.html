@@ -32,6 +32,11 @@
                 <div id="searchResults" class="search-results"></div>
             </div>
 
+            <button id="favButton" onclick="scrollToSection('favorites')" aria-label="我的最愛">
+                <span class="fav-icon">⭐</span>
+                <span class="fav-count" id="favCount">0</span>
+            </button>
+
             <button id="menuButton" onclick="openMenu()" aria-label="開啟選單">
                 <span></span>
                 <span></span>
@@ -75,6 +80,7 @@
                 <a href="#guide" class="game-feature disabled" onclick="scrollToSection('guide')">攻略</a>
                 <a href="#matchmaker" onclick="scrollToSection('matchmaker')">命運邂逅</a>
                 <a href="#ranking" onclick="scrollToSection('ranking')">人氣排行</a>
+                <a href="#favorites" onclick="scrollToSection('favorites')">我的最愛</a>
                 <a href="#about" onclick="scrollToSection('about')">關於本站</a>
             </nav>
         </div>
@@ -154,6 +160,16 @@
                         <div class="guide-content">
                             <div class="char-name" id="guideName"></div>
                             <div class="char-cv" id="guideRoute"></div>
+
+                            <!-- 進度條 -->
+                            <div class="guide-progress" id="guideProgress">
+                                <div class="guide-progress-bar">
+                                    <div class="guide-progress-fill" id="guideProgressFill"></div>
+                                </div>
+                                <div class="guide-progress-text" id="guideProgressText">0 / 0</div>
+                                <button class="guide-progress-reset" id="guideResetBtn" title="重置此角色進度">↻</button>
+                            </div>
+
                             <div class="guide-options" id="guideOptions"></div>
                         </div>
                     </div>
@@ -213,6 +229,7 @@
                         </div>
 
                         <div class="mm-actions">
+                            <button id="mmReset" class="mm-btn-reset" title="清空所有條件">↻ 重置</button>
                             <button id="mmSearch" class="mm-roll">
                                 <span class="mm-dice">🔍</span>
                                 尋找適合你的角色
@@ -237,6 +254,21 @@
                 <div class="content-box ranking-box">
                     <div id="rankingList" class="ranking-list">
                         <p class="ranking-empty">載入中…</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 我的最愛 -->
+        <section id="favorites" class="section">
+            <div class="section-inner">
+                <div class="section-header">
+                    <h2 class="section-title">我的最愛</h2>
+                    <p class="section-sub">favorites</p>
+                </div>
+                <div class="content-box favorites-box">
+                    <div id="favoritesList" class="favorites-list">
+                        <p class="favorites-empty">還沒有收藏任何角色，去角色介紹區點 ☆ 收藏吧！</p>
                     </div>
                 </div>
             </div>

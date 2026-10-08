@@ -1388,16 +1388,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('homeDesc')?.addEventListener('click', skipTypewriter);
 });
 
-// ===== 命運邂逅 =====
+// ===== 命運邂逅（升級版：多選 + 評分排序） =====
 let mmIndex = null;
 let mmFilters = {
-    height: 'all',
-    body: 'all',
-    age: 'all',
-    personality: 'all'
+    height: [],
+    body: [],
+    age: [],
+    personality: []
 };
 
-// 體型歸類
+// 體型歸類（保持不變）
 function classifyBody(str) {
     if (!str) return '其他';
     if (/蘿莉|萝莉|娇小|嬌小/.test(str)) return '蘿莉';
@@ -1406,7 +1406,7 @@ function classifyBody(str) {
     return '其他';
 }
 
-// 年齡歸類
+// 年齡歸類（保持不變）
 function classifyAge(str) {
     if (!str) return 'unknown';
     if (/暂无|暫無|外表|成年/.test(str)) return 'unknown';
@@ -1417,7 +1417,7 @@ function classifyAge(str) {
     return 'old';
 }
 
-// 性格標籤
+// 性格標籤（保持不變）
 function classifyPersonality(str) {
     if (!str) return [];
     const tags = [];
@@ -1430,66 +1430,158 @@ function classifyPersonality(str) {
     return tags;
 }
 
-async function buildMMIndex() {
-    if (mmIndex) return mmIndex;
+async function buildMMIndex(force = false) {
+    // 只有「非空且非強制」才直接回傳
+    if (!force && mmIndex && mmIndex.length > 0) return mmIndex;
+    if (!force && mmIndexPromise) return mmIndexPromise;
 
-    mmIndex = [];
-    const games = Object.keys(GAME_CODES);
+    mmIndexPromise = (async () => {
+        const index = [];
+        for (const game of Object.keys(GAME_CODES)) {
+            try {
+                const res = await fetch(`/api/games/${encodeURIComponent(game)}/characters`);
+                if (!res.ok) continue;
+                const names = await res.json();
+                const code = GAME_CODES[game];
 
-    for (const game of games) {
-        try {
-            const res = await fetch(`/api/games/${encodeURIComponent(game)}/characters`);
-            if (!res.ok) continue;
-            const names = await res.json();
-            const code = GAME_CODES[game];
-
-            for (let i = 0; i < names.length; i++) {
-                try {
-                    const r = await fetch(`/api/characters/${encodeURIComponent(names[i])}`);
-                    if (!r.ok) continue;
-                    const char = await r.json();
-                    mmIndex.push({
-                        ...char,
-                        game,
-                        code,
-                        index: i + 1,
-                        heightNum: extractNumber(char.height) || 0,
-                        bodyCat: classifyBody(char.body_type),
-                        ageCat: classifyAge(char.age),
-                        personalityTags: classifyPersonality(char.personality)
-                    });
-                } catch (e) {}
+                for (let i = 0; i < names.length; i++) {
+                    try {
+                        const r = await fetch(`/api/characters/${encodeURIComponent(names[i])}`);
+                        if (!r.ok) continue;
+                        const char = await r.json();
+                        index.push({
+                            ...char,
+                            game, code,
+                            index: i + 1,
+                            heightNum: extractNumber(char.height) || 0,
+                            bodyCat: classifyBody(char.body_type),
+                            ageCat: classifyAge(char.age),
+                            personalityTags: classifyPersonality(char.personality)
+                        });
+                    } catch (e) {}
+                }
+            } catch (e) {
+                console.error('buildMMIndex 失敗:', game, e);
             }
-        } catch (e) {}
-    }
+        }
 
-    return mmIndex;
+        mmIndex = index;
+        mmIndexPromise = null;
+        return index;
+    })();
+
+    return mmIndexPromise;
 }
 
-function filterMMPool() {
-    return mmIndex.filter(char => {
-        if (mmFilters.height !== 'all') {
-            const h = char.heightNum;
-            if (h === 0) return false;
-            if (mmFilters.height === 'short' && h >= 150) return false;
-            if (mmFilters.height === 'medium' && (h < 150 || h >= 160)) return false;
-            if (mmFilters.height === 'tall' && h < 160) return false;
+// ===== 評分函式（核心）=====
+function scoreCharacterMM(char, filters) {
+    let score = 0;
+    let maxScore = 0;
+    const matched = [];
+    const missed = [];
+
+    // 身高（權重 20）
+    if (filters.height.length > 0) {
+        const W = 20;
+        maxScore += W;
+        const h = char.heightNum;
+        let hit = false;
+        for (const f of filters.height) {
+            if (f === 'short'  && h > 0 && h < 150)  { hit = true; break; }
+            if (f === 'medium' && h >= 150 && h < 160) { hit = true; break; }
+            if (f === 'tall'   && h >= 160)          { hit = true; break; }
         }
-        if (mmFilters.body !== 'all' && char.bodyCat !== mmFilters.body) return false;
-        if (mmFilters.age !== 'all' && char.ageCat !== mmFilters.age) return false;
-        if (mmFilters.personality !== 'all' &&
-            !char.personalityTags.includes(mmFilters.personality)) return false;
-        return true;
-    });
+        if (hit) { score += W; matched.push('身高'); }
+        else     { missed.push('身高'); }
+    }
+
+    // 體型（權重 30）
+    if (filters.body.length > 0) {
+        const W = 30;
+        maxScore += W;
+        if (filters.body.includes(char.bodyCat)) {
+            score += W;
+            matched.push(`體型 ${char.bodyCat}`);
+        } else {
+            missed.push(`體型 ${char.bodyCat}`);
+        }
+    }
+
+    // 年齡（權重 25）
+    if (filters.age.length > 0) {
+        const W = 25;
+        maxScore += W;
+        if (filters.age.includes(char.ageCat)) {
+            score += W;
+            matched.push('年齡');
+        } else {
+            missed.push('年齡');
+        }
+    }
+
+    // 性格（權重 15，按命中比例）
+    if (filters.personality.length > 0) {
+        const W = 15;
+        maxScore += W;
+        const hit = filters.personality.filter(p => char.personalityTags.includes(p));
+        if (hit.length > 0) {
+            score += W * (hit.length / filters.personality.length);
+            matched.push(`性格 ${hit.join('、')}`);
+        }
+        if (hit.length < filters.personality.length) {
+            missed.push('性格');
+        }
+    }
+
+    const percent = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+    return { score, percent, matched, missed };
+}
+
+function matchLevel(p) {
+    if (p >= 90) return 'perfect';
+    if (p >= 70) return 'great';
+    if (p >= 50) return 'good';
+    return 'ok';
+}
+
+// 有篩選 → 打分排序；無篩選 → 全部
+function getMMResults() {
+    const anyFilter = Object.values(mmFilters).some(arr => arr.length > 0);
+    if (!anyFilter) return [];
+
+    return mmIndex
+        .map(c => {
+            const r = scoreCharacterMM(c, mmFilters);
+            return { ...c, matchPercent: r.percent, matched: r.matched, missed: r.missed };
+        })
+        .filter(c => c.matchPercent > 0)
+        .sort((a, b) => b.matchPercent - a.matchPercent);
 }
 
 async function searchMatchmaker() {
     const btn = document.getElementById('mmSearch');
     const resultEl = document.getElementById('mmResult');
 
-    if (!mmIndex) await buildMMIndex();
+    // 如果 mmIndex 是空的（可能上次拉失敗），強制重建
+    if (!mmIndex || mmIndex.length === 0) {
+        resultEl.innerHTML = '<p class="mm-hint">載入角色資料中…（首次可能需 30 秒，請稍候）</p>';
+        await buildMMIndex(true);   // ← force 重拉
+    } else {
+        await buildMMIndex();
+    }
 
-    const pool = filterMMPool();
+    const anyFilter = Object.values(mmFilters).some(arr => arr.length > 0);
+    if (!anyFilter) {
+        resultEl.innerHTML = `
+            <div class="mm-empty">
+                <div class="mm-empty-title">請至少選擇一個條件</div>
+                <div class="mm-empty-desc">身高 / 體型 / 年齡 / 性格 任選一個即可</div>
+            </div>
+        `;
+        return;
+    }
+
+    const pool = getMMResults();
 
     if (pool.length === 0) {
         resultEl.innerHTML = `
@@ -1516,16 +1608,27 @@ async function searchMatchmaker() {
 function renderMMList(pool) {
     const resultEl = document.getElementById('mmResult');
 
+    const perfect = pool.filter(c => c.matchPercent >= 90).length;
     let html = '<div class="mm-result-grid">';
-    html += `<div class="mm-result-count">共 ${pool.length} 位符合條件</div>`;
+    html += `<div class="mm-result-count">共 ${pool.length} 位符合條件${perfect > 0 ? ` · ${perfect} 位完美契合 ✨` : ''}</div>`;
 
     pool.forEach(char => {
         const stats = [];
         if (char.height) stats.push(char.height);
-        if (char.body_type) stats.push(char.bodyCat);
+
+        const badge = `<div class="mm-match-badge mm-match-${matchLevel(char.matchPercent)}">${char.matchPercent}%</div>`;
+
+        let reasonsHtml = '';
+        if (char.matched.length > 0 || char.missed.length > 0) {
+            const hits = char.matched.map(r => `<span class="mm-reason-hit">✓ ${r}</span>`).join('');
+            const miss = char.missed.map(r => `<span class="mm-reason-miss">✗ ${r}</span>`).join('');
+            reasonsHtml = `<div class="mm-match-reasons">${hits}${miss}</div>`;
+        }
 
         html += `
-            <div class="mm-result-item" data-game="${char.game}" data-name="${char.name}">
+            <div class="mm-result-item ${char.matchPercent >= 90 ? 'perfect-match' : ''}"
+                 data-game="${char.game}" data-name="${char.name}">
+                ${badge}
                 <div class="mm-result-thumb"
                      style="background-image: url('picture/thumb-${char.code}-${char.index}.png')"></div>
                 <div class="mm-result-name">${char.name}</div>
@@ -1533,6 +1636,7 @@ function renderMMList(pool) {
                 <div class="mm-result-stats">
                     ${stats.map(s => `<span class="mm-result-stat">${s}</span>`).join('')}
                 </div>
+                ${reasonsHtml}
             </div>
         `;
     });
@@ -1558,15 +1662,41 @@ function renderMMList(pool) {
     });
 }
 
+// ===== 事件綁定（多選 toggle） =====
 document.addEventListener('DOMContentLoaded', () => {
     const bindGroup = (groupId, filterKey) => {
         const group = document.getElementById(groupId);
         if (!group) return;
+
         group.querySelectorAll('button').forEach(btn => {
             btn.addEventListener('click', () => {
-                group.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                mmFilters[filterKey] = btn.dataset.val;
+                const val = btn.dataset.val;
+
+                // 「不限」= 清空該組
+                if (val === 'all') {
+                    group.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    mmFilters[filterKey] = [];
+                    return;
+                }
+
+                // 取消「不限」
+                group.querySelector('button[data-val="all"]')?.classList.remove('active');
+
+                // toggle 當前按鈕
+                btn.classList.toggle('active');
+
+                // 收集所有 active 的值
+                const selected = [];
+                group.querySelectorAll('button.active').forEach(b => {
+                    if (b.dataset.val !== 'all') selected.push(b.dataset.val);
+                });
+                mmFilters[filterKey] = selected;
+
+                // 全空 → 恢復「不限」高亮
+                if (selected.length === 0) {
+                    group.querySelector('button[data-val="all"]')?.classList.add('active');
+                }
             });
         });
     };
@@ -1577,22 +1707,21 @@ document.addEventListener('DOMContentLoaded', () => {
     bindGroup('mmPersonality', 'personality');
 
     document.getElementById('mmSearch')?.addEventListener('click', searchMatchmaker);
+
+    // 重置按鈕
+    document.getElementById('mmReset')?.addEventListener('click', () => {
+        ['mmHeight', 'mmBody', 'mmAge', 'mmPersonality'].forEach(id => {
+            const group = document.getElementById(id);
+            if (!group) return;
+            group.querySelectorAll('button').forEach(b => {
+                b.classList.toggle('active', b.dataset.val === 'all');
+            });
+        });
+        mmFilters = { height: [], body: [], age: [], personality: [] };
+        document.getElementById('mmResult').innerHTML =
+            '<p class="mm-hint">設定條件後，點擊「尋找適合你的角色」</p>';
+    });
 });
-
-function extractNumber(str) {
-    if (!str) return null;
-    const m = String(str).match(/\d+/);
-    return m ? parseInt(m[0], 10) : null;
-}
-
-function extractAge(str) {
-    if (!str) return null;
-    const n = extractNumber(str);
-    if (n === null) return 'unknown';
-    if (n < 20) return 'teen';
-    if (n < 30) return 'young';
-    return 'old';
-}
 
 // ===== 回到頂部 =====
 function scrollToTop() {
@@ -1996,3 +2125,360 @@ function hasViewedRecently(name) {
     if (!ts) return false;
     return Date.now() - ts < VIEW_INTERVAL_MS;
 }
+
+// =========================================================
+// 我的最愛（收藏）
+// =========================================================
+const FAV_KEY = 'yuzu-favorites';
+let favCharsCache = {};   // {角色名: {game, code, index}}
+
+function loadFavorites() {
+    try {
+        return JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+    } catch { return []; }
+}
+
+function saveFavorites(list) {
+    localStorage.setItem(FAV_KEY, JSON.stringify(list));
+    updateFavCount();
+}
+
+function isFavorite(name) {
+    return loadFavorites().includes(name);
+}
+
+function toggleFavorite(name) {
+    const list = loadFavorites();
+    const idx = list.indexOf(name);
+    if (idx === -1) {
+        list.push(name);
+    } else {
+        list.splice(idx, 1);
+    }
+    saveFavorites(list);
+
+    // ⚠️ 新增：如果移除後總數比「已查看」還少，把已查看也降下來
+    if (list.length < favSeen) {
+        favSeen = list.length;
+        localStorage.setItem(FAV_SEEN_KEY, String(favSeen));
+    }
+    updateFavCount();
+    renderFavorites();
+    return idx === -1;  // true=新加入
+}
+
+// ===== 收藏紅點（未查看計數） =====
+const FAV_SEEN_KEY = 'yuzu-fav-seen';
+let favSeen = parseInt(localStorage.getItem(FAV_SEEN_KEY) || '0', 10);
+
+function updateFavCount() {
+    const btn = document.getElementById('favButton');
+    const countEl = document.getElementById('favCount');
+    if (!btn || !countEl) return;
+
+    const total = loadFavorites().length;
+    const unseen = total - favSeen;
+
+    if (unseen > 0) {
+        countEl.textContent = unseen > 99 ? '99+' : unseen;
+        btn.classList.add('has-favs');
+    } else {
+        btn.classList.remove('has-favs');
+    }
+}
+
+// 標記「已查看」（點收藏按鈕 or 滾到收藏區時呼叫）
+function markFavsSeen() {
+    const total = loadFavorites().length;
+    if (total === favSeen) return;   // 沒有變化就不做
+    favSeen = total;
+    localStorage.setItem(FAV_SEEN_KEY, String(favSeen));
+    updateFavCount();
+}
+
+// 在角色立繪上注入收藏按鈕
+function injectFavButton(char, code, index) {
+    const portrait = document.getElementById('charPortrait');
+    if (!portrait) return;
+
+    // 移除舊按鈕
+    portrait.querySelectorAll('.char-fav-btn').forEach(b => b.remove());
+
+    const active = isFavorite(char.name);
+
+    const btn = document.createElement('button');
+    btn.className = 'char-fav-btn' + (active ? ' active' : '');
+    btn.title = active ? '取消收藏' : '加入最愛';
+    btn.setAttribute('aria-label', btn.title);
+
+    btn.innerHTML = `
+        <svg class="fav-heart" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 21s-7.5-4.35-9.5-9.5C1 8 3 4 7 4c2.5 0 4 1.5 5 3 1-1.5 2.5-3 5-3 4 0 6 4 4.5 7.5C19.5 16.65 12 21 12 21z"/>
+        </svg>
+    `;
+
+    // ⚠️ 關鍵：index 是 0-based，存進 cache 時要轉成 1-based（跟圖片檔名一致）
+    const oneBasedIndex = index + 1;
+
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const added = toggleFavorite(char.name);
+        btn.classList.toggle('active', added);
+        btn.title = added ? '取消收藏' : '加入最愛';
+        btn.setAttribute('aria-label', btn.title);
+
+        favCharsCache[char.name] = { game: currentGame, code, index: oneBasedIndex };
+
+        if (added) {
+            showEasterToast('💖 已加入最愛', `${char.name} 已收藏`);
+        }
+    });
+
+    portrait.appendChild(btn);
+
+    // 順便把角色資訊存起來（收藏區要用）
+    favCharsCache[char.name] = { game: currentGame, code, index: oneBasedIndex };
+}
+
+// 渲染收藏區
+async function renderFavorites() {
+    const listEl = document.getElementById('favoritesList');
+    if (!listEl) return;
+
+    const favs = loadFavorites();
+
+    if (favs.length === 0) {
+        listEl.innerHTML = '<p class="favorites-empty">還沒有收藏任何角色，去角色介紹區點 ☆ 收藏吧！</p>';
+        return;
+    }
+
+    // 補齊缺少的角色資訊（可能從 localStorage 讀到的名字，cache 裡還沒）
+    for (const name of favs) {
+        if (!favCharsCache[name]) {
+            try {
+                const res = await fetch(`/api/characters/${encodeURIComponent(name)}`);
+                if (res.ok) {
+                    // 需要找到 game/code/index，用 API 反查
+                    for (const game of Object.keys(GAME_CODES)) {
+                        const gr = await fetch(`/api/games/${encodeURIComponent(game)}/characters`);
+                        if (!gr.ok) continue;
+                        const names = await gr.json();
+                        const i = names.indexOf(name);
+                        if (i !== -1) {
+                            favCharsCache[name] = {
+                                game,
+                                code: GAME_CODES[game],
+                                index: i + 1
+                            };
+                            break;
+                        }
+                    }
+                }
+            } catch (e) {}
+        }
+    }
+
+    let html = '';
+    for (const name of favs) {
+        const info = favCharsCache[name];
+        if (!info) continue;
+
+        html += `
+            <div class="favorite-item" data-game="${escapeHtml(info.game)}" data-name="${escapeHtml(name)}">
+                <button class="favorite-remove" title="取消收藏" data-name="${escapeHtml(name)}">✕</button>
+                <div class="favorite-thumb"
+                     style="background-image: url('picture/thumb-${info.code}-${info.index}.png')"></div>
+                <div class="favorite-name">${escapeHtml(name)}</div>
+                <div class="favorite-game">${escapeHtml(info.game)}</div>
+            </div>
+        `;
+    }
+    listEl.innerHTML = html;
+
+    // 點擊跳轉
+    listEl.querySelectorAll('.favorite-item').forEach(el => {
+        el.addEventListener('click', (e) => {
+            if (e.target.classList.contains('favorite-remove')) return;
+            goToCharacter(el.dataset.game, el.dataset.name);
+        });
+    });
+
+    // 移除收藏
+    listEl.querySelectorAll('.favorite-remove').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const name = btn.dataset.name;
+            toggleFavorite(name);
+        });
+    });
+}
+
+// 掛勾到現有的 selectCharacter（用包裝方式，不動你原本的代碼）
+const _originalSelectCharacter = selectCharacter;
+selectCharacter = function(chars, index, code, trackView = true) {
+    const result = _originalSelectCharacter.call(this, chars, index, code, trackView);
+    const char = chars[index];
+    if (char && char.name) {
+        injectFavButton(char, code, index);
+    }
+    return result;
+};
+
+// 頁面載入時初始化
+// 頁面載入時初始化
+document.addEventListener('DOMContentLoaded', () => {
+    updateFavCount();
+    renderFavorites();
+
+    // 點收藏按鈕 → 標記為已查看
+    document.getElementById('favButton')?.addEventListener('click', () => {
+        // 延遲一點，讓 scrollToSection 執行完再隱藏
+        setTimeout(markFavsSeen, 300);
+    });
+});
+
+// 滾到收藏區也標記為已讀
+const favSeenObserver = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting) {
+        markFavsSeen();
+    }
+}, { threshold: 0.3 });
+
+document.addEventListener('DOMContentLoaded', () => {
+    const sec = document.getElementById('favorites');
+    if (sec) favSeenObserver.observe(sec);
+});
+
+// =========================================================
+// 攻略進度追蹤
+// =========================================================
+const GUIDE_PROGRESS_KEY = 'yuzu-guide-progress';
+
+function loadGuideProgress() {
+    try {
+        return JSON.parse(localStorage.getItem(GUIDE_PROGRESS_KEY) || '{}');
+    } catch { return {}; }
+}
+
+function saveGuideProgress(data) {
+    localStorage.setItem(GUIDE_PROGRESS_KEY, JSON.stringify(data));
+}
+
+function getCharProgress(charName) {
+    const data = loadGuideProgress();
+    return data[charName] || [];
+}
+
+function setCharProgress(charName, arr) {
+    const data = loadGuideProgress();
+    if (arr.length === 0) {
+        delete data[charName];
+    } else {
+        data[charName] = arr;
+    }
+    saveGuideProgress(data);
+}
+
+function toggleGuideOption(charName, optionIndex, totalCount) {
+    const current = getCharProgress(charName);
+    const idx = current.indexOf(optionIndex);
+    if (idx === -1) {
+        current.push(optionIndex);
+    } else {
+        current.splice(idx, 1);
+    }
+    setCharProgress(charName, current);
+    return current.length;
+}
+
+// ===== 增強攻略選項：加 checkbox + 點擊切換 =====
+function enhanceGuideWithProgress(guide) {
+    const optionsEl = document.getElementById('guideOptions');
+    const progressEl = document.getElementById('guideProgress');
+    const fillEl = document.getElementById('guideProgressFill');
+    const textEl = document.getElementById('guideProgressText');
+    const resetBtn = document.getElementById('guideResetBtn');
+
+    if (!optionsEl || !guide) return;
+
+    const charName = guide.character_name;
+    const items = optionsEl.querySelectorAll('.guide-option-item');
+
+    // 「普通結局」這類沒有選項的，隱藏進度條
+    if (items.length === 0) {
+        if (progressEl) progressEl.style.display = 'none';
+        return;
+    }
+    if (progressEl) progressEl.style.display = 'flex';
+
+    // 取得進度
+    const progress = getCharProgress(charName);
+    const total = items.length;
+
+    // 為每個選項加 checkbox + 點擊
+    items.forEach((item, i) => {
+        const oneBasedIndex = i + 1;
+
+        // 加 checkbox 圈圈
+        if (!item.querySelector('.guide-option-check')) {
+            const check = document.createElement('span');
+            check.className = 'guide-option-check';
+            check.textContent = '✓';
+            item.appendChild(check);
+        }
+
+        // 設定初始完成狀態
+        item.classList.toggle('done', progress.includes(oneBasedIndex));
+
+        // 綁定點擊（先移除舊的，避免重複）
+        item.onclick = null;
+        item.addEventListener('click', () => {
+            const count = toggleGuideOption(charName, oneBasedIndex, total);
+            item.classList.toggle('done');
+            updateProgressUI(count, total, fillEl, textEl);
+        });
+    });
+
+    // 更新進度條
+    updateProgressUI(progress.length, total, fillEl, textEl);
+
+    // 重置按鈕
+    if (resetBtn) {
+        resetBtn.onclick = null;
+        resetBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!confirm(`確定要重置「${charName}」的攻略進度嗎？`)) return;
+            setCharProgress(charName, []);
+            items.forEach(it => it.classList.remove('done'));
+            updateProgressUI(0, total, fillEl, textEl);
+        });
+    }
+}
+
+function updateProgressUI(done, total, fillEl, textEl) {
+    if (!fillEl || !textEl) return;
+    const pct = total > 0 ? (done / total) * 100 : 0;
+    fillEl.style.width = pct + '%';
+
+    if (done === total && total > 0) {
+        fillEl.classList.add('done');
+        textEl.classList.add('done');
+        textEl.textContent = `🎉 ${done} / ${total}`;
+    } else {
+        fillEl.classList.remove('done');
+        textEl.classList.remove('done');
+        textEl.textContent = `${done} / ${total}`;
+    }
+}
+
+// ===== 掛勾到 selectGuide：每次切換角色時重建進度 =====
+const _originalSelectGuideForProgress = selectGuide;
+selectGuide = function(guides, index, code, map) {
+    const result = _originalSelectGuideForProgress.call(this, guides, index, code, map);
+    const guide = guides[index];
+    if (guide) {
+        // 等 DOM 更新完
+        setTimeout(() => enhanceGuideWithProgress(guide), 0);
+    }
+    return result;
+};
