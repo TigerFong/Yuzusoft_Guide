@@ -478,7 +478,6 @@ function selectCharacter(chars, index, code, trackView = true) {
             })
             .catch(() => {});
     }
-
     cvEl.textContent = char.cv ? 'CV：' + char.cv : '';
 
     // 資料列（依 data.py 欄位）
