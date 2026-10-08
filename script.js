@@ -1388,14 +1388,33 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('homeDesc')?.addEventListener('click', skipTypewriter);
 });
 
+// ===== 工具函式（命運邂逅評分需要） =====
+function extractNumber(str) {
+    if (!str) return null;
+    const m = String(str).match(/\d+/);
+    return m ? parseInt(m[0], 10) : null;
+}
+
+function extractAge(str) {
+    if (!str) return null;
+    const n = extractNumber(str);
+    if (n === null) return 'unknown';
+    if (n < 20) return 'teen';
+    if (n < 30) return 'young';
+    return 'old';
+}
+
 // ===== 命運邂逅（升級版：多選 + 評分排序） =====
 let mmIndex = null;
+let mmIndexPromise = null;   // ← 加這行
 let mmFilters = {
     height: [],
     body: [],
     age: [],
     personality: []
 };
+// 匹配度門檻（0 / 50 / 70 / 90）
+let mmThreshold = 0;
 
 // 體型歸類（保持不變）
 function classifyBody(str) {
@@ -1554,7 +1573,7 @@ function getMMResults() {
             const r = scoreCharacterMM(c, mmFilters);
             return { ...c, matchPercent: r.percent, matched: r.matched, missed: r.missed };
         })
-        .filter(c => c.matchPercent > 0)
+        .filter(c => c.matchPercent > 0 && c.matchPercent >= mmThreshold)   // ← 加門檻過濾
         .sort((a, b) => b.matchPercent - a.matchPercent);
 }
 
@@ -1564,8 +1583,13 @@ async function searchMatchmaker() {
 
     // 如果 mmIndex 是空的（可能上次拉失敗），強制重建
     if (!mmIndex || mmIndex.length === 0) {
-        resultEl.innerHTML = '<p class="mm-hint">載入角色資料中…（首次可能需 30 秒，請稍候）</p>';
-        await buildMMIndex(true);   // ← force 重拉
+        resultEl.innerHTML = `
+            <div class="mm-loading">
+                <div class="mm-loading-magic"><div class="mm-loading-core"></div></div>
+                <div class="mm-loading-text">載入角色資料中…</div>
+            </div>
+        `;
+        await buildMMIndex(true);
     } else {
         await buildMMIndex();
     }
@@ -1584,10 +1608,13 @@ async function searchMatchmaker() {
     const pool = getMMResults();
 
     if (pool.length === 0) {
+        const hint = mmThreshold > 0
+            ? `沒有 ${mmThreshold}% 以上匹配的角色，試著降低門檻或放寬條件吧`
+            : '試著放寬一些條件吧';
         resultEl.innerHTML = `
             <div class="mm-empty">
                 <div class="mm-empty-title">沒有符合條件的角色</div>
-                <div class="mm-empty-desc">試著放寬一些條件吧</div>
+                <div class="mm-empty-desc">${hint}</div>
             </div>
         `;
         return;
@@ -1595,14 +1622,79 @@ async function searchMatchmaker() {
 
     btn.classList.add('rolling');
     btn.disabled = true;
-    resultEl.innerHTML = '<p class="mm-hint">搜尋中…</p>';
 
-    await new Promise(r => setTimeout(r, 300));
+    // ⭐ 魔法陣 loading 動畫
+    resultEl.innerHTML = `
+        <div class="mm-loading">
+            <div class="mm-loading-magic"><div class="mm-loading-core"></div></div>
+            <div class="mm-loading-text">占卜中…</div>
+        </div>
+    `;
+
+    await new Promise(r => setTimeout(r, 500));
 
     renderMMList(pool);
 
     btn.classList.remove('rolling');
     btn.disabled = false;
+
+    // ⭐ 如果有完美匹配（90%+），灑金光
+    const hasPerfect = pool.some(c => c.matchPercent >= 90);
+    if (hasPerfect) {
+        mmSparkleBurst();
+    }
+}
+
+// ===== 命運邂逅：跳轉過渡特效 =====
+function showMMTransition(char, onComplete) {
+    // 移除舊的
+    document.querySelectorAll('.mm-transition').forEach(el => el.remove());
+
+    // 建立遮罩
+    const overlay = document.createElement('div');
+    overlay.className = 'mm-transition';
+
+    const thumb = `picture/thumb-${char.code}-${char.index}.png`;
+
+    overlay.innerHTML = `
+        <div class="mm-transition-bg"></div>
+        <div class="mm-transition-magic">
+            <div class="mm-transition-label">命 運 指 引</div>
+            <div class="mm-transition-avatar" style="background-image: url('${thumb}')"></div>
+            <div class="mm-transition-name">${escapeHtml(char.name)}</div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // 環繞星光（12 顆）
+    const magic = overlay.querySelector('.mm-transition-magic');
+    for (let i = 0; i < 12; i++) {
+        const spark = document.createElement('div');
+        spark.className = 'mm-transition-spark';
+        const angle = (Math.PI * 2 * i) / 12;
+        const radius = 48;    // 百分比
+        spark.style.left = (50 + Math.cos(angle) * radius) + '%';
+        spark.style.top  = (50 + Math.sin(angle) * radius) + '%';
+        spark.style.animationDelay = (i * 0.15) + 's';
+        magic.appendChild(spark);
+    }
+
+    // 進場
+    requestAnimationFrame(() => {
+        overlay.classList.add('show');
+    });
+
+    // 2.2 秒後開始淡出，並在過程中切換頁面
+    setTimeout(() => {
+        overlay.classList.add('leaving');
+
+        // 淡出同時，後台已經跳好（沒有視覺跳動）
+        if (typeof onComplete === 'function') onComplete();
+
+        // 淡出後移除
+        setTimeout(() => overlay.remove(), 500);
+    }, 2200);
 }
 
 function renderMMList(pool) {
@@ -1612,7 +1704,7 @@ function renderMMList(pool) {
     let html = '<div class="mm-result-grid">';
     html += `<div class="mm-result-count">共 ${pool.length} 位符合條件${perfect > 0 ? ` · ${perfect} 位完美契合 ✨` : ''}</div>`;
 
-    pool.forEach(char => {
+    pool.forEach((char, index) => {
         const stats = [];
         if (char.height) stats.push(char.height);
 
@@ -1625,8 +1717,12 @@ function renderMMList(pool) {
             reasonsHtml = `<div class="mm-match-reasons">${hits}${miss}</div>`;
         }
 
+        // ⭐ 交錯動畫：每張卡片延遲 60ms（最多累積到 600ms）
+        const delay = Math.min(index * 60, 600);
+
         html += `
             <div class="mm-result-item ${char.matchPercent >= 90 ? 'perfect-match' : ''}"
+                 style="animation-delay: ${delay}ms"
                  data-game="${char.game}" data-name="${char.name}">
                 ${badge}
                 <div class="mm-result-thumb"
@@ -1643,7 +1739,56 @@ function renderMMList(pool) {
 
     html += `
         <div class="mm-random-row">
-            <button class="mm-btn-random" id="mmRandomBtn">🎲 從這 ${pool.length} 位隨機選一個</button>
+            <button class="mm-btn-random" id="mmRandomBtn">
+                <svg class="orb-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <defs>
+                        <radialGradient id="orbGlow" cx="0.35" cy="0.3" r="0.85">
+                            <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+                            <stop offset="0.3" stop-color="#e9d5ff" stop-opacity="0.85"/>
+                            <stop offset="0.65" stop-color="#a78bfa" stop-opacity="0.8"/>
+                            <stop offset="1" stop-color="#6d28d9" stop-opacity="0.95"/>
+                        </radialGradient>
+                        <linearGradient id="orbBaseGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0" stop-color="#ffe8a3"/>
+                            <stop offset="0.5" stop-color="#d4af37"/>
+                            <stop offset="1" stop-color="#8b6914"/>
+                        </linearGradient>
+                        <linearGradient id="orbRimGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0" stop-color="#fffbe6"/>
+                            <stop offset="0.5" stop-color="#e8b43a"/>
+                            <stop offset="1" stop-color="#8b6914"/>
+                        </linearGradient>
+                        <radialGradient id="orbAura" cx="0.5" cy="0.5" r="0.5">
+                            <stop offset="0" stop-color="#c4b5fd" stop-opacity="0.7"/>
+                            <stop offset="1" stop-color="#c4b5fd" stop-opacity="0"/>
+                        </radialGradient>
+                    </defs>
+
+                    <!-- 外光暈 -->
+                    <circle cx="12" cy="10" r="9" fill="url(#orbAura)" class="orb-aura"/>
+
+                    <!-- 球體 -->
+                    <circle cx="12" cy="10" r="7" fill="url(#orbGlow)"
+                            stroke="url(#orbRimGrad)" stroke-width="0.7"/>
+
+                    <!-- 內部星光 -->
+                    <circle cx="9"    cy="7"    r="0.8"  fill="#fff" class="orb-star" style="animation-delay:0s"/>
+                    <circle cx="14.5" cy="8"    r="0.55" fill="#fff" class="orb-star" style="animation-delay:0.3s"/>
+                    <circle cx="11"   cy="12"   r="0.5"  fill="#fff" class="orb-star" style="animation-delay:0.6s"/>
+                    <circle cx="15"   cy="11.5" r="0.45" fill="#fff" class="orb-star" style="animation-delay:0.9s"/>
+                    <circle cx="8.5"  cy="11"   r="0.4"  fill="#fff" class="orb-star" style="animation-delay:1.2s"/>
+                    <circle cx="12.5" cy="9.5"  r="0.35" fill="#fff" class="orb-star" style="animation-delay:0.45s"/>
+
+                    <!-- 玻璃高光 -->
+                    <ellipse cx="9"   cy="6.5" rx="2.5" ry="1.3" fill="#fff" opacity="0.55" transform="rotate(-30 9 6.5)"/>
+                    <ellipse cx="8.5" cy="7.5" rx="0.8" ry="0.4" fill="#fff" opacity="0.75" transform="rotate(-30 8.5 7.5)"/>
+
+                    <!-- 底座 -->
+                    <path d="M 7.5 17.5 Q 12 16.5 16.5 17.5 L 15.5 20 Q 12 20.8 8.5 20 Z"
+                        fill="url(#orbBaseGrad)" stroke="#8b6914" stroke-width="0.6"/>
+                </svg>
+                <span>從這 ${pool.length} 位隨機選一個</span>
+            </button>
         </div>
     `;
 
@@ -1656,9 +1801,19 @@ function renderMMList(pool) {
         });
     });
 
-    document.getElementById('mmRandomBtn').addEventListener('click', () => {
-        const pick = pool[Math.floor(Math.random() * pool.length)];
-        goToCharacter(pick.game, pick.name);
+    document.getElementById('mmRandomBtn')?.addEventListener('click', (e) => {
+        const btn = e.currentTarget;
+        btn.classList.add('spinning');
+
+        setTimeout(() => {
+            btn.classList.remove('spinning');
+            const pick = pool[Math.floor(Math.random() * pool.length)];
+
+            // ⭐ 先播跳轉特效，在特效中後段才真正跳頁
+            showMMTransition(pick, () => {
+                goToCharacter(pick.game, pick.name);
+            });
+        }, 700);
     });
 }
 
@@ -1708,6 +1863,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('mmSearch')?.addEventListener('click', searchMatchmaker);
 
+        // 匹配強度門檻
+    const thresholdGroup = document.getElementById('mmThreshold');
+    if (thresholdGroup) {
+        thresholdGroup.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                thresholdGroup.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                mmThreshold = parseInt(btn.dataset.val, 10) || 0;
+            });
+        });
+    }
+
     // 重置按鈕
     document.getElementById('mmReset')?.addEventListener('click', () => {
         ['mmHeight', 'mmBody', 'mmAge', 'mmPersonality'].forEach(id => {
@@ -1718,6 +1885,16 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         mmFilters = { height: [], body: [], age: [], personality: [] };
+        mmThreshold = 0;
+
+        // 門檻按鈕也回到「全部」
+        const thresholdGroup = document.getElementById('mmThreshold');
+        if (thresholdGroup) {
+            thresholdGroup.querySelectorAll('button').forEach(b => {
+                b.classList.toggle('active', b.dataset.val === '0');
+            });
+        }
+
         document.getElementById('mmResult').innerHTML =
             '<p class="mm-hint">設定條件後，點擊「尋找適合你的角色」</p>';
     });

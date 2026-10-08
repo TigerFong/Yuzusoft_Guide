@@ -2553,6 +2553,662 @@ body.has-game .menu-list a.clear-game {
                 0 6px 18px rgba(184, 26, 26, 0.2);
 }
 
+/* ===== 命運邂逅：匹配強度過濾 ===== */
+.mm-threshold {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px, 1.5vw, 16px);
+    margin-top: clamp(14px, 2vh, 20px);
+    padding-top: clamp(12px, 1.8vh, 18px);
+    border-top: 2px dashed rgba(180, 140, 80, 0.35);
+    flex-wrap: wrap;
+}
+
+.mm-threshold-label {
+    flex-shrink: 0;
+    font-size: clamp(12px, 1.1vw, 14px);
+    font-weight: 700;
+    color: #8b1010;
+    letter-spacing: 0.08em;
+}
+
+.mm-threshold-btns {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+.mm-threshold-btns button {
+    padding: clamp(5px, 0.8vh, 7px) clamp(12px, 1.4vw, 16px);
+    font-size: clamp(11px, 1vw, 13px);
+    font-weight: 600;
+    font-family: inherit;
+    color: #8b1010;
+    background: rgba(255, 240, 220, 0.9);
+    border: 1.5px solid rgba(180, 140, 80, 0.4);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.mm-threshold-btns button:hover {
+    background: #fff5e0;
+    transform: translateY(-1px);
+}
+
+.mm-threshold-btns button.active {
+    color: #ffd700;
+    background: linear-gradient(180deg, #e03818 0%, #b81a1a 100%);
+    border-color: #8b1010;
+    box-shadow: inset 0 0 0 1px #d4af37;
+}
+
+/* =========================================================
+   命運邂逅：視覺特效
+   ========================================================= */
+
+/* 1. 條件行 hover 光暈 */
+.mm-row {
+    position: relative;
+    transition: background 0.3s ease;
+}
+.mm-row::before {
+    content: "";
+    position: absolute;
+    left: -16px;
+    right: -16px;
+    top: -4px;
+    bottom: -4px;
+    border-radius: 10px;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(212, 175, 55, 0.10) 50%,
+        transparent 100%);
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    pointer-events: none;
+    z-index: 0;
+}
+.mm-row:hover::before {
+    opacity: 1;
+}
+.mm-row > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* 2. 按鈕點擊漣漪 */
+.mm-btns button {
+    position: relative;
+    overflow: hidden;
+}
+.mm-btns button::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle,
+        rgba(255, 215, 0, 0.6) 0%,
+        rgba(255, 215, 0, 0) 70%);
+    transform: translate(-50%, -50%);
+    transition: width 0.5s ease, height 0.5s ease, opacity 0.6s ease;
+    pointer-events: none;
+    opacity: 0;
+}
+.mm-btns button:active::after {
+    width: 220px;
+    height: 220px;
+    opacity: 1;
+    transition: width 0s, height 0s, opacity 0s;
+}
+.mm-btns button:not(:active)::after {
+    width: 220px;
+    height: 220px;
+    opacity: 0;
+    transition: width 0s, height 0s, opacity 0.6s ease;
+}
+
+/* 3. 魔法陣 loading 動畫 */
+.mm-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    padding: 30px 20px;
+}
+.mm-loading-magic {
+    position: relative;
+    width: 72px;
+    height: 72px;
+}
+.mm-loading-magic::before,
+.mm-loading-magic::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    border: 3px solid transparent;
+}
+.mm-loading-magic::before {
+    inset: 0;
+    border-top-color: #d4af37;
+    border-right-color: #b8860b;
+    animation: mmMagicSpin 1.1s linear infinite;
+    filter: drop-shadow(0 0 6px rgba(212, 175, 55, 0.6));
+}
+.mm-loading-magic::after {
+    inset: 12px;
+    border-top-color: #e03818;
+    border-right-color: #b81a1a;
+    animation: mmMagicSpin 0.75s linear infinite reverse;
+    filter: drop-shadow(0 0 6px rgba(184, 26, 26, 0.5));
+}
+.mm-loading-magic .mm-loading-core {
+    position: absolute;
+    inset: 24px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #ffd700 0%, #b8860b 70%);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.7);
+    animation: mmCorePulse 1.2s ease-in-out infinite;
+}
+@keyframes mmMagicSpin {
+    to { transform: rotate(360deg); }
+}
+@keyframes mmCorePulse {
+    0%, 100% { transform: scale(0.85); opacity: 0.7; }
+    50%      { transform: scale(1.15); opacity: 1; }
+}
+.mm-loading-text {
+    font-size: clamp(12px, 1.1vw, 14px);
+    color: #b8860b;
+    letter-spacing: 0.2em;
+    font-weight: 700;
+    animation: mmLoadingPulse 1.5s ease-in-out infinite;
+}
+@keyframes mmLoadingPulse {
+    0%, 100% { opacity: 0.5; }
+    50%      { opacity: 1; }
+}
+
+/* 4. 結果卡片交錯淡入（animation-delay 由 JS 設定） */
+.mm-result-item {
+    opacity: 0;
+    transform: translateY(24px) scale(0.9);
+    animation: mmItemIn 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes mmItemIn {
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* 5. 匹配度徽章呼吸光（僅 90%+） */
+.mm-match-perfect {
+    animation: mmBadgeGlow 2s ease-in-out infinite alternate;
+}
+@keyframes mmBadgeGlow {
+    from {
+        box-shadow:
+            0 2px 6px rgba(0, 0, 0, 0.2),
+            0 0 8px rgba(255, 215, 0, 0.35);
+    }
+    to {
+        box-shadow:
+            0 2px 6px rgba(0, 0, 0, 0.2),
+            0 0 20px rgba(255, 215, 0, 0.95),
+            0 0 30px rgba(255, 215, 0, 0.5);
+    }
+}
+
+/* 6. 完美匹配卡片金光外框 */
+.mm-result-item.perfect-match {
+    position: relative;
+    border-color: #d4af37;
+    box-shadow:
+        0 0 0 2px rgba(212, 175, 55, 0.35),
+        0 6px 18px rgba(184, 26, 26, 0.2);
+    transition: box-shadow 0.3s ease;
+}
+.mm-result-item.perfect-match::after {
+    content: "✨";
+    position: absolute;
+    top: -10px;
+    right: -8px;
+    font-size: 16px;
+    filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.9));
+    animation: mmStarTwinkle 1.8s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 4;
+}
+@keyframes mmStarTwinkle {
+    0%, 100% { transform: scale(1) rotate(0deg);   opacity: 0.7; }
+    50%      { transform: scale(1.4) rotate(20deg); opacity: 1; }
+}
+
+/* 7. 金光粒子（JS 生成） */
+.mm-sparkle {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    font-size: 20px;
+    user-select: none;
+    will-change: transform, opacity;
+    animation: mmSparkleFly 1.6s ease-out forwards;
+    filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.8));
+}
+@keyframes mmSparkleFly {
+    0% {
+        transform: translate(-50%, -50%) scale(0.2) rotate(0deg);
+        opacity: 1;
+    }
+    60% {
+        opacity: 1;
+    }
+    100% {
+        transform:
+            translate(
+                calc(-50% + var(--dx)),
+                calc(-50% + var(--dy))
+            )
+            scale(1.1)
+            rotate(540deg);
+        opacity: 0;
+    }
+}
+
+/* 8. 搜尋按鈕：光環脈衝 */
+.mm-roll {
+    position: relative;
+}
+.mm-roll::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: 999px;
+    border: 2px solid rgba(255, 215, 0, 0.6);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+.mm-roll:hover::after {
+    opacity: 1;
+    animation: mmRollPulse 1.5s ease-in-out infinite;
+}
+@keyframes mmRollPulse {
+    0%   { transform: scale(1);    opacity: 0.8; }
+    100% { transform: scale(1.15); opacity: 0; }
+}
+
+/* ===== 命運邂逅：隨機按鈕 ===== */
+.mm-btn-random {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: clamp(10px, 1.4vh, 13px) clamp(22px, 2.8vw, 34px);
+    font-size: clamp(13px, 1.2vw, 15px);
+    font-weight: 700;
+    font-family: inherit;
+    letter-spacing: 0.06em;
+    color: #ffd700;
+    background: linear-gradient(180deg, #e03818 0%, #b81a1a 100%);
+    border: 2px solid #8b1010;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow:
+        inset 0 0 0 1px #d4af37,
+        0 4px 14px rgba(184, 26, 26, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.mm-btn-random:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        inset 0 0 0 1px #d4af37,
+        0 8px 22px rgba(184, 26, 26, 0.5);
+}
+
+.mm-btn-random:active {
+    transform: translateY(0);
+}
+
+@keyframes diceSpin720 {
+    0%   { transform: rotate(0deg) scale(1); }
+    40%  { transform: rotate(400deg) scale(1.3); }
+    70%  { transform: rotate(620deg) scale(1.1); }
+    100% { transform: rotate(720deg) scale(1); }
+}
+
+/* 光掃過效果（hover 時） */
+.mm-btn-random::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255, 215, 0, 0.35) 50%,
+        transparent 100%);
+    transform: skewX(-20deg);
+    transition: left 0.6s ease;
+    pointer-events: none;
+}
+
+.mm-btn-random:hover::before {
+    left: 120%;
+}
+
+/* ===== 命運邂逅：水晶球隨機按鈕 ===== */
+.mm-btn-random {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: clamp(10px, 1.4vh, 13px) clamp(22px, 2.8vw, 34px);
+    font-size: clamp(13px, 1.2vw, 15px);
+    font-weight: 700;
+    font-family: inherit;
+    letter-spacing: 0.06em;
+    color: #ffd700;
+    background: linear-gradient(180deg, #e03818 0%, #b81a1a 100%);
+    border: 2px solid #8b1010;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow:
+        inset 0 0 0 1px #d4af37,
+        0 4px 14px rgba(184, 26, 26, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.mm-btn-random:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        inset 0 0 0 1px #d4af37,
+        0 8px 22px rgba(184, 26, 26, 0.5);
+}
+
+.mm-btn-random:active {
+    transform: translateY(0);
+}
+
+/* 水晶球本體 */
+.orb-icon {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    filter: drop-shadow(0 2px 5px rgba(109, 40, 217, 0.45));
+}
+
+.mm-btn-random:hover .orb-icon {
+    transform: translateY(-2px) scale(1.08);
+}
+
+/* 內部星光閃爍 */
+.orb-star {
+    animation: orbTwinkle 1.8s ease-in-out infinite;
+}
+
+@keyframes orbTwinkle {
+    0%, 100% { opacity: 0.4; }
+    50%      { opacity: 1; }
+}
+
+/* 外光暈脈衝 */
+.orb-aura {
+    animation: orbAuraPulse 2.5s ease-in-out infinite;
+    transform-origin: 12px 10px;
+}
+
+@keyframes orbAuraPulse {
+    0%, 100% { opacity: 0.5; transform: scale(0.95); }
+    50%      { opacity: 0.9; transform: scale(1.1); }
+}
+
+/* 點擊時：球體晃動（占卜感） */
+.mm-btn-random.spinning .orb-icon {
+    animation: orbShake 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes orbShake {
+    0%   { transform: rotate(0deg)   scale(1); }
+    15%  { transform: rotate(-12deg) scale(1.15); }
+    30%  { transform: rotate(10deg)  scale(1.2); }
+    45%  { transform: rotate(-8deg)  scale(1.15); }
+    60%  { transform: rotate(6deg)   scale(1.1); }
+    80%  { transform: rotate(-3deg)  scale(1.05); }
+    100% { transform: rotate(0deg)   scale(1); }
+}
+
+/* 點擊時：光暈爆開 */
+.mm-btn-random.spinning .orb-aura {
+    animation: orbBurst 0.7s ease-out;
+}
+
+@keyframes orbBurst {
+    0%   { opacity: 0.9; transform: scale(1); }
+    50%  { opacity: 1;   transform: scale(1.5); }
+    100% { opacity: 0.5; transform: scale(0.95); }
+}
+
+/* 按鈕光掃過 */
+.mm-btn-random::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255, 215, 0, 0.35) 50%,
+        transparent 100%);
+    transform: skewX(-20deg);
+    transition: left 0.6s ease;
+    pointer-events: none;
+}
+
+.mm-btn-random:hover::before {
+    left: 120%;
+}
+
+/* ===== 命運邂逅：跳轉過渡特效 ===== */
+.mm-transition {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.35s ease, visibility 0.35s ease;
+}
+
+.mm-transition.show {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: all;
+}
+
+/* 背景：深紫金漸層 */
+.mm-transition-bg {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 50% 45%,
+            rgba(109, 40, 217, 0.85) 0%,
+            rgba(76, 29, 149, 0.95) 40%,
+            rgba(26, 14, 5, 0.98) 100%);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+/* 中央魔法陣 */
+.mm-transition-magic {
+    position: relative;
+    width: min(320px, 60vw);
+    height: min(320px, 60vw);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: mmTransMagicIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes mmTransMagicIn {
+    from { transform: scale(0.3) rotate(-180deg); opacity: 0; }
+    to   { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+/* 外環（金色） */
+.mm-transition-magic::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px dashed rgba(212, 175, 55, 0.75);
+    animation: mmTransSpinSlow 8s linear infinite;
+    box-shadow:
+        0 0 30px rgba(212, 175, 55, 0.5),
+        inset 0 0 30px rgba(212, 175, 55, 0.25);
+}
+
+/* 內環（紫光） */
+.mm-transition-magic::after {
+    content: "";
+    position: absolute;
+    inset: 18%;
+    border-radius: 50%;
+    border: 2px solid rgba(167, 139, 250, 0.7);
+    border-top-color: rgba(255, 255, 255, 0.9);
+    border-right-color: rgba(212, 175, 55, 0.9);
+    animation: mmTransSpinFast 3s linear infinite reverse;
+    filter: drop-shadow(0 0 10px rgba(167, 139, 250, 0.8));
+}
+
+@keyframes mmTransSpinSlow {
+    to { transform: rotate(360deg); }
+}
+@keyframes mmTransSpinFast {
+    to { transform: rotate(360deg); }
+}
+
+/* 中央角色頭像 */
+.mm-transition-avatar {
+    width: 46%;
+    height: 46%;
+    border-radius: 50%;
+    background: #fff8ec center/cover no-repeat;
+    border: 3px solid #d4af37;
+    box-shadow:
+        0 0 0 6px rgba(167, 139, 250, 0.35),
+        0 0 40px rgba(255, 215, 0, 0.7),
+        inset 0 0 20px rgba(0, 0, 0, 0.15);
+    animation: mmTransAvatarPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+    z-index: 2;
+}
+
+@keyframes mmTransAvatarPop {
+    0%   { transform: scale(0.2); opacity: 0; filter: blur(8px); }
+    60%  { transform: scale(1.1); opacity: 1; filter: blur(0); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* 角色名字 */
+.mm-transition-name {
+    position: absolute;
+    bottom: -18%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: clamp(20px, 2.5vw, 28px);
+    font-weight: 800;
+    color: #ffd700;
+    letter-spacing: 0.15em;
+    text-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.6),
+        0 0 20px rgba(255, 215, 0, 0.8);
+    white-space: nowrap;
+    animation: mmTransNameIn 0.5s ease 0.5s both;
+    z-index: 3;
+}
+
+@keyframes mmTransNameIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(14px); letter-spacing: 0.5em; }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); letter-spacing: 0.15em; }
+}
+
+/* 上方「命運指引」小標 */
+.mm-transition-label {
+    position: absolute;
+    top: -18%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: clamp(11px, 1.2vw, 14px);
+    font-weight: 700;
+    color: rgba(255, 215, 0, 0.85);
+    letter-spacing: 0.35em;
+    text-shadow: 0 0 12px rgba(255, 215, 0, 0.6);
+    animation: mmTransLabelIn 0.5s ease 0.4s both;
+    z-index: 3;
+}
+
+@keyframes mmTransLabelIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* 星光粒子（環繞） */
+.mm-transition-spark {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff 0%, #ffd700 40%, transparent 70%);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.9);
+    animation: mmTransSparkFloat 2.5s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes mmTransSparkFloat {
+    0%, 100% { transform: scale(0.6); opacity: 0.4; }
+    50%      { transform: scale(1.4); opacity: 1; }
+}
+
+/* 淡出（跳到目標前） */
+.mm-transition.leaving {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.4s ease, visibility 0.4s;
+}
+
+/* 減少動態偏好尊重 */
+@media (prefers-reduced-motion: reduce) {
+    .mm-result-item,
+    .mm-loading-magic::before,
+    .mm-loading-magic::after,
+    .mm-loading-magic .mm-loading-core,
+    .mm-match-perfect,
+    .mm-result-item.perfect-match::after,
+    .mm-roll:hover::after {
+        animation: none !important;
+    }
+    .mm-result-item {
+        opacity: 1;
+        transform: none;
+    }
+}
+
 @keyframes completeFadeIn {
     from { opacity: 0; transform: scale(0.9); }
     to   { opacity: 1; transform: scale(1); }
