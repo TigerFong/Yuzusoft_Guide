@@ -113,6 +113,9 @@ def api_ranking():
     # 按浏览量降序
     items.sort(key=lambda x: -x[1])
 
+    # 只取前 5 名
+    items = items[:5]
+
     for rank, (name, count) in enumerate(items, start=1):
         char = manager.get_character(name)
         if not char:
