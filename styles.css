@@ -3879,6 +3879,327 @@ body.has-game .menu-list a.clear-game {
     }
 }
 
+/* =========================================================
+   外觀升級：1 + 2 + 3 + 6
+   ========================================================= */
+
+/* =========================================================
+   1. 章節標題裝飾
+   ========================================================= */
+.section-header {
+    position: relative;
+    overflow: visible;
+    border: 3px solid #8b1010;
+    background:
+        /* 頂部微光 */
+        linear-gradient(180deg,
+            rgba(255, 255, 255, 0.12) 0%,
+            transparent 40%),
+        /* 主體漸層 */
+        linear-gradient(90deg,
+            #a81616 0%,
+            #e03818 50%,
+            #a81616 100%);
+    box-shadow:
+        inset 0 0 0 2px #d4af37,
+        inset 0 2px 0 rgba(255, 255, 255, 0.15),
+        0 8px 24px rgba(0, 0, 0, 0.4),
+        0 0 40px rgba(212, 175, 55, 0.15);
+}
+
+/* 頂部中央的金色菱形 */
+.section-header::before {
+    content: "";
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 16px;
+    height: 16px;
+    background: linear-gradient(135deg, #ffe08a 0%, #d4af37 50%, #8b6914 100%);
+    border: 2px solid #8b1010;
+    box-shadow:
+        0 0 10px rgba(255, 224, 138, 0.7),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    z-index: 2;
+}
+
+/* 底部中央的金色菱形（較小） */
+.section-header::after {
+    content: "";
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 10px;
+    height: 10px;
+    background: linear-gradient(135deg, #ffe08a 0%, #d4af37 100%);
+    border: 1.5px solid #8b1010;
+    box-shadow: 0 0 6px rgba(255, 224, 138, 0.6);
+    z-index: 2;
+}
+
+/* 標題左右的金色裝飾線 */
+.section-title {
+    position: relative;
+    display: inline-block;
+    padding: 0 clamp(20px, 3vw, 36px);
+}
+
+.section-title::before,
+.section-title::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: clamp(30px, 4vw, 50px);
+    height: 2px;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        #d4af37 30%,
+        #ffe08a 50%,
+        #d4af37 70%,
+        transparent 100%);
+    box-shadow: 0 0 6px rgba(255, 215, 0, 0.6);
+    transform: translateY(-50%);
+}
+
+.section-title::before {
+    right: 100%;
+}
+
+.section-title::after {
+    left: 100%;
+}
+
+/* 副標題：金色光暈 */
+.section-sub {
+    position: relative;
+    text-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.6),
+        0 0 12px rgba(255, 215, 0, 0.5),
+        0 0 24px rgba(255, 215, 0, 0.3);
+    animation: sectionSubGlow 2.5s ease-in-out infinite alternate;
+}
+
+@keyframes sectionSubGlow {
+    from { text-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.6),
+        0 0 12px rgba(255, 215, 0, 0.4),
+        0 0 24px rgba(255, 215, 0, 0.2);
+    }
+    to { text-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.6),
+        0 0 16px rgba(255, 215, 0, 0.8),
+        0 0 32px rgba(255, 215, 0, 0.5);
+    }
+}
+
+/* =========================================================
+   2. 內容卡片加紋理（簡化版）
+   ========================================================= */
+.content-box {
+    position: relative;
+    background:
+        /* 紙質紋理（極淡斜線） */
+        repeating-linear-gradient(
+            45deg,
+            rgba(184, 140, 80, 0.018) 0px,
+            rgba(184, 140, 80, 0.018) 1px,
+            transparent 1px,
+            transparent 8px
+        ),
+        /* 米白漸層 */
+        linear-gradient(135deg,
+            rgba(255, 252, 247, 0.97) 0%,
+            rgba(255, 248, 235, 0.97) 100%);
+    border: 1.5px solid rgba(212, 175, 55, 0.55);
+    border-radius: 16px;
+    box-shadow:
+        /* 內側雙線框（金 + 米白） */
+        inset 0 0 0 1px rgba(255, 255, 255, 0.9),
+        inset 0 0 0 5px rgba(255, 252, 247, 0.5),
+        inset 0 0 0 6px rgba(212, 175, 55, 0.35),
+        /* 外陰影 */
+        0 12px 40px rgba(0, 0, 0, 0.28),
+        0 0 30px rgba(212, 175, 55, 0.12);
+}
+
+/* 其他角落用子元素的偽元素補上 */
+.story-box,
+.character-box,
+.guide-box,
+.matchmaker-box,
+.ranking-box,
+.favorites-box {
+    position: relative;
+}
+
+/* =========================================================
+   3. 首頁 Hero 區升級
+   ========================================================= */
+.section-hero {
+    position: relative;
+}
+
+/* Hero 卡片：加紋理 + 雙線金框 */
+.hero-desc {
+    position: relative;
+    background:
+        repeating-linear-gradient(
+            -45deg,
+            rgba(184, 140, 80, 0.018) 0px,
+            rgba(184, 140, 80, 0.018) 1px,
+            transparent 1px,
+            transparent 9px
+        ),
+        linear-gradient(135deg,
+            rgba(255, 253, 248, 0.98) 0%,
+            rgba(255, 245, 228, 0.98) 100%);
+    border: 2px solid rgba(212, 175, 55, 0.6);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.9),
+        inset 0 0 0 6px rgba(255, 252, 247, 0.5),
+        inset 0 0 0 7px rgba(212, 175, 55, 0.35),
+        0 16px 50px rgba(0, 0, 0, 0.32),
+        0 0 30px rgba(212, 175, 55, 0.18);
+}
+
+/* 簡介標籤升級 */
+.hero-desc::before {
+    content: "簡介";
+    background: linear-gradient(180deg, #e03818 0%, #b81a1a 50%, #8b1010 100%);
+    border: 2px solid #8b1010;
+    box-shadow:
+        inset 0 0 0 1px #d4af37,
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 4px 12px rgba(0, 0, 0, 0.35),
+        0 0 16px rgba(255, 215, 0, 0.4);
+    letter-spacing: 0.3em;
+    text-indent: 0.3em;
+}
+
+/* Hero 標題區 */
+.section-hero .section-header {
+    box-shadow:
+        inset 0 0 0 2px #d4af37,
+        inset 0 3px 0 rgba(255, 255, 255, 0.15),
+        0 10px 30px rgba(0, 0, 0, 0.45),
+        0 0 60px rgba(212, 175, 55, 0.25);
+}
+
+/* Hero 卡片四角裝飾 */
+.hero-desc .hero-corner-tl,
+.hero-desc .hero-corner-br {
+    display: none;   /* 保留介面兼容，若有人加元素 */
+}
+
+/* 用偽元素做兩角，另兩角用 .hero-desc 子元素做 */
+.hero-desc {
+    position: relative;
+}
+
+/* Hero 卡片底部的裝飾線（用 .hero-desc 內容後加不了，改用偽元素放左下角） */
+
+/* Hero 標題下的裝飾 */
+.section-hero .section-title {
+    position: relative;
+}
+
+.section-hero .section-title::before,
+.section-hero .section-title::after {
+    width: clamp(40px, 5vw, 70px);
+}
+
+/* 首頁 scroll hint 更精緻 */
+.scroll-hint {
+    position: relative;
+    padding-top: 10px;
+}
+
+.scroll-hint::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 1px;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(212, 175, 55, 0.6) 50%,
+        transparent 100%);
+}
+
+/* =========================================================
+   6. 全站滾動條美化
+   ========================================================= */
+
+/* Webkit 瀏覽器（Chrome / Edge / Safari） */
+::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background:
+        linear-gradient(90deg,
+            rgba(244, 236, 220, 0.9) 0%,
+            rgba(255, 250, 235, 0.9) 100%);
+    border-left: 1px solid rgba(184, 140, 80, 0.25);
+    box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+    background:
+        linear-gradient(180deg,
+            #ffe08a 0%,
+            #d4af37 40%,
+            #b8860b 100%);
+    border-radius: 6px;
+    border: 2px solid rgba(139, 16, 16, 0.4);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.5),
+        inset 0 -1px 0 rgba(139, 16, 16, 0.3),
+        0 0 6px rgba(212, 175, 55, 0.5);
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background:
+        linear-gradient(180deg,
+            #fff0c0 0%,
+            #ffe08a 40%,
+            #d4af37 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.7),
+        inset 0 -1px 0 rgba(139, 16, 16, 0.4),
+        0 0 10px rgba(255, 215, 0, 0.7);
+}
+
+::-webkit-scrollbar-thumb:active {
+    background:
+        linear-gradient(180deg,
+            #d4af37 0%,
+            #b8860b 100%);
+}
+
+::-webkit-scrollbar-corner {
+    background: rgba(244, 236, 220, 0.9);
+}
+
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #d4af37 rgba(255, 250, 235, 0.9);
+}
+
+/* 尊重「減少動態」 */
+@media (prefers-reduced-motion: reduce) {
+    .section-sub {
+        animation: none;
+    }
+}
+
 /* ===== 尊重「減少動態」 ===== */
 @media (prefers-reduced-motion: reduce) {
     .char-nav-item.active .char-nav-thumb,
