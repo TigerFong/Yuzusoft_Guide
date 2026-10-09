@@ -174,6 +174,33 @@ def _character_to_dict(char):
         'clothes': char.clothes,
     }
 
+# =========================================================
+# 安全標頭（XSS / 點擊劫持 / MIME 混淆防護）
+# =========================================================
+@app.after_request
+def add_security_headers(response):
+    # CSP：只允許自家資源，禁止 inline script
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "font-src 'self' data:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self';"
+    )
+    # 禁止 MIME 猜測
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    # 禁止 iframe 嵌入（防點擊劫持）
+    response.headers['X-Frame-Options'] = 'DENY'
+    # Referrer 保護
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    # 禁止舊瀏覽器的 XSS 過濾器（它本身有漏洞）
+    response.headers['X-XSS-Protection'] = '0'
+    return response
+
 
 # ---------- 頁面 ----------
 @app.route('/')

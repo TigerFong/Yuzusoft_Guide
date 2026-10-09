@@ -495,7 +495,7 @@ function selectCharacter(chars, index, code, trackView = true) {
     let html = '';
     rows.forEach(([key, val]) => {
         if (val && val !== '暫無明確設定' && val !== '暂无明确设定') {
-            html += `<div class="row"><div class="key">${key}</div><div class="val">${val}</div></div>`;
+            html += `<div class="row"><div class="key">${escapeHtml(key)}</div><div class="val">${escapeHtml(String(val))}</div></div>`;
         }
     });
 
@@ -608,7 +608,7 @@ function selectGuide(guides, index, code, map) {
     let html = '<ol class="guide-option-list">';
     options.forEach((opt) => {
         if (opt && opt.trim()) {
-            html += `<li class="guide-option-item">${opt}</li>`;
+            html += `<li class="guide-option-item">${escapeHtml(opt)}</li>`;
         }
     });
     html += '</ol>';
@@ -771,10 +771,39 @@ function highlightText(text, keywords) {
     return out;
 }
 
+// ===== 安全轉義（XSS 防護）=====
 function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
     return String(s).replace(/[&<>"']/g, c => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
     }[c]));
+}
+
+// 屬性值專用（額外阻擋反引號、等號、換行）
+function escapeAttr(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"'`=\/\r\n]/g, c => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+        '`': '&#96;',
+        '=': '&#61;',
+        '/': '&#47;',
+        '\r': '&#13;',
+        '\n': '&#10;'
+    }[c]));
+}
+
+// 強制轉成安全整數（防數字欄位塞字串）
+function safeInt(n, fallback = 0) {
+    const v = parseInt(n, 10);
+    return Number.isFinite(v) ? v : fallback;
 }
 
 function escapeRegex(s) {
@@ -970,8 +999,12 @@ function renderSearchResults(resultsEl, hits, keywords) {
                 html += `
                     <div class="search-result-item ${isSelected ? 'selected' : ''}"
                          data-idx="${idx - 1}">
+
+                        const safeCode = escapeAttr(item.code || 'game');
+                        const safeIndex = safeInt(item.index, 0);
+
                         <div class="search-result-thumb"
-                             style="background-image: url('picture/thumb-${item.code}-${item.index}.png')"></div>
+                            style="background-image: url('picture/thumb-${safeCode}-${safeIndex}.png')"></div>
                         <div class="search-result-info">
                             <div class="search-result-name">${nameText}</div>
                             <div class="search-result-game">${escapeHtml(item.game)} ${gameText}</div>
@@ -1654,7 +1687,9 @@ function showMMTransition(char, onComplete) {
     const overlay = document.createElement('div');
     overlay.className = 'mm-transition';
 
-    const thumb = `picture/thumb-${char.code}-${char.index}.png`;
+    const safeCode = escapeAttr(char.code || 'game');
+    const safeIndex = safeInt(char.index, 0);
+    const thumb = `picture/thumb-${safeCode}-${safeIndex}.png`;
 
     overlay.innerHTML = `
         <div class="mm-transition-bg"></div>
@@ -1708,29 +1743,33 @@ function renderMMList(pool) {
         const stats = [];
         if (char.height) stats.push(char.height);
 
-        const badge = `<div class="mm-match-badge mm-match-${matchLevel(char.matchPercent)}">${char.matchPercent}%</div>`;
+        const badge = `<div class="mm-match-badge mm-match-${matchLevel(char.matchPercent)}">${safeInt(char.matchPercent, 0)}%</div>`;
 
         let reasonsHtml = '';
         if (char.matched.length > 0 || char.missed.length > 0) {
-            const hits = char.matched.map(r => `<span class="mm-reason-hit">✓ ${r}</span>`).join('');
-            const miss = char.missed.map(r => `<span class="mm-reason-miss">✗ ${r}</span>`).join('');
+            const hits = char.matched.map(r => `<span class="mm-reason-hit">✓ ${escapeHtml(r)}</span>`).join('');
+            const miss = char.missed.map(r => `<span class="mm-reason-miss">✗ ${escapeHtml(r)}</span>`).join('');
             reasonsHtml = `<div class="mm-match-reasons">${hits}${miss}</div>`;
         }
 
         // ⭐ 交錯動畫：每張卡片延遲 60ms（最多累積到 600ms）
         const delay = Math.min(index * 60, 600);
 
+        const safeCode = escapeAttr(char.code || 'game');
+        const safeIndex = safeInt(char.index, 0);
+        const safeDelay = safeInt(delay, 0);
+
         html += `
             <div class="mm-result-item ${char.matchPercent >= 90 ? 'perfect-match' : ''}"
-                 style="animation-delay: ${delay}ms"
-                 data-game="${char.game}" data-name="${char.name}">
+                 style="animation-delay: ${safeDelay}ms"
+                 data-game="${escapeAttr(char.game)}" data-name="${escapeAttr(char.name)}">
                 ${badge}
                 <div class="mm-result-thumb"
-                     style="background-image: url('picture/thumb-${char.code}-${char.index}.png')"></div>
-                <div class="mm-result-name">${char.name}</div>
-                <div class="mm-result-game">${char.game}</div>
+                     style="background-image: url('picture/thumb-${safeCode}-${safeIndex}.png')"></div>
+                <div class="mm-result-name">${escapeHtml(char.name)}</div>
+                <div class="mm-result-game">${escapeHtml(char.game)}</div>
                 <div class="mm-result-stats">
-                    ${stats.map(s => `<span class="mm-result-stat">${s}</span>`).join('')}
+                    ${stats.map(s => `<span class="mm-result-stat">${escapeHtml(s)}</span>`).join('')}
                 </div>
                 ${reasonsHtml}
             </div>
@@ -2063,8 +2102,8 @@ function showEasterToast(title, desc = '') {
     const toast = document.createElement('div');
     toast.className = 'easter-toast';
     toast.innerHTML = `
-        <span class="toast-title">${title}</span>
-        ${desc ? `<span class="toast-desc">${desc}</span>` : ''}
+        <span class="toast-title">${escapeHtml(title)}</span>
+        ${desc ? `<span class="toast-desc">${escapeHtml(desc)}</span>` : ''}
     `;
     document.body.appendChild(toast);
 
@@ -2216,18 +2255,23 @@ async function loadRanking() {
 
         let html = '';
         data.forEach(item => {
+            const rank = safeInt(item.rank, 0);
+            const count = safeInt(item.count, 0);
+            const code = escapeAttr(item.code || 'game');
+            const idx = safeInt(item.index, 0);
+
             html += `
-                <div class="ranking-item rank-${item.rank}"
-                     data-game="${escapeHtml(item.game)}"
-                     data-name="${escapeHtml(item.name)}">
-                    <div class="ranking-rank">${item.rank}</div>
+                <div class="ranking-item rank-${rank}"
+                    data-game="${escapeAttr(item.game)}"
+                    data-name="${escapeAttr(item.name)}">
+                    <div class="ranking-rank">${rank}</div>
                     <div class="ranking-thumb"
-                         style="background-image: url('picture/thumb-${item.code}-${item.index}.png')"></div>
+                        style="background-image: url('picture/thumb-${code}-${idx}.png')"></div>
                     <div class="ranking-info">
                         <div class="ranking-name">${escapeHtml(item.name)}</div>
                         <div class="ranking-game">${escapeHtml(item.game)}</div>
                     </div>
-                    <div class="ranking-count">${item.count} 次</div>
+                    <div class="ranking-count">${count} 次</div>
                 </div>
             `;
         });
@@ -2460,11 +2504,14 @@ async function renderFavorites() {
         const info = favCharsCache[name];
         if (!info) continue;
 
+        const safeCode = escapeAttr(info.code || 'game');
+        const safeIndex = safeInt(info.index, 0);
+
         html += `
-            <div class="favorite-item" data-game="${escapeHtml(info.game)}" data-name="${escapeHtml(name)}">
-                <button class="favorite-remove" title="取消收藏" data-name="${escapeHtml(name)}">✕</button>
+            <div class="favorite-item" data-game="${escapeAttr(info.game)}" data-name="${escapeAttr(name)}">
+                <button class="favorite-remove" title="取消收藏" data-name="${escapeAttr(name)}">✕</button>
                 <div class="favorite-thumb"
-                     style="background-image: url('picture/thumb-${info.code}-${info.index}.png')"></div>
+                     style="background-image: url('picture/thumb-${safeCode}-${safeIndex}.png')"></div>
                 <div class="favorite-name">${escapeHtml(name)}</div>
                 <div class="favorite-game">${escapeHtml(info.game)}</div>
             </div>
