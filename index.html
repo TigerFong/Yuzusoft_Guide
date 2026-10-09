@@ -8,6 +8,18 @@
 </head>
 <body>
 
+    <!-- 頁面載入動畫 -->
+    <div id="pageLoader" class="page-loader">
+        <div class="page-loader-inner">
+            <div class="loader-logo">🍊</div>
+            <h1 class="loader-title">柚子社攻略站</h1>
+            <p class="loader-sub">YUZUSOFT GUIDE</p>
+            <div class="loader-bar">
+                <div class="loader-bar-fill"></div>
+            </div>
+        </div>
+    </div>
+
     <header id="topbar">
         <div class="topbar-inner">
             <div class="brand">
@@ -32,12 +44,12 @@
                 <div id="searchResults" class="search-results"></div>
             </div>
 
-            <button id="favButton" onclick="scrollToSection('favorites')" aria-label="我的最愛">
+            <button id="favButton" aria-label="我的最愛">
                 <span class="fav-icon">⭐</span>
                 <span class="fav-count" id="favCount">0</span>
             </button>
 
-            <button id="menuButton" onclick="openMenu()" aria-label="開啟選單">
+            <button id="menuButton" aria-label="開啟選單">
                 <span></span>
                 <span></span>
                 <span></span>
@@ -57,36 +69,36 @@
                 <span class="menu-brand-title">柚子社攻略站</span>
                 <span class="menu-brand-sub">Yuzusoft Guide</span>
             </div>
-            <button id="closeButton" onclick="closeMenu()" aria-label="關閉選單">✕</button>
+            <button id="closeButton" aria-label="關閉選單">✕</button>
         </div>
 
         <div class="menu-group">
             <div class="group-title">選擇遊戲</div>
             <nav class="menu-list" id="gameList">
-                <a href="#" data-game="千戀＊萬花" onclick="selectGame('千戀＊萬花')">千戀＊萬花</a>
-                <a href="#" data-game="天使紛擾" onclick="selectGame('天使紛擾')">天使紛擾</a>
-                <a href="#" data-game="星光咖啡館與死神之蝶" onclick="selectGame('星光咖啡館與死神之蝶')">星光咖啡館與死神之蝶</a>
-                <a href="#" data-game="魔女的夜宴" onclick="selectGame('魔女的夜宴')">魔女的夜宴</a>
-                <a href="#" id="clearGameBtn" class="clear-game" onclick="clearGame()">✕ 取消選擇</a>
+                <a href="#" data-game="千戀＊萬花">千戀＊萬花</a>
+                <a href="#" data-game="天使紛擾">天使紛擾</a>
+                <a href="#" data-game="星光咖啡館與死神之蝶">星光咖啡館與死神之蝶</a>
+                <a href="#" data-game="魔女的夜宴">魔女的夜宴</a>
+                <a href="#" id="clearGameBtn" class="clear-game">✕ 取消選擇</a>
             </nav>
         </div>
 
         <div class="menu-group">
             <div class="group-title">功能</div>
             <nav class="menu-list" id="featureList">
-                <a href="#home" onclick="scrollToSection('home')">首頁</a>
-                                <a href="#story" class="game-feature disabled" onclick="scrollToSection('story')">故事介紹</a>
-                <a href="#character" class="game-feature disabled" onclick="scrollToSection('character')">角色介紹</a>
-                <a href="#guide" class="game-feature disabled" onclick="scrollToSection('guide')">攻略</a>
-                <a href="#matchmaker" onclick="scrollToSection('matchmaker')">命運邂逅</a>
-                <a href="#ranking" onclick="scrollToSection('ranking')">人氣排行</a>
-                <a href="#favorites" onclick="scrollToSection('favorites')">我的最愛</a>
-                <a href="#about" onclick="scrollToSection('about')">關於本站</a>
+                <a href="#home">首頁</a>
+                <a href="#story" class="game-feature disabled">故事介紹</a>
+                <a href="#character" class="game-feature disabled">角色介紹</a>
+                <a href="#guide" class="game-feature disabled">攻略</a>
+                <a href="#matchmaker">命運邂逅</a>
+                <a href="#ranking">人氣排行</a>
+                <a href="#favorites">我的最愛</a>
+                <a href="#about">關於本站</a>
             </nav>
         </div>
     </aside>
 
-    <div id="overlay" onclick="closeMenu()"></div>
+    <div id="overlay"></div>
 
     <main id="mainContent">
 
@@ -121,7 +133,7 @@
             </div>
         </section>
 
-                <!-- 角色介紹 -->
+        <!-- 角色介紹 -->
         <section id="character" class="section game-section">
             <div class="section-inner">
                 <div class="section-header">
@@ -236,7 +248,7 @@
                             </button>
                         </div>
 
-                        <!-- 匹配強度過濾（新增） -->
+                        <!-- 匹配強度過濾 -->
                         <div class="mm-threshold">
                             <span class="mm-threshold-label">最低匹配度</span>
                             <div class="mm-threshold-btns" id="mmThreshold">
@@ -292,36 +304,65 @@
                     <h2 class="section-title">關於本站</h2>
                     <p class="section-sub">about</p>
                 </div>
-                <div class="content-box">
-                    <div class="about-list">
-                        <div class="about-row">
-                            <div class="about-key">項目</div>
-                            <div class="about-value">柚子社攻略站 · Yuzusoft Guide</div>
+                    <div class="content-box">
+                    <div class="about-grid">
+
+                        <div class="about-card">
+                            <div class="about-card-icon">🍊</div>
+                            <div class="about-card-body">
+                                <div class="about-card-label">項目</div>
+                                <div class="about-card-value">柚子社攻略站 · Yuzusoft Guide</div>
+                            </div>
                         </div>
-                        <div class="about-row">
-                            <div class="about-key">定位</div>
-                            <div class="about-value">非官方攻略資料站，收錄柚子社歷代作品的角色資料、劇情簡介與攻略路線，讓玩家能快速查找想要的資訊。</div>
+
+                        <div class="about-card about-card-wide">
+                            <div class="about-card-icon">🎯</div>
+                            <div class="about-card-body">
+                                <div class="about-card-label">定位</div>
+                                <div class="about-card-value">非官方攻略資料站，收錄柚子社歷代作品的角色資料、劇情簡介與攻略路線，讓玩家能快速查找想要的資訊。</div>
+                            </div>
                         </div>
-                        <div class="about-row">
-                            <div class="about-key">建站</div>
-                            <div class="about-value">2026 年 10 月 3 日</div>
+
+                        <div class="about-card">
+                            <div class="about-card-icon">📅</div>
+                            <div class="about-card-body">
+                                <div class="about-card-label">建站</div>
+                                <div class="about-card-value">2026 年 10 月 3 日</div>
+                            </div>
                         </div>
-                        <div class="about-row">
-                            <div class="about-key">板塊</div>
-                            <div class="about-value">首頁 · 角色介紹 · 故事介紹 · 攻略 · 關於本站</div>
+
+                        <div class="about-card">
+                            <div class="about-card-icon">🗂️</div>
+                            <div class="about-card-body">
+                                <div class="about-card-label">板塊</div>
+                                <div class="about-card-value">首頁 · 角色介紹 · 故事介紹 · 攻略 · 命運邂逅 · 人氣排行榜 · 我的最愛 · 關於本站</div>
+                            </div>
                         </div>
-                        <div class="about-row">
-                            <div class="about-key">技術</div>
-                            <div class="about-value">Python（Flask）+ 原生 HTML / CSS / JavaScript</div>
+
+                        <div class="about-card">
+                            <div class="about-card-icon">🔧</div>
+                            <div class="about-card-body">
+                                <div class="about-card-label">技術</div>
+                                <div class="about-card-value">Python（Flask）+ 原生 HTML / CSS / JavaScript</div>
+                            </div>
                         </div>
-                        <div class="about-row">
-                            <div class="about-key">說明</div>
-                            <div class="about-value">本站為非官方粉絲站，所有作品名稱、角色與商標歸柚子社（Yuzusoft）所有；站內資料僅供學習與參考用途，不構成任何商業推薦。</div>
+
+                        <div class="about-card">
+                            <div class="about-card-icon">🏷️</div>
+                            <div class="about-card-body">
+                                <div class="about-card-label">版本</div>
+                                <div class="about-card-value">v1.2.4</div>
+                            </div>
                         </div>
-                        <div class="about-row">
-                            <div class="about-key">版本</div>
-                            <div class="about-value">v1.2.2</div>
+
+                        <div class="about-card about-card-wide">
+                            <div class="about-card-icon">📖</div>
+                            <div class="about-card-body">
+                                <div class="about-card-label">說明</div>
+                                <div class="about-card-value">本站為非官方粉絲站，所有作品名稱、角色與商標歸柚子社（Yuzusoft）所有；站內資料僅供學習與參考用途，不構成任何商業推薦。</div>
+                            </div>
                         </div>
+
                     </div>
                 </div>
             </div>
@@ -333,7 +374,7 @@
 
     </main>
 
-    <button id="returnTop" class="return-top" onclick="scrollToTop()" aria-label="回到頂部">
+    <button id="returnTop" class="return-top" aria-label="回到頂部">
         <div class="return-top-avatar"></div>
     </button>
 

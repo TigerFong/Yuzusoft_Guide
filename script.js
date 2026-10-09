@@ -171,15 +171,22 @@ async function selectGame(gameName) {
     });
 
     ['character', 'story', 'guide'].forEach(f => {
-        const el = document.querySelector(`#featureList a[onclick*="${f}"]`);
+        const el = document.querySelector(`#featureList a[href="#${f}"]`);
         if (el) el.classList.remove('disabled');
     });
 
     const bgUrl = GAME_BACKGROUNDS[gameName];
     if (bgUrl) {
         setBackground(`url('${bgUrl}')`, 'cover', '#1a0e05');
-    }
 
+        // ⭐ 讓所有 section 播一次淡入
+        document.querySelectorAll('.section').forEach(sec => {
+            sec.classList.remove('bg-fade');
+            void sec.offsetWidth;   // 強制重繪
+            sec.classList.add('bg-fade');
+            setTimeout(() => sec.classList.remove('bg-fade'), 700);
+        });
+    }
     updateHomeContent(gameName, true);
     updateStoryContent(gameName);
     document.body.classList.add('has-game');
@@ -222,7 +229,7 @@ function scrollToSection(sectionId) {
     const target = document.getElementById(sectionId);
     if (!target) return;
 
-    const featureLink = document.querySelector(`#featureList a[onclick*="${sectionId}"]`);
+    const featureLink = document.querySelector(`#featureList a[href="#${sectionId}"]`);
     if (featureLink && featureLink.classList.contains('disabled')) return;
 
     closeMenu();
@@ -990,19 +997,22 @@ function renderSearchResults(resultsEl, hits, keywords) {
                     gameText = otherFields.length ? '· ' + otherFields.join('、') : '';
                 } else {
                     nameText = highlightText(item.name, keywords) +
-                               ' <span class="guide-tag">攻略 ' + item.optionIndex + '</span>';
+                            ' <span class="guide-tag">攻略 ' + item.optionIndex + '</span>';
                     gameText = '· ' + highlightText(item.option, keywords);
                 }
 
                 const isSelected = (idx - 1) === searchState.selectedIndex;
 
+                // ⭐ 修正：const 要在模板外面算好
+                const safeCode = escapeAttr(item.code || 'game');
+                const safeIndex = safeInt(item.index, 0);
+
+                const itemDelay = Math.min((idx - 1) * 30, 400);
+
                 html += `
                     <div class="search-result-item ${isSelected ? 'selected' : ''}"
-                         data-idx="${idx - 1}">
-
-                        const safeCode = escapeAttr(item.code || 'game');
-                        const safeIndex = safeInt(item.index, 0);
-
+                        style="animation-delay: ${itemDelay}ms"
+                        data-idx="${idx - 1}">
                         <div class="search-result-thumb"
                             style="background-image: url('picture/thumb-${safeCode}-${safeIndex}.png')"></div>
                         <div class="search-result-info">
@@ -1134,7 +1144,7 @@ function buildSuggestionsHtml(q) {
 
     let html = '<div class="search-suggest-head">建議</div>';
     suggestions.slice(0, 4).forEach(s => {
-        html += `<div class="search-suggest-item" data-q="${escapeHtml(s)}">
+        html += `<div class="search-suggest-item" data-q="${escapeAttr(s)}" style="animation-delay: ${suggestions.indexOf(s) * 40}ms">
                     <span class="suggest-icon">🔍</span>
                     <span class="suggest-text">${highlightText(s, [q])}</span>
                  </div>`;
@@ -1828,6 +1838,17 @@ function renderMMList(pool) {
                 </svg>
                 <span>從這 ${pool.length} 位隨機選一個</span>
             </button>
+            <!-- ⭐ 快速隨機按鈕 -->
+            <button class="mm-btn-random-fast" id="mmRandomFastBtn" title="不播動畫，立刻跳轉">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M13 2 L 4 14 L 11 14 L 10 22 L 20 10 L 13 10 Z"
+                          fill="currentColor"
+                          stroke="currentColor"
+                          stroke-width="0.8"
+                          stroke-linejoin="round"/>
+                </svg>
+                <span>快速隨機</span>
+            </button>
         </div>
     `;
 
@@ -1853,6 +1874,12 @@ function renderMMList(pool) {
                 goToCharacter(pick.game, pick.name);
             });
         }, 700);
+    });
+
+    // ⭐ 快速隨機：不播動畫，直接跳轉
+    document.getElementById('mmRandomFastBtn')?.addEventListener('click', () => {
+        const pick = pool[Math.floor(Math.random() * pool.length)];
+        goToCharacter(pick.game, pick.name);
     });
 }
 
@@ -1941,6 +1968,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ===== 回到頂部 =====
 function scrollToTop() {
+    const btn = document.getElementById('returnTop');
+    if (btn) {
+        btn.classList.remove('launching');
+        void btn.offsetWidth;
+        btn.classList.add('launching');
+        setTimeout(() => btn.classList.remove('launching'), 800);
+    }
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -2271,13 +2306,33 @@ async function loadRanking() {
                         <div class="ranking-name">${escapeHtml(item.name)}</div>
                         <div class="ranking-game">${escapeHtml(item.game)}</div>
                     </div>
-                    <div class="ranking-count">${count} 次</div>
+                    <div class="ranking-count" data-target="${count}">0 次</div>
                 </div>
             `;
         });
 
         listEl.innerHTML = html;
         rankingLoaded = true;
+
+        // ⭐ 數字滾動動畫
+        listEl.querySelectorAll('.ranking-count[data-target]').forEach(el => {
+            const target = parseInt(el.dataset.target, 10) || 0;
+            if (target === 0) { el.textContent = '0 次'; return; }
+
+            const duration = 900;
+            const startTime = performance.now();
+
+            function tick(now) {
+                const t = Math.min((now - startTime) / duration, 1);
+                // easeOutCubic
+                const eased = 1 - Math.pow(1 - t, 3);
+                const current = Math.round(eased * target);
+                el.textContent = current + ' 次';
+                if (t < 1) requestAnimationFrame(tick);
+                else el.textContent = target + ' 次';
+            }
+            requestAnimationFrame(tick);
+        });
 
         // 点击跳转
         listEl.querySelectorAll('.ranking-item').forEach(el => {
@@ -2450,8 +2505,29 @@ function injectFavButton(char, code, index) {
 
         favCharsCache[char.name] = { game: currentGame, code, index: oneBasedIndex };
 
+        // ⭐ 灑愛心粒子（只在加入時）
         if (added) {
-            showEasterToast('💖 已加入最愛', `${char.name} 已收藏`);
+            const rect = btn.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            const hearts = ['💖', '💕', '💗', '❤️', '💝', '🌸', '✨'];
+            const count = 10;
+            for (let i = 0; i < count; i++) {
+                const h = document.createElement('div');
+                h.className = 'fav-burst-heart';
+                h.textContent = hearts[Math.floor(Math.random() * hearts.length)];
+                h.style.left = cx + 'px';
+                h.style.top = cy + 'px';
+
+                const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.6;
+                const dist = 40 + Math.random() * 50;
+                h.style.setProperty('--fdx', (Math.cos(angle) * dist).toFixed(0) + 'px');
+                h.style.setProperty('--fdy', (Math.sin(angle) * dist - 20).toFixed(0) + 'px');
+                h.style.setProperty('--frot', Math.floor(Math.random() * 720 - 360) + 'deg');
+
+                document.body.appendChild(h);
+                setTimeout(() => h.remove(), 1200);
+            }
         }
     });
 
@@ -2668,8 +2744,11 @@ function enhanceGuideWithProgress(guide) {
 
     // 重置按鈕
     if (resetBtn) {
-        resetBtn.onclick = null;
-        resetBtn.addEventListener('click', (e) => {
+        // ⭐ 用 cloneNode 徹底替換按鈕，清掉所有舊 listener
+        const newResetBtn = resetBtn.cloneNode(true);
+        resetBtn.parentNode.replaceChild(newResetBtn, resetBtn);
+
+        newResetBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             if (!confirm(`確定要重置「${charName}」的攻略進度嗎？`)) return;
             setCharProgress(charName, []);
@@ -2684,14 +2763,67 @@ function updateProgressUI(done, total, fillEl, textEl) {
     const pct = total > 0 ? (done / total) * 100 : 0;
     fillEl.style.width = pct + '%';
 
-    if (done === total && total > 0) {
+    const isComplete = (done === total && total > 0);
+    const wasComplete = fillEl.classList.contains('done');
+
+    if (isComplete) {
         fillEl.classList.add('done');
         textEl.classList.add('done');
         textEl.textContent = `🎉 ${done} / ${total}`;
+
+        // ⭐ 只有「剛剛變成完成」才播慶祝
+        if (!wasComplete) {
+            triggerGuideCompleteCelebration();
+        }
     } else {
         fillEl.classList.remove('done');
         textEl.classList.remove('done');
         textEl.textContent = `${done} / ${total}`;
+    }
+}
+
+// ⭐ 攻略全通慶祝
+function triggerGuideCompleteCelebration() {
+    const optionsEl = document.getElementById('guideOptions');
+    if (!optionsEl) return;
+
+    // 1. 卡片內顯示全通提示
+    if (!optionsEl.querySelector('.guide-complete-toast')) {
+        const toast = document.createElement('div');
+        toast.className = 'guide-complete-toast';
+        toast.innerHTML = `
+            <div class="complete-icon">🎉</div>
+            <div class="complete-text">全 路 線 通 關</div>
+            <div class="complete-sub">ALL CLEAR</div>
+        `;
+        // 讓它顯示在選項框內
+        optionsEl.style.position = 'relative';
+        optionsEl.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+    }
+
+    // 2. 全屏金光爆炸
+    const icons = ['✨', '⭐', '💫', '🌟', '💛', '🎉'];
+    const count = 40;
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight * 0.5;
+
+    for (let i = 0; i < count; i++) {
+        const el = document.createElement('div');
+        el.className = 'gold-sparkle-burst';
+        el.textContent = icons[Math.floor(Math.random() * icons.length)];
+        el.style.left = cx + 'px';
+        el.style.top = cy + 'px';
+
+        const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.8;
+        const dist = 150 + Math.random() * 350;
+        el.style.setProperty('--gdx', (Math.cos(angle) * dist).toFixed(0) + 'px');
+        el.style.setProperty('--gdy', (Math.sin(angle) * dist - 30).toFixed(0) + 'px');
+        el.style.setProperty('--grot', Math.floor(Math.random() * 1080 - 540) + 'deg');
+        el.style.animationDelay = (Math.random() * 0.2) + 's';
+
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 1800);
     }
 }
 
@@ -2706,3 +2838,138 @@ selectGuide = function(guides, index, code, map) {
     }
     return result;
 };
+
+// =========================================================
+// 全局視覺特效
+// =========================================================
+
+// ===== 2. 立繪切換動畫 =====
+function triggerPortraitSwitch(el) {
+    if (!el) return;
+    el.classList.remove('switching');
+    void el.offsetWidth;   // 強制重繪
+    el.classList.add('switching');
+    setTimeout(() => el.classList.remove('switching'), 700);
+}
+
+// 掛勾到 selectCharacter（動畫）
+const _prevSelectCharacterForAnim = selectCharacter;
+selectCharacter = function(chars, index, code, trackView = true) {
+    const result = _prevSelectCharacterForAnim.call(this, chars, index, code, trackView);
+    triggerPortraitSwitch(document.getElementById('charPortrait'));
+    return result;
+};
+
+// 掛勾到 selectGuide（動畫）
+const _prevSelectGuideForAnim = selectGuide;
+selectGuide = function(guides, index, code, map) {
+    const result = _prevSelectGuideForAnim.call(this, guides, index, code, map);
+    triggerPortraitSwitch(document.getElementById('guidePortrait'));
+    return result;
+};
+
+// ===== 3. Section 滾動淡入 =====
+function initSectionFadeIn() {
+    if (!('IntersectionObserver' in window)) {
+        // 舊瀏覽器 fallback：全部直接顯示
+        document.querySelectorAll('.section-inner').forEach(el => el.classList.add('visible'));
+        return;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+            }
+        });
+    }, {
+        threshold: 0.1,
+        rootMargin: '0px 0px -60px 0px'
+    });
+
+    document.querySelectorAll('.section').forEach(sec => {
+        const inner = sec.querySelector('.section-inner');
+        if (inner) observer.observe(inner);
+    });
+
+    // 首頁立即顯示（不等待滾動）
+    const homeInner = document.querySelector('#home .section-inner');
+    if (homeInner) homeInner.classList.add('visible');
+}
+
+// ===== 啟動 =====
+document.addEventListener('DOMContentLoaded', () => {
+    initSectionFadeIn();
+});
+
+// =========================================================
+// 事件綁定（因 CSP 禁 inline onclick，改用 addEventListener）
+// =========================================================
+document.addEventListener('DOMContentLoaded', () => {
+    // 頂部按鈕
+    document.getElementById('menuButton')?.addEventListener('click', openMenu);
+    document.getElementById('closeButton')?.addEventListener('click', closeMenu);
+    document.getElementById('overlay')?.addEventListener('click', closeMenu);
+    document.getElementById('favButton')?.addEventListener('click', () => {
+        scrollToSection('favorites');
+    });
+    document.getElementById('returnTop')?.addEventListener('click', scrollToTop);
+
+    // 遊戲選單
+    document.querySelectorAll('#gameList a[data-game]').forEach(a => {
+        a.addEventListener('click', (e) => {
+            e.preventDefault();
+            selectGame(a.dataset.game);
+        });
+    });
+
+    // 取消選擇遊戲
+    document.getElementById('clearGameBtn')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        clearGame();
+    });
+
+    // 功能選單
+    document.querySelectorAll('#featureList a').forEach(a => {
+        a.addEventListener('click', (e) => {
+            e.preventDefault();
+            const href = a.getAttribute('href');
+            if (href && href.startsWith('#')) {
+                scrollToSection(href.slice(1));
+            }
+        });
+    });
+});
+
+// =========================================================
+// 頁面載入動畫：淡出
+// =========================================================
+(function initPageLoader() {
+    const loader = document.getElementById('pageLoader');
+    if (!loader) return;
+
+    // 最短顯示時間（避免閃一下）
+    const MIN_DURATION = 700;
+    const start = Date.now();
+
+    // 等 DOM + 主要資源載入完
+    window.addEventListener('load', () => {
+        const elapsed = Date.now() - start;
+        const delay = Math.max(0, MIN_DURATION - elapsed);
+
+        setTimeout(() => {
+            loader.classList.add('hide');
+
+            // 移除 DOM（節省記憶體）
+            setTimeout(() => loader.remove(), 700);
+        }, delay);
+    });
+
+    // 保險：如果 load 事件永遠不觸發（極少數情況），5 秒後強制移除
+    setTimeout(() => {
+        if (document.body.contains(loader)) {
+            loader.classList.add('hide');
+            setTimeout(() => loader.remove(), 700);
+        }
+    }, 5000);
+})();
