@@ -2,10 +2,6 @@
 
 > 收錄柚子社（YUZUSOFT）歷代作品的角色資料、劇情簡介與全路線攻略的非官方粉絲站。
 
-🔗 **在線訪問**：https://yuzusoft-guide.onrender.com/
-
-> ⏱ 註：本站部署於 Render 免費方案，首次訪問可能需要 30～50 秒喚醒伺服器，請耐心等待。
-
 [![網站](https://img.shields.io/badge/網站-點此訪問-brightgreen?logo=googlechrome&logoColor=white)](https://yuzusoft-guide.onrender.com/)
 ![狀態](https://img.shields.io/badge/status-active-success)
 ![授權](https://img.shields.io/badge/license-MIT-blue)
@@ -15,13 +11,13 @@
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=black)
 
+> ⏱ 本站部署於 Render 免費方案，首次訪問可能需要 30～50 秒喚醒伺服器，請耐心等待。
+
 ---
 
 ## 📖 項目簡介
 
 柚子社攻略站是一個由粉絲自發搭建的非官方資料查詢站，專門收錄日本美少女遊戲品牌 **柚子社（YUZUSOFT）** 歷代作品的角色檔案、劇情簡介與全路線攻略。
-
-🌐 **網址**：<https://yuzusoft-guide.onrender.com/>
 
 涵蓋作品：
 
@@ -44,7 +40,10 @@
 | 🗺 **攻略** | 各角色攻略選項與分支路線，滾動式面板 |
 | 🔍 **全站搜尋** | 支援搜尋角色名、遊戲名、身份、性格、喜好、服裝等全部欄位 |
 | 🎯 **命運邂逅** | 依身高、體型、年齡、性格篩選，找出符合喜好的角色，並可隨機抽選 |
-| ⬆ **回到頂部** | 右下角懸浮按鈕，滾動一定距離後出現 |
+| ⭐ **我的最愛** | 收藏喜歡的角色，獨立頁面集中管理 |
+| 📊 **攻略進度** | 勾選已完成選項，進度條視覺化，資料存 localStorage |
+| 🏆 **人氣排行** | 瀏覽量前五名角色排行 |
+| 🎬 **視覺特效** | 立繪切換、頁面淡入、光暈脈動、全通路線慶祝等 |
 | 🎮 **隱藏彩蛋** | Konami 密碼、Ciallo、雙擊頭像等 8 個彩蛋 |
 
 ---
@@ -70,6 +69,12 @@
 │  │  app.py    │──│  data.py   │             │
 │  │  (API)     │  │  (數據層)  │             │
 │  └────────────┘  └────────────┘             │
+│         │                                    │
+│         │ psycopg2                           │
+│         ▼                                    │
+│  ┌────────────┐                              │
+│  │  Neon DB   │  （雲端 PostgreSQL）         │
+│  └────────────┘                              │
 └─────────────────────────────────────────────┘
 ```
 
@@ -80,13 +85,15 @@
 | 後端 | Python 3.8+ / Flask 3.x |
 | 前端 | 原生 HTML5 / CSS3 / JavaScript（無框架） |
 | 數據 | `data.py` 中的 `GAME_DATA` 字典，記憶體載入 |
-| 存儲 | `localStorage`（主題、攻略進度等） |
+| 存儲 | `localStorage`（收藏、攻略進度等）+ Neon PostgreSQL（瀏覽量） |
+| 部署 | Render（Web Service） |
 
 ### 核心優勢
 
 - **數據與頁面解耦**：修改角色或新增遊戲只需維護 `data.py`，前端無須重構。
 - **輕量零依賴**：前端無需 npm 或建構工具，直接瀏覽器運行。
 - **響應式設計**：桌面、平板、手機皆自適應。
+- **安全防護**：CSP 標頭 + 輸入轉義 + IP 限流。
 
 ---
 
@@ -143,21 +150,23 @@ Yuzusoft_Guide/
 pip install -r requirements.txt
 ```
 
-或手動安裝：
+### 2. （可選）設定資料庫
+
+若不設定 `DATABASE_URL`，瀏覽量會 fallback 到本地 `view_counts.json`：
 
 ```bash
-pip install flask
+export DATABASE_URL="postgresql://xxx@xxx.neon.tech/neondb?sslmode=require"
 ```
 
-### 2. 啟動伺服器
+### 3. 啟動伺服器
 
 ```bash
 python app.py
 ```
 
-### 3. 訪問
+### 4. 訪問
 
-打開瀏覽器：http://localhost:5000
+打開瀏覽器：<http://localhost:5000>
 
 ---
 
@@ -173,6 +182,9 @@ python app.py
 | `/api/characters/<name>` | GET | 取得單一角色的詳細資料 |
 | `/api/guides` | GET | 取得全部攻略角色 |
 | `/api/guides/<name>` | GET | 取得單一角色的攻略選項 |
+| `/api/view/<name>` | POST | 記錄一次瀏覽 |
+| `/api/ranking` | GET | 取得瀏覽量前 5 名排行 |
+| `/health` | GET | 健康檢查（DB 連線、瀏覽量總計） |
 
 ### 範例
 
@@ -252,16 +264,16 @@ GAME_DATA = {
 
 ## 🌐 部署
 
-> 本項目已部署於 Render：**https://yuzusoft-guide.onrender.com/**
+本項目已部署於 Render 免費方案（見頁首徽章連結）。
 
-### 方案 A：完整版（Flask 後端）
-
-適用於 **Render / Railway / Fly.io** 等支援 Python 的平台。
+### 部署步驟
 
 #### 1. 建立 `requirements.txt`
 
 ```
 Flask==3.0.0
+psycopg2-binary
+gunicorn
 ```
 
 #### 2. 建立 `Procfile`
@@ -270,12 +282,12 @@ Flask==3.0.0
 web: python app.py
 ```
 
-#### 3. `app.py` 已支援環境變數 `PORT`
+#### 3. 設定環境變數
 
-```python
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+在 Render Dashboard → Environment 加入：
+
+```
+DATABASE_URL = postgresql://xxx@xxx.neon.tech/neondb?sslmode=require
 ```
 
 #### 4. 部署到 Render
@@ -284,16 +296,6 @@ if __name__ == '__main__':
 - 選擇 **Web Service**
 - Build Command：`pip install -r requirements.txt`
 - Start Command：`python app.py`
-
----
-
-### 方案 B：純靜態版（GitHub Pages）
-
-如果不需要後端，可將 API 數據內嵌到 `script.js`：
-
-1. 把 `data.py` 的 `GAME_DATA` 轉成 JS 常數
-2. 把 `fetch()` 呼叫改成直接讀取常數
-3. 上傳到 GitHub，啟用 Pages
 
 ---
 
@@ -308,7 +310,6 @@ if __name__ == '__main__':
 | 🍊 **點標題 10 次** | 連續點頂部標題 10 下 |
 | 💖 **雙擊頭像** | 雙擊角色頭像或立繪 |
 | 🤔 **切換遊戲 5 次** | 4 秒內切換 5 個遊戲 |
-| 🧙 **蘿莉 + 30+** | 命運邂逅選這個組合 |
 | 🚀 **連點回到頂部** | 3 秒內點 5 下 |
 | 🍊 **搜尋柚子** | 搜尋框輸入 `柚子` / `yuzu` / `yuzusoft` |
 
@@ -324,9 +325,11 @@ if __name__ == '__main__':
 
 `script.js` 已加入簡轉繁映射表，輸入簡體會自動轉成繁體匹配。
 
-### Q：多個 Gunicorn Worker 會佔用多份記憶體？
+### Q：瀏覽量沒有寫入資料庫？
 
-是的。每個 worker process 都會獨立載入一份 `CharacterManager`。角色數量不多時影響不大；如要優化可考慮改用共享快取（如 Redis）。
+1. 檢查 `DATABASE_URL` 是否設定正確（需含 `?sslmode=require`）
+2. 訪問 `/health` 端點確認 `using_db: true`
+3. 若在 10 分鐘內重複瀏覽同一角色，會被限流（正常行為）
 
 ### Q：如何新增一款遊戲？
 
