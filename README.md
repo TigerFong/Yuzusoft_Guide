@@ -350,8 +350,21 @@ DATABASE_URL = postgresql://xxx@xxx.neon.tech/neondb?sslmode=require
 
 ## 🙏 致謝
 
+### 版權與數據
+
 - [YUZUSOFT 官方網站](https://yuzusoft.jp/)
 - 所有支持柚子社作品的玩家
+
+### 開源代碼
+
+本項目部分功能參考或使用了以下開源項目，謹此致謝：
+
+- **[仝娘之家 · 通用業務核心庫（ai-musume / core.py）](https://github.com/whaylu/ai-musume)**
+  - 作者：whaylu
+  - 授權：MIT License
+  - 使用部分：搜尋子系統（加權評分演算法、`-` 排除語法、同義詞展開、關鍵字高亮、搜尋歷史）
+
+> 該項目的完整授權條款請參閱其倉庫中的 LICENSE 文件。
 
 ---
 
