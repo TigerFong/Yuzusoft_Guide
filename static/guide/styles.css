@@ -11,7 +11,7 @@ html {
 }
 
 :root {
-    --bg-image: url('picture/yuzusoft-logo.jpg');
+    --bg-image: url('/static/picture/yuzusoft-logo.jpg');
     --bg-size: cover;
     --bg-color: #fdfaf3;
 }
@@ -1503,7 +1503,7 @@ body.has-game .menu-list a.clear-game {
     width: clamp(80px, 9vw, 110px);
     height: clamp(80px, 9vw, 110px);
 
-    background-image: url('picture/return-top.png');
+    background-image: url('/static/picture/return-top.png');
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;

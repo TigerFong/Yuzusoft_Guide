@@ -1,9 +1,9 @@
-# app.py
+# 文件：app.py
 import os
-from flask import Flask, jsonify, send_from_directory, request
+import datetime
+from flask import Flask, jsonify, render_template, request, session
 
-from core import (
-    BASE_DIR,
+from backend.core import (
     apply_security_headers,
     list_all_characters,
     list_all_guides,
@@ -19,25 +19,93 @@ from core import (
     handle_search,
     handle_matchmaker,
 )
+from backend.auth import (
+    require_login, register_user, login_user, get_player_data
+)
 
-
-app = Flask(__name__, static_folder=BASE_DIR, static_url_path='')
-
+app = Flask(__name__)
 
 # =========================================================
-# 安全標頭（實際套用邏輯在 core.apply_security_headers）
+# Session / Secret Key 配置
 # =========================================================
+app.secret_key = os.environ.get('SECRET_KEY')
+if not app.secret_key:
+    print("⚠️ 警告：未設定 SECRET_KEY，使用本地隨機 Key (重啟後 Session 失效)")
+    app.secret_key = os.urandom(24)
+
+app.permanent_session_lifetime = datetime.timedelta(days=365)
+
+
 @app.after_request
 def _security_headers(response):
     return apply_security_headers(response)
 
 
 # =========================================================
-# 頁面
+# 頁面路由
 # =========================================================
 @app.route('/')
 def index():
-    return send_from_directory(BASE_DIR, 'index.html')
+    return render_template('index.html')
+
+
+@app.route('/game')
+def game_page():
+    return render_template('game.html')
+
+
+# =========================================================
+# API：Auth
+# =========================================================
+@app.route('/api/auth/register', methods=['POST'])
+def api_register():
+    data = request.json or {}
+    username = data.get('username', '')
+    password = data.get('password', '')
+    
+    res, status = register_user(username, password)
+    if status == 200:
+        session.permanent = True
+        session['user_id'] = res['user_id']
+        session['username'] = res['username']
+    return jsonify(res), status
+
+
+@app.route('/api/auth/login', methods=['POST'])
+def api_login():
+    data = request.json or {}
+    username = data.get('username', '')
+    password = data.get('password', '')
+    
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr) or 'unknown'
+    res, status = login_user(username, password, ip)
+    return jsonify(res), status
+
+
+@app.route('/api/auth/logout', methods=['POST'])
+@require_login
+def api_logout():
+    session.clear()
+    return jsonify({"ok": True})
+
+
+@app.route('/api/auth/me', methods=['GET'])
+def api_me():
+    if 'user_id' not in session:
+        return jsonify({"logged_in": False}), 401
+    
+    user_id = session['user_id']
+    player_data = get_player_data(user_id)
+    if not player_data:
+        session.clear()
+        return jsonify({"logged_in": False}), 401
+        
+    return jsonify({
+        "logged_in": True,
+        "user_id": user_id,
+        "username": session.get('username'),
+        "player": player_data
+    })
 
 
 # =========================================================

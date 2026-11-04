@@ -11,7 +11,10 @@ const _metaPromise = fetch('/api/meta')
             Object.entries(META.games).map(([g, m]) => [g, m.code])
         );
         window.DEFAULT_INFO = META.default_info;
-        window.DEFAULT_BG = META.default_bg;
+        window.DEFAULT_BG = {
+            ...META.default_bg,
+            image: META.default_bg.image.replace("url('", "url('/static/").replace('url("', 'url("/static/'),
+        };
 
         // 首屏文案（以防 HTML 老文案與 meta 不一致）
         const titleEl = document.getElementById('homeTitle');
@@ -120,7 +123,7 @@ async function selectGame(gameName) {
 
     const meta = META.games[gameName];
     if (meta?.bg) {
-        setBackground(`url('${meta.bg}')`, 'cover', '#1a0e05');
+        setBackground(`url('/static/${meta.bg}')`, 'cover', '#1a0e05');
         document.querySelectorAll('.section').forEach(sec => {
             sec.classList.remove('bg-fade');
             void sec.offsetWidth;
@@ -216,7 +219,7 @@ function updateStoryContent(gameName) {
     const imgSrc = gameName && META ? META.games[gameName]?.story : null;
 
     if (imgSrc) {
-        imgEl.src = imgSrc;
+        imgEl.src = '/static/' + imgSrc;
         imgEl.classList.add('show');
         placeholderEl.classList.add('hide');
     } else {
@@ -378,7 +381,7 @@ async function renderCharacters(gameName) {
 
         const thumb = document.createElement('div');
         thumb.className = 'char-nav-thumb';
-        thumb.style.backgroundImage = `url('picture/thumb-${code}-${index + 1}.png')`;
+        thumb.style.backgroundImage = `url('/static/picture/thumb-${code}-${index + 1}.png')`;
 
         const label = document.createElement('div');
         label.className = 'char-nav-label';
@@ -404,7 +407,7 @@ function selectCharacter(chars, index, code, trackView = true) {
         item.classList.toggle('active', i === index);
     });
 
-    portraitEl.style.backgroundImage = `url('picture/char-${code}-${index + 1}.png')`;
+    portraitEl.style.backgroundImage = `url('/static/picture/char-${code}-${index + 1}.png')`;
 
     nameEl.textContent = char.name;
 
@@ -497,7 +500,7 @@ async function renderGuides(gameName) {
         const thumb = document.createElement('div');
         thumb.className = 'char-nav-thumb';
         const n = map[guide.character_name];
-        if (n) thumb.style.backgroundImage = `url('picture/thumb-${code}-${n}.png')`;
+        if (n) thumb.style.backgroundImage = `url('/static/picture/thumb-${code}-${n}.png')`;
 
         const label = document.createElement('div');
         label.className = 'char-nav-label';
@@ -525,7 +528,7 @@ function selectGuide(guides, index, code, map) {
 
     const n = map[guide.character_name];
     if (n) {
-        portraitEl.style.backgroundImage = `url('picture/char-${code}-${n}.png')`;
+        portraitEl.style.backgroundImage = `url('/static/picture/char-${code}-${n}.png')`;
     } else {
         portraitEl.style.backgroundImage = '';
     }
@@ -644,7 +647,7 @@ function checkSearchEasterEgg(q) {
             <div class="search-result-item search-result-special"
                  data-game="魔女的夜宴" data-name="因幡巡">
                 <div class="search-result-thumb"
-                     style="background-image: url('picture/thumb-sabbat-2.png')"></div>
+                     style="background-image: url('/static/picture/thumb-sabbat-2.png')"></div>
                 <div class="search-result-info">
                     <div class="search-result-name">因幡巡</div>
                     <div class="search-result-game">魔女的夜宴</div>
@@ -734,7 +737,7 @@ function renderSearchResults(resultsEl, data) {
                      style="animation-delay: ${delay}ms"
                      data-idx="${idx}">
                     <div class="search-result-thumb"
-                         style="background-image: url('picture/thumb-${escapeAttr(it.code)}-${safeInt(it.index)}.png')"></div>
+                         style="background-image: url('/static/picture/thumb-${escapeAttr(it.code)}-${safeInt(it.index)}.png')"></div>
                     <div class="search-result-info">
                         <div class="search-result-name">${it.name_html}</div>
                         <div class="search-result-game">${escapeHtml(it.game)} ${it.sub_html}</div>
@@ -1052,7 +1055,7 @@ function renderMMList(pool) {
                  data-game="${escapeAttr(char.game)}" data-name="${escapeAttr(char.name)}">
                 ${badge}
                 <div class="mm-result-thumb"
-                     style="background-image: url('picture/thumb-${safeCode}-${safeIndex}.png')"></div>
+                     style="background-image: url('/static/picture/thumb-${safeCode}-${safeIndex}.png')"></div>
                 <div class="mm-result-name">${escapeHtml(char.name)}</div>
                 <div class="mm-result-game">${escapeHtml(char.game)}</div>
                 <div class="mm-result-stats">
@@ -1170,7 +1173,7 @@ function showMMTransition(char, onComplete) {
 
     const safeCode = escapeAttr(char.code || 'game');
     const safeIndex = safeInt(char.index, 0);
-    const thumb = `picture/thumb-${safeCode}-${safeIndex}.png`;
+    const thumb = `/static/picture/thumb-${safeCode}-${safeIndex}.png`;
 
     overlay.innerHTML = `
         <div class="mm-transition-bg"></div>
@@ -1357,7 +1360,7 @@ function triggerCharacterRain() {
         const drop = document.createElement('div');
         drop.className = 'rain-drop';
         const thumb = EASTER_THUMBS[Math.floor(Math.random() * EASTER_THUMBS.length)];
-        drop.style.backgroundImage = `url('picture/thumb-${thumb}.png')`;
+        drop.style.backgroundImage = `url('/static/picture/thumb-${thumb}.png')`;
         drop.style.left = Math.random() * 100 + '%';
         const size = 40 + Math.random() * 40;
         drop.style.width = size + 'px';
@@ -1487,7 +1490,7 @@ async function loadRanking() {
                     data-name="${escapeAttr(item.name)}">
                     <div class="ranking-rank">${rank}</div>
                     <div class="ranking-thumb"
-                        style="background-image: url('picture/thumb-${code}-${idx}.png')"></div>
+                        style="background-image: url('/static/picture/thumb-${code}-${idx}.png')"></div>
                     <div class="ranking-info">
                         <div class="ranking-name">${escapeHtml(item.name)}</div>
                         <div class="ranking-game">${escapeHtml(item.game)}</div>
@@ -1746,7 +1749,7 @@ async function renderFavorites() {
             <div class="favorite-item" data-game="${escapeAttr(info.game)}" data-name="${escapeAttr(name)}">
                 <button class="favorite-remove" title="取消收藏" data-name="${escapeAttr(name)}">✕</button>
                 <div class="favorite-thumb"
-                     style="background-image: url('picture/thumb-${safeCode}-${safeIndex}.png')"></div>
+                     style="background-image: url('/static/picture/thumb-${safeCode}-${safeIndex}.png')"></div>
                 <div class="favorite-name">${escapeHtml(name)}</div>
                 <div class="favorite-game">${escapeHtml(info.game)}</div>
             </div>`;

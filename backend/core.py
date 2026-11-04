@@ -1,17 +1,11 @@
 # core.py
-import os
-import json
 import re
 from time import time
 from collections import defaultdict
 
-import psycopg2
-from psycopg2 import pool
+from .data import GAME_DATA
+from .db import DATABASE_URL, db_pool, view_counts, record_view
 
-from data import GAME_DATA
-
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 遊戲代碼映射（用於圖片命名）
 GAME_CODES = {
@@ -173,90 +167,6 @@ DEFAULT_BG = {
     'size': 'cover',
     'color': '#fdfaf3',
 }
-
-
-# =========================================================
-# 資料庫（Neon PostgreSQL）
-# =========================================================
-DATABASE_URL = os.environ.get("DATABASE_URL")
-
-db_pool = None
-if DATABASE_URL:
-    try:
-        db_pool = psycopg2.pool.SimpleConnectionPool(1, 10, DATABASE_URL)
-        print("Neon 資料庫連線池建立成功")
-    except Exception as e:
-        print("資料庫連線池建立失敗:", e)
-else:
-    print("未設定 DATABASE_URL，將使用本地 view_counts.json（開發模式）")
-
-
-def init_db():
-    if not db_pool:
-        print("未設定 DATABASE_URL，跳過資料庫初始化")
-        return
-    try:
-        conn = db_pool.getconn()
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS view_counts (
-                character_name TEXT PRIMARY KEY,
-                count INTEGER NOT NULL DEFAULT 0
-            )
-        """)
-        conn.commit()
-        cur.close()
-        db_pool.putconn(conn)
-        print("view_counts 表已就緒")
-    except Exception as e:
-        print("初始化資料表失敗:", e)
-
-
-def load_view_counts():
-    if not db_pool:
-        if os.path.exists('view_counts.json'):
-            try:
-                with open('view_counts.json', 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except Exception as e:
-                print("讀取本地 view_counts.json 失敗:", e)
-        return {}
-    try:
-        conn = db_pool.getconn()
-        cur = conn.cursor()
-        cur.execute("SELECT character_name, count FROM view_counts")
-        data = {row[0]: row[1] for row in cur.fetchall()}
-        cur.close()
-        db_pool.putconn(conn)
-        return data
-    except Exception as e:
-        print("讀取瀏覽量失敗:", e)
-        return {}
-
-
-init_db()
-view_counts = load_view_counts()
-
-
-def record_view(name):
-    view_counts[name] = view_counts.get(name, 0) + 1
-    if not db_pool:
-        return
-    try:
-        conn = db_pool.getconn()
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO view_counts (character_name, count)
-            VALUES (%s, 1)
-            ON CONFLICT (character_name)
-            DO UPDATE SET count = view_counts.count + 1
-        """, (name,))
-        conn.commit()
-        cur.close()
-        db_pool.putconn(conn)
-    except Exception as e:
-        print("更新瀏覽量失敗:", e)
-
 
 # =========================================================
 # 防刷：IP 限流 + 角色冷卻

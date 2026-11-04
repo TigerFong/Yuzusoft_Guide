@@ -1,0 +1,246 @@
+/* 文件：static/game/styles.css */
+:root {
+    /* 核心色調：深夜暗紅、黑金、玫瑰金 */
+    --bg-dark: #120505;          /* 極深的暗紅色底 */
+    --bg-panel: rgba(28, 10, 10, 0.85); /* 半透明面板 */
+    --gold-light: #ffe08a;       /* 亮金 */
+    --gold-main: #d4af37;        /* 主金 */
+    --gold-dark: #8b6914;        /* 暗金 */
+    --red-bright: #e03818;       /* 亮紅（按鈕） */
+    --red-deep: #8b1010;         /* 深紅 */
+    --text-main: #f5f0e6;        /* 米白字 */
+    --text-muted: #a08a7a;       /* 灰褐字 */
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    /* 背景加入暗紅與金色的微光暈，模擬魔法夜宴 */
+    background-image: 
+        radial-gradient(circle at 50% 20%, rgba(224, 56, 24, 0.15) 0%, transparent 60%),
+        radial-gradient(circle at 10% 90%, rgba(212, 175, 55, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 90% 80%, rgba(212, 175, 55, 0.08) 0%, transparent 50%);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* ===== 登入遮罩 ===== */
+.login-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 2, 2, 0.9);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    transition: opacity 0.4s ease;
+}
+
+.login-box {
+    width: 100%;
+    max-width: 400px;
+    background: linear-gradient(135deg, rgba(45, 15, 15, 0.95), rgba(20, 5, 5, 0.95));
+    border: 1px solid var(--gold-dark);
+    border-radius: 16px;
+    padding: 40px 30px;
+    box-shadow: 0 0 40px rgba(224, 56, 24, 0.2), inset 0 0 0 1px rgba(212, 175, 55, 0.2);
+    position: relative;
+}
+
+/* 頂部金邊裝飾 */
+.login-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 10%; right: 10%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold-main), transparent);
+    box-shadow: 0 0 10px var(--gold-main);
+}
+
+.login-header { text-align: center; margin-bottom: 30px; }
+.login-header h1 {
+    font-size: 28px;
+    letter-spacing: 0.25em;
+    color: var(--gold-light);
+    text-shadow: 0 0 12px rgba(212, 175, 55, 0.6);
+    margin-bottom: 8px;
+}
+.login-header p { color: var(--text-muted); font-size: 13px; letter-spacing: 0.15em; }
+
+.login-tabs {
+    display: flex;
+    margin-bottom: 24px;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+}
+.tab-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
+    padding: 10px 0;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+.tab-btn.active {
+    color: var(--gold-light);
+    border-bottom: 2px solid var(--gold-main);
+    text-shadow: 0 0 8px rgba(212, 175, 55, 0.5);
+}
+
+.auth-form { display: flex; flex-direction: column; gap: 16px; }
+.input-group input {
+    width: 100%;
+    padding: 14px 16px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+.input-group input:focus { 
+    border-color: var(--gold-main); 
+    box-shadow: 0 0 12px rgba(212, 175, 55, 0.3); 
+}
+
+.auth-error {
+    color: #ff6b6b;
+    font-size: 13px;
+    text-align: center;
+    min-height: 18px;
+}
+
+.btn-submit {
+    background: linear-gradient(180deg, var(--red-bright), var(--red-deep));
+    border: 2px solid var(--red-deep);
+    border-radius: 999px;
+    padding: 14px;
+    color: var(--gold-light);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-top: 10px;
+    box-shadow: inset 0 0 0 1px var(--gold-dark), 0 4px 15px rgba(139, 16, 16, 0.5);
+}
+.btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: inset 0 0 0 1px var(--gold-main), 0 6px 20px rgba(224, 56, 24, 0.6);
+}
+.btn-submit:active { transform: translateY(0); }
+.btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ===== 遊戲主界面 ===== */
+.game-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 32px;
+    background: rgba(18, 5, 5, 0.85);
+    border-bottom: 1px solid rgba(212, 175, 55, 0.25);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.header-left { display: flex; align-items: center; gap: 24px; }
+.btn-back {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.3s;
+}
+.btn-back:hover { color: var(--gold-light); }
+.game-logo {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--gold-light);
+    letter-spacing: 0.1em;
+    text-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+}
+
+.header-right { display: flex; align-items: center; gap: 24px; }
+
+.user-coins {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 6px 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    font-weight: 700;
+    color: var(--gold-light);
+    box-shadow: inset 0 0 8px rgba(212, 175, 55, 0.1);
+}
+.coin-icon {
+    width: 16px; height: 16px;
+    background: linear-gradient(135deg, #ffe08a, #b8860b);
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(255, 224, 138, 0.6);
+}
+
+.user-info { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--text-main); }
+.btn-logout {
+    background: transparent;
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    color: var(--text-muted);
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+.btn-logout:hover { 
+    background: rgba(224, 56, 24, 0.2); 
+    color: #ff8a7a; 
+    border-color: var(--red-bright); 
+}
+
+.game-main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+}
+
+.placeholder-panel {
+    text-align: center;
+    background: var(--bg-panel);
+    padding: 60px;
+    border-radius: 16px;
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    box-shadow: inset 0 0 0 2px rgba(212, 175, 55, 0.1), 0 10px 30px rgba(0, 0, 0, 0.5);
+    position: relative;
+}
+/* 面板四角裝飾（模擬畫框） */
+.placeholder-panel::before, .placeholder-panel::after {
+    content: ''; position: absolute; width: 20px; height: 20px; pointer-events: none;
+}
+.placeholder-panel::before {
+    top: 10px; left: 10px; border-top: 2px solid var(--gold-main); border-left: 2px solid var(--gold-main);
+}
+.placeholder-panel::after {
+    bottom: 10px; right: 10px; border-bottom: 2px solid var(--gold-main); border-right: 2px solid var(--gold-main);
+}
+
+.placeholder-panel h1 {
+    font-size: 32px;
+    color: var(--gold-light);
+    margin-bottom: 16px;
+    letter-spacing: 0.2em;
+    text-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+}
+.placeholder-panel p { color: var(--text-muted); letter-spacing: 0.1em; }
