@@ -1,150 +1,74 @@
+// script.js
 let currentGame = null;
+let META = null;
 
-// ===== 簡轉繁（只轉用戶輸入，數據本身是繁體） =====
-const SIMP_TO_TRAD = {
-    // 名字常用字
-    '丛':'叢','陆':'陸','马':'馬','芦':'蘆','爱':'愛','风':'風','音':'音',
-    '云':'雲','辉':'輝','欧':'歐','丽':'麗','叶':'葉','实':'實','花':'花',
-    '绫':'綾','宁':'寧','叶':'葉','䌷':'紬','户':'戶','隐':'隱','凉':'涼',
-    '伪':'偽','仮':'仮',
-    // 體型 / 年齡
-    '萝':'蘿','莉':'莉','娇':'嬌','小':'小','丰':'豐','满':'滿','纤':'纖',
-    '细':'細','标':'標','准':'準','匀':'勻','称':'稱','高':'高','挑':'挑',
-    '岁':'歲',
-    // 性格
-    '认':'認','真':'真','温':'溫','柔':'柔','开':'開','朗':'朗','调':'調',
-    '皮':'皮','害':'害','羞':'羞','冷':'冷','静':'靜','活':'活','泼':'潑',
-    '乖':'乖','巧':'巧','直':'直','率':'率','随':'隨','和':'和','爽':'爽',
-    '拘':'拘','节':'節','执':'執','着':'著','板':'板','眼':'眼','变':'變',
-    '通':'通','显':'顯','笨':'笨','拙':'拙','私':'私','下':'下','黏':'黏',
-    '人':'人','熟':'熟','寂':'寂','寞':'寞','恶':'惡','作':'作','剧':'劇',
-    '疼':'疼','软':'軟','糯':'糯','容':'容','易':'易','恋':'戀','后':'後',
-    '很':'很','怀':'懷','母':'母','性':'性','关':'關','照':'照','顾':'顧',
-    '体':'體','贴':'貼','照':'照','顾':'顧','强':'強','调':'調','皮':'皮',
-    '纯':'純','情':'情','靦':'靦','腆':'腆','内':'內','向':'向','沉':'沉',
-    '稳':'穩','理':'理','成':'成','熟':'熟','公':'公','反':'反','差':'差',
-    '大':'大','私':'私',
-    // 身份
-    '织':'織','穗':'穗','建':'建','神':'神','社':'社','巫':'巫','女':'女',
-    '姬':'姬','护':'護','卫':'衛','寄':'寄','宿':'宿','刀':'刀','灵':'靈',
-    '魂':'魂','管':'管','理':'理','者':'者','守':'守','魔':'魔','王':'王',
-    '转':'轉','世':'世','主':'主','人':'人','公':'公','天':'天','使':'使',
-    '留':'留','学':'學','生':'生','芬':'芬','兰':'蘭','来':'來','日':'日',
-    '本':'本','镇':'鎮','表':'表','妹':'妹','死':'死','员':'員','馆':'館',
-    '店':'店','学':'學','生':'生','会':'會','长':'長','侍':'侍','从':'從',
-    '师':'師','教':'教','班':'班','主':'主','任':'任','旧':'舊','识':'識',
-    '大':'大','学':'學','生':'生','西':'西','点':'點','甜':'甜','品':'品',
-    // 喜好 / 討厭
-    '恶':'惡','作':'作','剧':'劇','读':'讀','漫':'漫','画':'畫','动':'動',
-    '画':'畫','食':'食','美':'美','游':'遊','戏':'戲','朋':'朋','友':'友',
-    '玩':'玩','猫':'貓','甜':'甜','食':'食','毛':'毛','绒':'絨','具':'具',
-    '厨':'廚','房':'房','学':'學','习':'習','研':'研','磨':'磨','咖':'咖',
-    '啡':'啡','宁':'寧','静':'靜','氛':'氛','围':'圍','喧':'喧','闹':'鬧',
-    '打':'打','扰':'擾','粗':'粗','制':'製','滥':'濫','造':'造','浪':'浪',
-    '费':'費','骄':'驕','傲':'傲','独':'獨','处':'處','排':'排','挤':'擠',
-    '继':'繼','承':'承','体':'體','重':'重','增':'增','加':'加','幽':'幽',
-    '灵':'靈','鬼':'鬼','怪':'怪','孤':'孤','独':'獨','寂':'寂','寞':'寞',
-    '恐':'恐','怖':'怖','故':'故','事':'事','戳':'戳','破':'破','心':'心',
-    '事':'事',
-    // 服裝
-    '服':'服','装':'裝','巫':'巫','女':'女','和':'和','校':'校','经':'經',
-    '典':'典','忍':'忍','者':'者','私':'私','便':'便','神':'神','刀':'刀',
-    '甜':'甜','点':'點','店':'店','工':'工','作':'作','天':'天','使':'使',
-    '侍':'侍','从':'從','教':'教','师':'師','职':'職','业':'業','死':'死',
-    '神':'神','咖':'咖','啡':'啡','馆':'館','女':'女','仆':'僕','厨':'廚',
-    '师':'師','常':'常','泳':'泳','装':'裝','浴':'浴','衣':'衣','魔':'魔',
-    '星':'星','币':'幣','斗':'斗','篷':'篷','粉':'粉','色':'色','荷':'荷',
-    '叶':'葉','边':'邊','套':'套','袖':'袖'
-};
+// ===== 立即開始載入 meta（不依賴 DOM）=====
+const _metaPromise = fetch('/api/meta')
+    .then(r => r.json())
+    .then(data => {
+        META = data;
+        window.GAME_CODES = Object.fromEntries(
+            Object.entries(META.games).map(([g, m]) => [g, m.code])
+        );
+        window.DEFAULT_INFO = META.default_info;
+        window.DEFAULT_BG = META.default_bg;
 
-function simpToTrad(str) {
-    if (!str) return '';
-    return String(str).split('').map(c => SIMP_TO_TRAD[c] || c).join('');
+        // 首屏文案（以防 HTML 老文案與 meta 不一致）
+        const titleEl = document.getElementById('homeTitle');
+        const subEl = document.getElementById('homeSub');
+        const descEl = document.getElementById('homeDesc');
+        if (titleEl) titleEl.textContent = META.default_info.title;
+        if (subEl) subEl.textContent = META.default_info.sub;
+        if (descEl) descEl.textContent = META.default_info.desc;
+        return META;
+    })
+    .catch(e => {
+        console.error('載入 meta 失敗', e);
+        return null;
+    });
+
+function whenMetaReady() {
+    return _metaPromise;
 }
 
-// 各遊戲的背景圖
-const GAME_BACKGROUNDS = {
-    '千戀＊萬花': 'picture/bg-senren.jpg',
-    '天使紛擾': 'picture/bg-tenshi.jpg',
-    '星光咖啡館與死神之蝶': 'picture/bg-cafe.jpg',
-    '魔女的夜宴': 'picture/bg-sabbat.jpg'
-};
 
-// 各遊戲的首頁介紹
-const GAME_INFO = {
-    '千戀＊萬花': {
-        title: '千戀＊萬花',
-        sub: 'senren banka',
-        desc: '《千戀＊萬花》是柚子社於2016年推出、以和風溫泉小鎮為背景的超人氣美少女遊戲作品，憑藉精緻細膩的畫面、頂級的音樂演出以及極具魅力的角色塑造，在海內外Galgame玩家群體中享有極高的口碑與熱度。'
-    },
-    '天使紛擾': {
-        title: '天使紛擾',
-        sub: 'tenshi souzou',
-        desc: '《天使☆囂嚣 RE-BOOT!》（又譯《天使☆紛擾》）是日本知名美少女遊戲品牌柚子社（YUZUSOFT）於2023年推出的人氣視覺小說作品，延續了該品牌一貫精緻流暢的高畫質作畫、強大的製作陣容與歡樂輕鬆的萌系風格，在推出後同樣於海內外玩家間獲得了極高的熱度與優秀口碑。'
-    },
-    '星光咖啡館與死神之蝶': {
-        title: '星光咖啡館與死神之蝶',
-        sub: 'cafe stella',
-        desc: '《星光咖啡館與死神之蝶》（喫茶ステラと死神の蝶）是日本知名美少女遊戲品牌柚子社（YUZUSOFT）於2019年推出的超人氣視覺小說作品，故事以一間名為「星光咖啡館」的店鋪為舞台，講述了因意外而獲得重啟時間機會的男主角，與自稱死神的少女以及性格各異的女主角們一同經營咖啡館、交織出浪漫且溫馨日常的戀愛故事。'
-    },
-    '魔女的夜宴': {
-        title: '魔女的夜宴',
-        sub: 'sabbat of the witch',
-        desc: '《魔女的夜宴》（サノバウィッチ）是日本知名美少女遊戲品牌柚子社（YUZUSOFT）於2015年推出的超人氣美少女遊戲作品，憑藉著精緻甜美的畫風、歡樂逗趣的日常互動以及極具特色的角色塑造，在海內外Galgame玩家群體中獲得了極高的評價與喜愛。'
-    }
-};
-
-// 預設首頁介紹（未選遊戲時）
-const DEFAULT_INFO = {
-    title: '柚子社攻略站',
-    sub: 'yuzusoft guide',
-    desc: '這個網站--柚子社攻略站(Yuzusoft Guide)是一個非官方粉絲站，專門收錄柚子社（YUZUSOFT）歷代作品的角色資料、劇情簡介與全路線攻略，涵蓋《千戀＊萬花》、《天使紛擾》、《星光咖啡館與死神之蝶》、《魔女的夜宴》等作品。網站提供角色查詢、故事介紹、路線攻略、全站搜索與角色篩選等功能，讓玩家能快速查找所需資訊。所有遊戲名稱、角色人設與相關版權均歸 YUZUSOFT 所有，本站僅供學習與交流使用。'
-};
-
-// 柚子社 logo 背景（預設）
-const DEFAULT_BG = {
-    image: "url('picture/yuzusoft-logo.jpg')",
-    size: 'cover',
-    color: '#fdfaf3'
-};
-
-// 各遊戲的故事介紹圖片
-const GAME_STORIES = {
-    '千戀＊萬花': 'picture/story-senren.jpg',
-    '天使紛擾': 'picture/story-tenshi.jpg',
-    '星光咖啡館與死神之蝶': 'picture/story-cafe.jpg',
-    '魔女的夜宴': 'picture/story-sabbat.jpg'
-};
-
-// 角色索引快取（角色名 → 圖片編號）
-const charIndexCache = {};
-
-async function getCharIndexMap(gameName) {
-    if (charIndexCache[gameName]) return charIndexCache[gameName];
-    try {
-        const res = await fetch(`/api/games/${encodeURIComponent(gameName)}/characters`);
-        if (res.ok) {
-            const names = await res.json();
-            const map = {};
-            names.forEach((n, i) => map[n] = i + 1);
-            charIndexCache[gameName] = map;
-            return map;
-        }
-    } catch (e) {
-        console.error('讀取角色索引失敗:', e);
-    }
-    return {};
+// =========================================================
+// 工具函式
+// =========================================================
+function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
 }
-// 遊戲代碼（用於圖片命名）
-const GAME_CODES = {
-    '千戀＊萬花': 'senren',
-    '天使紛擾': 'tenshi',
-    '星光咖啡館與死神之蝶': 'cafe',
-    '魔女的夜宴': 'sabbat'
-};
 
-// ===== 選單開關 =====
+function escapeAttr(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"'`=\/\r\n]/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;',
+        "'": '&#39;', '`': '&#96;', '=': '&#61;', '/': '&#47;',
+        '\r': '&#13;', '\n': '&#10;'
+    }[c]));
+}
+
+function safeInt(n, fallback = 0) {
+    const v = parseInt(n, 10);
+    return Number.isFinite(v) ? v : fallback;
+}
+
+
+// =========================================================
+// 選單
+// =========================================================
+function hideGuideTip() {
+    const tip = document.getElementById('guideTip');
+    if (tip && !tip.classList.contains('hide')) {
+        tip.classList.add('hide');
+    }
+}
+
 function openMenu() {
+    hideGuideTip();
     document.getElementById('sideMenu').classList.add('open');
     document.getElementById('overlay').classList.add('show');
 }
@@ -154,7 +78,10 @@ function closeMenu() {
     document.getElementById('overlay').classList.remove('show');
 }
 
-// ===== 設定背景 =====
+
+// =========================================================
+// 背景
+// =========================================================
 function setBackground(image, size, color) {
     const root = document.documentElement;
     root.style.setProperty('--bg-image', image);
@@ -162,9 +89,25 @@ function setBackground(image, size, color) {
     root.style.setProperty('--bg-color', color);
 }
 
-// ===== 選擇遊戲 =====
+
+// =========================================================
+// 選擇 / 取消遊戲
+// =========================================================
+let switchGameCount = 0;
+let switchGameTimer = null;
+
 async function selectGame(gameName) {
+    await whenMetaReady();
     currentGame = gameName;
+
+    // 彩蛋 5：連點 5 次
+    switchGameCount++;
+    clearTimeout(switchGameTimer);
+    switchGameTimer = setTimeout(() => { switchGameCount = 0; }, 8000);
+    if (switchGameCount === 5) {
+        showEasterToast('🤔 你是在猶豫嗎？', '每部作品都很棒，慢慢選吧～');
+        switchGameCount = 0;
+    }
 
     document.querySelectorAll('#gameList a').forEach(a => {
         a.classList.toggle('active', a.dataset.game === gameName);
@@ -175,14 +118,12 @@ async function selectGame(gameName) {
         if (el) el.classList.remove('disabled');
     });
 
-    const bgUrl = GAME_BACKGROUNDS[gameName];
-    if (bgUrl) {
-        setBackground(`url('${bgUrl}')`, 'cover', '#1a0e05');
-
-        // ⭐ 讓所有 section 播一次淡入
+    const meta = META.games[gameName];
+    if (meta?.bg) {
+        setBackground(`url('${meta.bg}')`, 'cover', '#1a0e05');
         document.querySelectorAll('.section').forEach(sec => {
             sec.classList.remove('bg-fade');
-            void sec.offsetWidth;   // 強制重繪
+            void sec.offsetWidth;
             sec.classList.add('bg-fade');
             setTimeout(() => sec.classList.remove('bg-fade'), 700);
         });
@@ -199,20 +140,18 @@ async function selectGame(gameName) {
     ]);
 }
 
-// ===== 取消選擇遊戲 =====
-function clearGame() {
+async function clearGame() {
     currentGame = null;
 
     document.querySelectorAll('#gameList a').forEach(a => {
         a.classList.remove('active');
     });
-
     document.querySelectorAll('#featureList a.game-feature').forEach(a => {
         a.classList.add('disabled');
     });
-
     document.body.classList.remove('has-game');
 
+    await whenMetaReady();
     setBackground(DEFAULT_BG.image, DEFAULT_BG.size, DEFAULT_BG.color);
 
     updateHomeContent(null, true);
@@ -220,11 +159,13 @@ function clearGame() {
     renderCharacters(null);
 
     scrollToSection('home');
-
     closeMenu();
 }
 
-// ===== 滾動到指定區塊 =====
+
+// =========================================================
+// 滾動
+// =========================================================
 function scrollToSection(sectionId) {
     const target = document.getElementById(sectionId);
     if (!target) return;
@@ -236,11 +177,9 @@ function scrollToSection(sectionId) {
 
     const topbarHeight = document.querySelector('.topbar-inner').offsetHeight + 30;
     const targetY = target.getBoundingClientRect().top + window.scrollY - topbarHeight;
-
     window.scrollTo({ top: targetY, behavior: 'smooth' });
 }
 
-// ===== 滾動時更新側邊選單高亮 =====
 function updateActiveSection() {
     const sections = document.querySelectorAll('.section');
     const topbarHeight = document.querySelector('.topbar-inner').offsetHeight + 40;
@@ -261,18 +200,20 @@ function updateActiveSection() {
 
 window.addEventListener('scroll', updateActiveSection, { passive: true });
 
-// ===== ESC 關閉選單 =====
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeMenu();
 });
 
-// ===== 更新故事內容 =====
+
+// =========================================================
+// 首頁 / 故事
+// =========================================================
 function updateStoryContent(gameName) {
     const imgEl = document.getElementById('storyImage');
     const placeholderEl = document.getElementById('storyPlaceholder');
     if (!imgEl || !placeholderEl) return;
 
-    const imgSrc = GAME_STORIES[gameName];
+    const imgSrc = gameName && META ? META.games[gameName]?.story : null;
 
     if (imgSrc) {
         imgEl.src = imgSrc;
@@ -285,21 +226,19 @@ function updateStoryContent(gameName) {
     }
 }
 
-// ===== 更新首頁內容 =====
 function updateHomeContent(gameName, animate = false) {
+    if (!META) return;
     const titleEl = document.getElementById('homeTitle');
-    const subEl   = document.getElementById('homeSub');
-    const descEl  = document.getElementById('homeDesc');
+    const subEl = document.getElementById('homeSub');
+    const descEl = document.getElementById('homeDesc');
 
-    const info = GAME_INFO[gameName] || DEFAULT_INFO;
+    const info = (gameName && META.games[gameName]?.info) || META.default_info;
     titleEl.textContent = info.title;
-    subEl.textContent   = info.sub;
+    subEl.textContent = info.sub;
 
-    // 打字機效果（只在 animate 為 true 且不排斥動畫時）
     if (animate && !shouldSkipTyping()) {
         typewriterText(descEl, info.desc);
     } else {
-        // 直接顯示
         if (typewriterTimer) {
             clearInterval(typewriterTimer);
             typewriterTimer = null;
@@ -310,19 +249,20 @@ function updateHomeContent(gameName, animate = false) {
     }
 }
 
-// ===== 打字機效果 =====
+
+// =========================================================
+// 打字機
+// =========================================================
 let typewriterTimer = null;
 let typewriterEl = null;
 let typewriterFullText = '';
 let typewriterDone = true;
 
 function typewriterText(el, text, speed = 30) {
-    // 清除先前的計時器
     if (typewriterTimer) {
         clearInterval(typewriterTimer);
         typewriterTimer = null;
     }
-
     typewriterEl = el;
     typewriterFullText = text;
     typewriterDone = false;
@@ -343,7 +283,6 @@ function typewriterText(el, text, speed = 30) {
     }, speed);
 }
 
-// 立即完成打字
 function finishTypewriter() {
     if (typewriterTimer) {
         clearInterval(typewriterTimer);
@@ -358,37 +297,39 @@ function finishTypewriter() {
     typewriterDone = true;
 }
 
-// 跳過打字（如果還在打）
 function skipTypewriter() {
-    if (!typewriterDone) {
-        finishTypewriter();
-    }
+    if (!typewriterDone) finishTypewriter();
 }
 
-// 尊重使用者的「減少動態」設定
 function shouldSkipTyping() {
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-// ===== 引導提示 =====
-function hideGuideTip() {
-    const tip = document.getElementById('guideTip');
-    if (tip && !tip.classList.contains('hide')) {
-        tip.classList.add('hide');
-    }
-}
-
-// 首次開啟選單時隱藏引導
-const _originalOpenMenu = openMenu;
-openMenu = function () {
-    hideGuideTip();
-    _originalOpenMenu();
-};
-
-// 8 秒後自動隱藏
 setTimeout(hideGuideTip, 8000);
 
-// ===== 渲染角色介紹（從 API 讀取） =====
+
+// =========================================================
+// 角色介紹
+// =========================================================
+const charIndexCache = {};
+
+async function getCharIndexMap(gameName) {
+    if (charIndexCache[gameName]) return charIndexCache[gameName];
+    try {
+        const res = await fetch(`/api/games/${encodeURIComponent(gameName)}/characters`);
+        if (res.ok) {
+            const names = await res.json();
+            const map = {};
+            names.forEach((n, i) => map[n] = i + 1);
+            charIndexCache[gameName] = map;
+            return map;
+        }
+    } catch (e) {
+        console.error('讀取角色索引失敗:', e);
+    }
+    return {};
+}
+
 async function renderCharacters(gameName) {
     const navEl = document.getElementById('charNav');
     const portraitEl = document.getElementById('charPortrait');
@@ -398,7 +339,6 @@ async function renderCharacters(gameName) {
 
     navEl.innerHTML = '';
 
-    // 未選遊戲 → 清空
     if (!gameName) {
         portraitEl.style.backgroundImage = '';
         nameEl.textContent = '';
@@ -407,7 +347,6 @@ async function renderCharacters(gameName) {
         return;
     }
 
-    // 1. 從 API 取得角色名稱列表
     let names = [];
     try {
         const res = await fetch(`/api/games/${encodeURIComponent(gameName)}/characters`);
@@ -421,7 +360,6 @@ async function renderCharacters(gameName) {
         return;
     }
 
-    // 2. 並行取得每個角色的詳細資料
     const chars = await Promise.all(names.map(async (name) => {
         try {
             const res = await fetch(`/api/characters/${encodeURIComponent(name)}`);
@@ -432,9 +370,8 @@ async function renderCharacters(gameName) {
         return { name };
     }));
 
-    const code = GAME_CODES[gameName] || 'game';
+    const code = (META?.games[gameName]?.code) || 'game';
 
-    // 3. 產生頂部頭像按鈕
     chars.forEach((char, index) => {
         const item = document.createElement('div');
         item.className = 'char-nav-item' + (index === 0 ? ' active' : '');
@@ -453,11 +390,9 @@ async function renderCharacters(gameName) {
         navEl.appendChild(item);
     });
 
-    // 4. 預設顯示第一位（不上報瀏覽量）
     selectCharacter(chars, 0, code, false);
 }
 
-// ===== 切換角色 =====
 function selectCharacter(chars, index, code, trackView = true) {
     const char = chars[index];
     const portraitEl = document.getElementById('charPortrait');
@@ -473,21 +408,17 @@ function selectCharacter(chars, index, code, trackView = true) {
 
     nameEl.textContent = char.name;
 
-    // 記錄瀏覽量：前端去重（同角色每 10 分鐘只上報一次）
     if (trackView && char.name && !hasViewedRecently(char.name)) {
-        markViewed(char.name);   // 先標記，避免連點重複送
-
+        markViewed(char.name);
         fetch(`/api/view/${encodeURIComponent(char.name)}`, { method: 'POST' })
             .then(res => res.json())
             .then(data => {
-                // 只有後端真的 +1 才刷新排行榜
                 if (data.counted) refreshRanking();
             })
             .catch(() => {});
     }
     cvEl.textContent = char.cv ? 'CV：' + char.cv : '';
 
-    // 資料列（依 data.py 欄位）
     const rows = [
         ['年齡', char.age],
         ['身高', char.height],
@@ -505,11 +436,16 @@ function selectCharacter(chars, index, code, trackView = true) {
             html += `<div class="row"><div class="key">${escapeHtml(key)}</div><div class="val">${escapeHtml(String(val))}</div></div>`;
         }
     });
-
     descEl.innerHTML = html || '<p class="placeholder-text">暫無資料。</p>';
+
+    injectFavButton(char, code, index);
+    triggerPortraitSwitch(portraitEl);
 }
 
-// ===== 渲染攻略（從 API 讀取） =====
+
+// =========================================================
+// 攻略
+// =========================================================
 async function renderGuides(gameName) {
     const navEl = document.getElementById('guideNav');
     const portraitEl = document.getElementById('guidePortrait');
@@ -527,7 +463,6 @@ async function renderGuides(gameName) {
         return;
     }
 
-    // 攻略名單
     let guideNames = [];
     try {
         const res = await fetch(`/api/games/${encodeURIComponent(gameName)}/guides`);
@@ -541,10 +476,8 @@ async function renderGuides(gameName) {
         return;
     }
 
-    // 角色索引（和角色介紹區同一套圖）
     const map = await getCharIndexMap(gameName);
 
-    // 攻略詳情
     const guides = await Promise.all(guideNames.map(async (name) => {
         try {
             const res = await fetch(`/api/guides/${encodeURIComponent(name)}`);
@@ -555,20 +488,16 @@ async function renderGuides(gameName) {
         return { character_name: name, options: [] };
     }));
 
-    const code = GAME_CODES[gameName] || 'game';
+    const code = (META?.games[gameName]?.code) || 'game';
 
-    // 頂部頭像
     guides.forEach((guide, index) => {
         const item = document.createElement('div');
         item.className = 'char-nav-item' + (index === 0 ? ' active' : '');
 
         const thumb = document.createElement('div');
         thumb.className = 'char-nav-thumb';
-
         const n = map[guide.character_name];
-        if (n) {
-            thumb.style.backgroundImage = `url('picture/thumb-${code}-${n}.png')`;
-        }
+        if (n) thumb.style.backgroundImage = `url('picture/thumb-${code}-${n}.png')`;
 
         const label = document.createElement('div');
         label.className = 'char-nav-label';
@@ -583,7 +512,6 @@ async function renderGuides(gameName) {
     selectGuide(guides, 0, code, map);
 }
 
-// ===== 切換攻略 =====
 function selectGuide(guides, index, code, map) {
     const guide = guides[index];
     const portraitEl = document.getElementById('guidePortrait');
@@ -595,7 +523,6 @@ function selectGuide(guides, index, code, map) {
         item.classList.toggle('active', i === index);
     });
 
-    // 立繪（和角色介紹區同一套圖）
     const n = map[guide.character_name];
     if (n) {
         portraitEl.style.backgroundImage = `url('picture/char-${code}-${n}.png')`;
@@ -609,299 +536,39 @@ function selectGuide(guides, index, code, map) {
     const options = guide.options || [];
     if (options.length === 0) {
         optionsEl.innerHTML = '<p class="placeholder-text">暫無攻略選項。</p>';
-        return;
+    } else {
+        let html = '<ol class="guide-option-list">';
+        options.forEach(opt => {
+            if (opt && opt.trim()) {
+                html += `<li class="guide-option-item">${escapeHtml(opt)}</li>`;
+            }
+        });
+        html += '</ol>';
+        optionsEl.innerHTML = html;
     }
 
-    let html = '<ol class="guide-option-list">';
-    options.forEach((opt) => {
-        if (opt && opt.trim()) {
-            html += `<li class="guide-option-item">${escapeHtml(opt)}</li>`;
-        }
-    });
-    html += '</ol>';
-    optionsEl.innerHTML = html;
+    enhanceGuideWithProgress(guide);
+    triggerPortraitSwitch(portraitEl);
 }
 
-// =========================================================
-// 搜索（增强版：字段权重 + 排除 + 同义词 + 攻略 + 高亮 + 历史 + 键盘 + 拼音 + 建议 + 分组）
-// =========================================================
 
-const WEIGHT_HIGH = 3;
-const WEIGHT_MID  = 2;
-const WEIGHT_LOW  = 1;
-const _EXACT  = 60;
-const _PREFIX = 40;
-const _SUBSTR = 20;
-const _MAX_SCORE = 100;
+// =========================================================
+// 搜索
+// =========================================================
 const HISTORY_KEY = 'yuzu-search-history';
 const HISTORY_MAX = 8;
 
-// ===== 角色名拼音（首字母 + 全拼）=====
-const PINYIN_MAP = {
-    '朝武芳乃': ['cwfn', 'chaowufangnai'],
-    '常陸茉子': ['clmz', 'changlumuozi'],
-    '叢雨':     ['cy',   'congyu'],
-    '蕾娜·列支敦瑙爾': ['ln', 'leina'],
-    '鞍馬小春': ['amxc', 'anmaxiaochun'],
-    '馬庭蘆花': ['mtlh', 'matingluhua'],
-    '白雪乃愛': ['bxna', 'baixuenai'],
-    '谷風天音': ['gfty', 'gufengtianyin'],
-    '小雲雀來海': ['xyqlh', 'xiaoyunquelaihai'],
-    '星河輝耶': ['xhy', 'xinghehuiye'],
-    '高楯歐麗葉': ['gsole', 'gaoshunouliye'],
-    '百里風實花': ['blfsh', 'bailifengshihua'],
-    '明月栞那': ['mykn', 'mingyuekanna'],
-    '四季夏目': ['sjxm', 'sijixiamu'],
-    '墨染希':   ['mrx',  'muranxi'],
-    '火打谷愛衣': ['hdgay', 'huodaguaiyi'],
-    '汐山涼音': ['xsly', 'xishanliangyin'],
-    '綾地寧寧': ['ldnn', 'lingdiningning'],
-    '因幡巡':   ['yfx',  'yinfanxun'],
-    '椎葉紬':   ['zyc',  'zhuiyechou'],
-    '戶隱憧子': ['hytz', 'huyintongzi'],
-    '仮屋和奏': ['jwhz', 'jiawuhezou'],
+let searchState = {
+    selectedIndex: -1,
+    activeTab: 'all',
+    flatHits: [],   // [{type, game, name}, ...]
+    lastQuery: '',
 };
 
-function getPinyin(name) {
-    return (PINYIN_MAP[name] || []).join(' ');
-}
-
-// ===== 同义词 =====
-const SYNONYMS = {
-    '蘿莉': ['蘿莉', '萝莉', 'loli'],
-    '少女': ['少女', 'girl'],
-    '御姐': ['御姐', '御姊'],
-    '巫女': ['巫女', 'miko'],
-    '魔女': ['魔女', 'witch'],
-    '死神': ['死神', 'reaper'],
-    '學生': ['學生', '学生'],
-    '甜食': ['甜食', '甜點', '甜点'],
-};
-
-function expandKeyword(kw) {
-    const lower = kw.toLowerCase();
-    for (const group of Object.values(SYNONYMS)) {
-        if (group.map(g => g.toLowerCase()).includes(lower)) {
-            return group.map(g => g.toLowerCase());
-        }
-    }
-    return [lower];
-}
-
-// ===== 字段权重 =====
-function buildCharFields(char) {
-    return [
-        { label: '名稱', value: char.name        || '', weight: WEIGHT_HIGH },
-        { label: '身份', value: char.identity    || '', weight: WEIGHT_HIGH },
-        { label: '體型', value: char.body_type   || '', weight: WEIGHT_MID  },
-        { label: '性格', value: char.personality || '', weight: WEIGHT_MID  },
-        { label: '喜好', value: (char.likes    || []).join(' '), weight: WEIGHT_MID },
-        { label: '討厭', value: (char.dislikes || []).join(' '), weight: WEIGHT_MID },
-        { label: '服裝', value: (char.clothes  || []).join(' '), weight: WEIGHT_MID },
-        { label: '年齡', value: char.age         || '', weight: WEIGHT_LOW  },
-        { label: '身高', value: char.height      || '', weight: WEIGHT_LOW  },
-    ];
-}
-
-// ===== 解析查询 =====
-function parseQuery(raw) {
-    if (!raw) return { include: [], exclude: [] };
-    const tokens = raw.replace(/\u3000/g, ' ').split(/\s+/).filter(Boolean);
-    const include = [], exclude = [];
-    for (const t of tokens) {
-        if (t.startsWith('-') && t.length > 1) exclude.push(t.slice(1));
-        else include.push(t);
-    }
-    return { include, exclude };
-}
-
-// ===== 打分 =====
-function scoreObject(item, fields, includeGroups, excludeGroups, pinyinText) {
-    if (includeGroups.length === 0) return null;
-
-    // 拼音也算入搜索文本
-    const allFields = pinyinText
-        ? [...fields, { label: '拼音', value: pinyinText, weight: WEIGHT_MID }]
-        : fields;
-
-    // 排除检查
-    for (const group of excludeGroups) {
-        for (const f of allFields) {
-            const text = (f.value || '').toLowerCase();
-            if (!text) continue;
-            for (const kw of group) {
-                if (kw && text.includes(kw)) return null;
-            }
-        }
-    }
-
-    // 包含 + 打分
-    let total = 0;
-    const matchedFields = [];
-    const matchedKeywords = [];
-
-    for (const group of includeGroups) {
-        const primary = group[0];
-        let groupHit = false;
-        for (const f of allFields) {
-            const text = (f.value || '').toLowerCase();
-            if (!text) continue;
-            for (const kw of group) {
-                if (!kw) continue;
-                if (text === kw)              { total += _EXACT  * f.weight; groupHit = true; }
-                else if (text.startsWith(kw)) { total += _PREFIX * f.weight; groupHit = true; }
-                else if (text.includes(kw))   { total += _SUBSTR * f.weight; groupHit = true; }
-                else continue;
-                if (!matchedFields.includes(f.label)) matchedFields.push(f.label);
-                break;
-            }
-        }
-        if (!groupHit) return null;
-        matchedKeywords.push(primary);
-    }
-
-    return { item, score: Math.min(total, _MAX_SCORE), matchedFields, matchedKeywords };
-}
-
-// ===== 高亮 =====
-function highlightText(text, keywords) {
-    if (!text) return '';
-    if (!keywords || !keywords.length) return escapeHtml(text);
-
-    let out = escapeHtml(text);
-    const sorted = [...new Set(keywords.filter(Boolean))].sort((a, b) => b.length - a.length);
-
-    for (const kw of sorted) {
-        const re = new RegExp(escapeRegex(kw), 'gi');
-        out = out.replace(re, m => `<mark>${m}</mark>`);
-    }
-    return out;
-}
-
-// ===== 安全轉義（XSS 防護）=====
-function escapeHtml(s) {
-    if (s === null || s === undefined) return '';
-    return String(s).replace(/[&<>"']/g, c => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-    }[c]));
-}
-
-// 屬性值專用（額外阻擋反引號、等號、換行）
-function escapeAttr(s) {
-    if (s === null || s === undefined) return '';
-    return String(s).replace(/[&<>"'`=\/\r\n]/g, c => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;',
-        '`': '&#96;',
-        '=': '&#61;',
-        '/': '&#47;',
-        '\r': '&#13;',
-        '\n': '&#10;'
-    }[c]));
-}
-
-// 強制轉成安全整數（防數字欄位塞字串）
-function safeInt(n, fallback = 0) {
-    const v = parseInt(n, 10);
-    return Number.isFinite(v) ? v : fallback;
-}
-
-function escapeRegex(s) {
-    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-// ===== 索引 =====
-let searchIndex = null;
-let searchIndexPromise = null;
-
-async function buildSearchIndex() {
-    if (searchIndex) return searchIndex;
-    if (searchIndexPromise) return searchIndexPromise;
-
-    searchIndexPromise = (async () => {
-        const index = [];
-
-        for (const game of Object.keys(GAME_CODES)) {
-            try {
-                const res = await fetch(`/api/games/${encodeURIComponent(game)}/characters`);
-                if (!res.ok) continue;
-                const names = await res.json();
-                const code = GAME_CODES[game];
-
-                // 角色
-                for (let i = 0; i < names.length; i++) {
-                    try {
-                        const r = await fetch(`/api/characters/${encodeURIComponent(names[i])}`);
-                        if (!r.ok) continue;
-                        const char = await r.json();
-                        index.push({
-                            type: 'character',
-                            name: char.name,
-                            game, code,
-                            index: i + 1,
-                            fields: buildCharFields(char),
-                            pinyin: getPinyin(char.name),
-                            raw: char,
-                        });
-                    } catch (e) {}
-                }
-
-                // 攻略
-                try {
-                    const gr = await fetch(`/api/games/${encodeURIComponent(game)}/guides`);
-                    if (gr.ok) {
-                        const guideNames = await gr.json();
-                        for (const gname of guideNames) {
-                            try {
-                                const rr = await fetch(`/api/guides/${encodeURIComponent(gname)}`);
-                                if (!rr.ok) continue;
-                                const guide = await rr.json();
-                                const charIdx = names.indexOf(gname) + 1;
-                                (guide.options || []).forEach((opt, oi) => {
-                                    if (!opt || !opt.trim()) return;
-                                    index.push({
-                                        type: 'guide',
-                                        name: gname,
-                                        option: opt,
-                                        optionIndex: oi + 1,
-                                        game, code,
-                                        index: charIdx,
-                                        fields: [
-                                            { label: '攻略選項', value: opt, weight: WEIGHT_HIGH },
-                                            { label: '角色', value: gname, weight: WEIGHT_MID },
-                                        ],
-                                        pinyin: '',
-                                    });
-                                });
-                            } catch (e) {}
-                        }
-                    }
-                } catch (e) {}
-
-            } catch (e) {
-                console.error('建立索引失敗:', game, e);
-            }
-        }
-
-        searchIndex = index;
-        return index;
-    })();
-
-    return searchIndexPromise;
-}
-
-// ===== 搜索历史 =====
 function loadHistory() {
     try {
         return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-    } catch (e) { return []; }
+    } catch { return []; }
 }
 
 function pushHistory(q) {
@@ -915,162 +582,11 @@ function clearHistory() {
     localStorage.removeItem(HISTORY_KEY);
 }
 
-// ===== 建议 =====
-function getSuggestions(query, index) {
-    const q = query.toLowerCase();
-    const words = new Set();
-    for (const item of index) {
-        for (const f of item.fields) {
-            const v = (f.value || '').trim();
-            if (!v) continue;
-            if (v.toLowerCase().includes(q) && v.length <= 12) {
-                words.add(v);
-            }
-        }
-    }
-    return [...words].sort((a, b) => a.length - b.length).slice(0, 6);
-}
-
-// ===== UI 状态 =====
-let searchState = {
-    hits: [],
-    selectedIndex: -1,
-    activeTab: 'all',
-    showHistory: false,
-};
-
-// ===== 渲染结果 =====
-function renderSearchResults(resultsEl, hits, keywords) {
-    searchState._id = 0;
-
-    // 顶部建议（用输入框当前词）
-    const input = document.getElementById('searchInput');
-    const currentQ = (input?.value || '').trim();
-    const suggestionsHtml = buildSuggestionsHtml(currentQ);
-
-    if (hits.length === 0) {
-        resultsEl.innerHTML = suggestionsHtml +
-            '<div class="search-result-empty">沒有找到符合的角色</div>';
-        resultsEl.classList.add('show');
-        bindSuggestionClicks(resultsEl);
-        return;
-    }
-
-    // Tab 过滤
-    let filtered = hits;
-    if (searchState.activeTab === 'character') filtered = hits.filter(h => h.item.type === 'character');
-    if (searchState.activeTab === 'guide')     filtered = hits.filter(h => h.item.type === 'guide');
-
-    // 按游戏分组
-    const groups = {};
-    filtered.forEach(h => {
-        const g = h.item.game;
-        if (!groups[g]) groups[g] = [];
-        groups[g].push(h);
-    });
-
-    // Tab 栏
-    let html = suggestionsHtml + '<div class="search-tabs">';
-    const counts = {
-        all: hits.length,
-        character: hits.filter(h => h.item.type === 'character').length,
-        guide: hits.filter(h => h.item.type === 'guide').length,
-    };
-    html += `<button class="search-tab ${searchState.activeTab === 'all' ? 'active' : ''}" data-tab="all">全部 ${counts.all}</button>`;
-    html += `<button class="search-tab ${searchState.activeTab === 'character' ? 'active' : ''}" data-tab="character">角色 ${counts.character}</button>`;
-    html += `<button class="search-tab ${searchState.activeTab === 'guide' ? 'active' : ''}" data-tab="guide">攻略 ${counts.guide}</button>`;
-    html += '</div>';
-
-    if (filtered.length === 0) {
-        html += '<div class="search-result-empty">此分類下無結果</div>';
-    } else {
-        for (const [gameName, list] of Object.entries(groups)) {
-            html += `<div class="search-group-title">${escapeHtml(gameName)}</div>`;
-            list.forEach(h => {
-                const item = h.item;
-                const idx = ++searchState._id;
-                let nameText, gameText;
-
-                if (item.type === 'character') {
-                    nameText = highlightText(item.name, keywords);
-                    const otherFields = h.matchedFields.filter(f => f !== '名稱' && f !== '拼音');
-                    gameText = otherFields.length ? '· ' + otherFields.join('、') : '';
-                } else {
-                    nameText = highlightText(item.name, keywords) +
-                            ' <span class="guide-tag">攻略 ' + item.optionIndex + '</span>';
-                    gameText = '· ' + highlightText(item.option, keywords);
-                }
-
-                const isSelected = (idx - 1) === searchState.selectedIndex;
-
-                // ⭐ 修正：const 要在模板外面算好
-                const safeCode = escapeAttr(item.code || 'game');
-                const safeIndex = safeInt(item.index, 0);
-
-                const itemDelay = Math.min((idx - 1) * 30, 400);
-
-                html += `
-                    <div class="search-result-item ${isSelected ? 'selected' : ''}"
-                        style="animation-delay: ${itemDelay}ms"
-                        data-idx="${idx - 1}">
-                        <div class="search-result-thumb"
-                            style="background-image: url('picture/thumb-${safeCode}-${safeIndex}.png')"></div>
-                        <div class="search-result-info">
-                            <div class="search-result-name">${nameText}</div>
-                            <div class="search-result-game">${escapeHtml(item.game)} ${gameText}</div>
-                        </div>
-                    </div>
-                `;
-            });
-        }
-    }
-
-    resultsEl.innerHTML = html;
-    resultsEl.classList.add('show');
-
-    // 绑定 Tab
-    resultsEl.querySelectorAll('.search-tab').forEach(tab => {
-        tab.addEventListener('click', (e) => {
-            e.stopPropagation();
-            searchState.activeTab = tab.dataset.tab;
-            searchState.selectedIndex = -1;
-            renderSearchResults(resultsEl, hits, keywords);
-        });
-    });
-
-    // 绑定结果点击
-    resultsEl.querySelectorAll('.search-result-item').forEach(el => {
-        el.addEventListener('click', () => {
-            const idx = parseInt(el.dataset.idx, 10);
-            goToHit(filtered[idx]);
-        });
-    });
-
-    // 绑定建议点击
-    bindSuggestionClicks(resultsEl);
-}
-
-// ===== 绑定建议点击（共用）=====
-function bindSuggestionClicks(resultsEl) {
-    resultsEl.querySelectorAll('.search-suggest-item').forEach(el => {
-        el.addEventListener('mousedown', (e) => {
-            e.preventDefault();                    // ← 防止 input 失焦
-            e.stopPropagation();
-            const input = document.getElementById('searchInput');
-            input.value = el.dataset.q;
-            input.focus();
-            performSearch(el.dataset.q);
-        });
-    });
-}
-
-// ===== 历史管理 =====
 function removeHistoryItem(q) {
     const list = loadHistory().filter(x => x !== q);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
 }
 
-// ===== 渲染历史 =====
 function renderSearchHistory(resultsEl) {
     const history = loadHistory();
     if (history.length === 0) {
@@ -1080,21 +596,18 @@ function renderSearchHistory(resultsEl) {
 
     let html = '<div class="search-history">';
     html += '<div class="search-history-head"><span>🕐 最近搜尋</span><button class="clear-history">全部清除</button></div>';
-
     history.forEach(q => {
         html += `
-            <div class="search-history-item" data-q="${escapeHtml(q)}">
+            <div class="search-history-item" data-q="${escapeAttr(q)}">
                 <span class="history-text">${escapeHtml(q)}</span>
-                <button class="history-remove" data-q="${escapeHtml(q)}" title="刪除">✕</button>
-            </div>
-        `;
+                <button class="history-remove" data-q="${escapeAttr(q)}" title="刪除">✕</button>
+            </div>`;
     });
     html += '</div>';
 
     resultsEl.innerHTML = html;
     resultsEl.classList.add('show');
 
-    // 全部清除
     resultsEl.querySelector('.clear-history')?.addEventListener('click', (e) => {
         e.stopPropagation();
         if (confirm('確定要清除全部搜尋記錄嗎？')) {
@@ -1103,13 +616,10 @@ function renderSearchHistory(resultsEl) {
         }
     });
 
-    // 单项删除
     resultsEl.querySelectorAll('.history-remove').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const q = btn.dataset.q;
-            removeHistoryItem(q);
-            // 重新渲染
+            removeHistoryItem(btn.dataset.q);
             renderSearchHistory(resultsEl);
         });
     });
@@ -1117,137 +627,169 @@ function renderSearchHistory(resultsEl) {
     resultsEl.querySelectorAll('.search-history-item').forEach(el => {
         el.addEventListener('mousedown', (e) => {
             if (e.target.classList.contains('history-remove')) return;
-            e.preventDefault();                    // ← 防止 input 失焦
+            e.preventDefault();
             const input = document.getElementById('searchInput');
             input.value = el.dataset.q;
-            input.focus();                         // ← 确保保持焦点
+            input.focus();
             performSearch(el.dataset.q);
         });
     });
 }
 
-// ===== 跳转到命中 =====
-function goToHit(hit) {
-    const item = hit.item;
-    if (item.type === 'guide') {
-        goToGuide(item.game, item.name);
-    } else {
-        goToCharacter(item.game, item.name);
-    }
-}
+function checkSearchEasterEgg(q) {
+    const lower = q.toLowerCase();
+    if (lower === 'ciallo' || lower === 'ciallo～' || lower === 'ciallo~' || lower === '(∠·ω<)') {
+        const resultsEl = document.getElementById('searchResults');
+        resultsEl.innerHTML = `
+            <div class="search-result-item search-result-special"
+                 data-game="魔女的夜宴" data-name="因幡巡">
+                <div class="search-result-thumb"
+                     style="background-image: url('picture/thumb-sabbat-2.png')"></div>
+                <div class="search-result-info">
+                    <div class="search-result-name">因幡巡</div>
+                    <div class="search-result-game">魔女的夜宴</div>
+                </div>
+            </div>`;
+        resultsEl.classList.add('show');
 
-// ===== 生成建议=====
-function buildSuggestionsHtml(q) {
-    if (!q || !searchIndex) return '';
-    const suggestions = getSuggestions(q, searchIndex);
-    if (suggestions.length === 0) return '';
-
-    let html = '<div class="search-suggest-head">建議</div>';
-    suggestions.slice(0, 4).forEach(s => {
-        html += `<div class="search-suggest-item" data-q="${escapeAttr(s)}" style="animation-delay: ${suggestions.indexOf(s) * 40}ms">
-                    <span class="suggest-icon">🔍</span>
-                    <span class="suggest-text">${highlightText(s, [q])}</span>
-                 </div>`;
-    });
-    return html;
-}
-
-// ===== 显示建议 =====
-async function showSuggestions(input, resultsEl) {
-    const q = input.value.trim();
-    if (!q) {
-        renderSearchHistory(resultsEl);
-        return;
-    }
-
-    const index = await buildSearchIndex();
-    const suggestions = getSuggestions(q, index);
-    const history = loadHistory().filter(h => h.toLowerCase().includes(q.toLowerCase()));
-
-    if (suggestions.length === 0 && history.length === 0) {
-        resultsEl.classList.remove('show');
-        return;
-    }
-
-    let html = '';
-    if (suggestions.length > 0) {
-        html += '<div class="search-suggest-head">建議</div>';
-        suggestions.forEach(s => {
-            html += `<div class="search-suggest-item" data-q="${escapeHtml(s)}">
-                        <span class="suggest-icon">🔍</span>
-                        <span class="suggest-text">${highlightText(s, [q])}</span>
-                     </div>`;
+        resultsEl.querySelector('.search-result-item').addEventListener('click', () => {
+            goToCharacter('魔女的夜宴', '因幡巡');
         });
-    }
-    if (history.length > 0) {
-        html += '<div class="search-suggest-head">🕐 最近</div>';
-        history.slice(0, 3).forEach(h => {
-            html += `<div class="search-suggest-item" data-q="${escapeHtml(h)}">
-                        <span class="suggest-icon">🕐</span>
-                        <span class="suggest-text">${escapeHtml(h)}</span>
-                     </div>`;
-        });
-    }
 
-    resultsEl.innerHTML = html;
-    resultsEl.classList.add('show');
-
-    bindSuggestionClicks(resultsEl);
+        showEasterToast('⭐ Ciallo～(∠·ω< )⌒★', '因幡巡向你打招呼！');
+        return true;
+    }
+    if (lower === '柚子' || lower === 'yuzu' || lower === 'yuzusoft') {
+        showEasterToast('🍊 柚子社 YUZUSOFT', '感謝你喜歡柚子社的作品！');
+    }
+    return false;
 }
 
-// ===== 执行搜索 =====
 async function performSearch(query) {
     const resultsEl = document.getElementById('searchResults');
-    const raw = simpToTrad((query || '').trim());
+    const raw = (query || '').trim();
 
     if (!raw) {
-        searchState.hits = [];
+        searchState.flatHits = [];
         searchState.selectedIndex = -1;
         renderSearchHistory(resultsEl);
         return;
     }
 
-    const parsed = parseQuery(raw.toLowerCase());
-    if (parsed.include.length === 0) {
-        resultsEl.innerHTML = '<div class="search-result-empty">請輸入正向關鍵詞</div>';
-        resultsEl.classList.add('show');
+    if (checkSearchEasterEgg(raw)) return;
+
+    searchState.lastQuery = raw;
+    const tab = searchState.activeTab || 'all';
+
+    let data;
+    try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(raw)}&tab=${tab}`);
+        data = await res.json();
+    } catch (e) {
+        console.error('搜索失敗', e);
         return;
     }
 
-    const includeGroups = parsed.include.map(expandKeyword);
-    const excludeGroups = parsed.exclude.map(expandKeyword);
-    const flatKeywords = parsed.include;
+    renderSearchResults(resultsEl, data);
+}
 
-    const index = await buildSearchIndex();
+function renderSearchResults(resultsEl, data) {
+    let html = '';
 
-    const hits = [];
-    for (const item of index) {
-        const hit = scoreObject(item, item.fields, includeGroups, excludeGroups, item.pinyin);
-        if (hit) hits.push(hit);
+    if (data.suggestions && data.suggestions.length > 0) {
+        html += '<div class="search-suggest-head">建議</div>';
+        data.suggestions.slice(0, 4).forEach((s, i) => {
+            html += `<div class="search-suggest-item" data-q="${escapeAttr(s)}" style="animation-delay: ${i * 40}ms">
+                        <span class="suggest-icon">🔍</span>
+                        <span class="suggest-text">${escapeHtml(s)}</span>
+                     </div>`;
+        });
     }
-    hits.sort((a, b) => b.score - a.score);
 
-    searchState.hits = hits;
-    searchState.selectedIndex = -1;
-    searchState.activeTab = 'all';
-    searchState._id = 0;
+    if (data.total === 0) {
+        html += '<div class="search-result-empty">沒有找到符合的角色</div>';
+        resultsEl.innerHTML = html;
+        resultsEl.classList.add('show');
+        bindSuggestionClicks(resultsEl);
+        return;
+    }
 
-    renderSearchResults(resultsEl, hits, flatKeywords);
+    html += '<div class="search-tabs">';
+    ['all', 'character', 'guide'].forEach(t => {
+        const labels = { all: '全部', character: '角色', guide: '攻略' };
+        html += `<button class="search-tab ${t === data.tab ? 'active' : ''}" data-tab="${t}">${labels[t]} ${data.counts[t]}</button>`;
+    });
+    html += '</div>';
+
+    searchState.flatHits = [];
+    let idx = 0;
+    for (const g of data.groups) {
+        html += `<div class="search-group-title">${escapeHtml(g.game)}</div>`;
+        for (const it of g.items) {
+            const delay = Math.min(idx * 30, 400);
+            const selected = idx === searchState.selectedIndex;
+
+            html += `
+                <div class="search-result-item ${selected ? 'selected' : ''}"
+                     style="animation-delay: ${delay}ms"
+                     data-idx="${idx}">
+                    <div class="search-result-thumb"
+                         style="background-image: url('picture/thumb-${escapeAttr(it.code)}-${safeInt(it.index)}.png')"></div>
+                    <div class="search-result-info">
+                        <div class="search-result-name">${it.name_html}</div>
+                        <div class="search-result-game">${escapeHtml(it.game)} ${it.sub_html}</div>
+                    </div>
+                </div>`;
+
+            searchState.flatHits.push({ type: it.type, game: it.game, name: it.name });
+            idx++;
+        }
+    }
+
+    resultsEl.innerHTML = html;
+    resultsEl.classList.add('show');
+
+    resultsEl.querySelectorAll('.search-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            e.stopPropagation();
+            searchState.activeTab = tab.dataset.tab;
+            searchState.selectedIndex = -1;
+            performSearch(searchState.lastQuery);
+        });
+    });
+
+    resultsEl.querySelectorAll('.search-result-item').forEach(el => {
+        el.addEventListener('click', () => {
+            const i = parseInt(el.dataset.idx, 10);
+            const hit = searchState.flatHits[i];
+            if (hit) goToHit(hit);
+        });
+    });
+
+    bindSuggestionClicks(resultsEl);
 }
 
-// 保留给彩蛋 2
-function highlightKeyword(text, keyword) {
-    const idx = text.toLowerCase().indexOf(keyword.toLowerCase());
-    if (idx === -1) return '';
-    const start = Math.max(0, idx - 12);
-    const end = Math.min(text.length, idx + keyword.length + 12);
-    let snippet = text.slice(start, end);
-    if (start > 0) snippet = '…' + snippet;
-    if (end < text.length) snippet = snippet + '…';
-    return snippet;
+function bindSuggestionClicks(resultsEl) {
+    resultsEl.querySelectorAll('.search-suggest-item').forEach(el => {
+        el.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const input = document.getElementById('searchInput');
+            input.value = el.dataset.q;
+            input.focus();
+            performSearch(el.dataset.q);
+        });
+    });
 }
 
-// ===== 事件绑定 =====
+function goToHit(hit) {
+    if (hit.type === 'guide') {
+        goToGuide(hit.game, hit.name);
+    } else {
+        goToCharacter(hit.game, hit.name);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const input = document.getElementById('searchInput');
     const resultsEl = document.getElementById('searchResults');
@@ -1258,20 +800,16 @@ document.addEventListener('DOMContentLoaded', () => {
     input.addEventListener('input', (e) => {
         clearTimeout(debounceTimer);
         const val = e.target.value;
-
-        // 立刻显示建议
-        showSuggestions(input, resultsEl);
-
-        // 300ms 后再正式搜索
         debounceTimer = setTimeout(() => {
             if (val.trim()) {
                 performSearch(val);
+            } else {
+                renderSearchHistory(resultsEl);
             }
-        }, 300);
+        }, 250);
     });
 
-    input.addEventListener('focus', async () => {
-        await buildSearchIndex();
+    input.addEventListener('focus', () => {
         if (!input.value.trim()) {
             renderSearchHistory(resultsEl);
         } else {
@@ -1279,7 +817,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 键盘导航
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             input.value = '';
@@ -1290,7 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
             e.preventDefault();
-            const total = searchState.hits.length;
+            const total = searchState.flatHits.length;
             if (total === 0) return;
 
             if (e.key === 'ArrowDown') {
@@ -1299,7 +836,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchState.selectedIndex = (searchState.selectedIndex - 1 + total) % total;
             }
 
-            // 重绘（只改高亮）
             const items = resultsEl.querySelectorAll('.search-result-item');
             items.forEach((el, i) => {
                 el.classList.toggle('selected', i === searchState.selectedIndex);
@@ -1308,23 +844,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (e.key === 'Enter') {
-            if (searchState.selectedIndex >= 0 && searchState.hits[searchState.selectedIndex]) {
-                goToHit(searchState.hits[searchState.selectedIndex]);
+            if (searchState.selectedIndex >= 0 && searchState.flatHits[searchState.selectedIndex]) {
+                goToHit(searchState.flatHits[searchState.selectedIndex]);
             } else if (input.value.trim()) {
                 pushHistory(input.value.trim());
             }
         }
     });
 
-    // 回车保存历史
     input.addEventListener('change', () => {
         if (input.value.trim()) pushHistory(input.value.trim());
     });
 });
 
-// 跳轉到指定角色
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.search-wrap')) {
+        document.getElementById('searchResults')?.classList.remove('show');
+    }
+});
+
+
+// =========================================================
+// 跳轉到角色 / 攻略
+// =========================================================
 async function goToCharacter(gameName, charName) {
-    // 1. 清空搜索
     const input = document.getElementById('searchInput');
     const resultsEl = document.getElementById('searchResults');
     if (input) { input.value = ''; input.blur(); }
@@ -1333,15 +876,12 @@ async function goToCharacter(gameName, charName) {
         resultsEl.innerHTML = '';
     }
 
-    // 2. 切換遊戲
     if (currentGame !== gameName) {
         await selectGame(gameName);
     }
 
-    // 3. 等一下讓 DOM 渲染完
     await new Promise(r => setTimeout(r, 120));
 
-    // 4. 找到角色按鈕並點擊
     const navItems = document.querySelectorAll('#charNav .char-nav-item');
     let found = false;
     for (const item of navItems) {
@@ -1353,7 +893,6 @@ async function goToCharacter(gameName, charName) {
         }
     }
 
-    // 5. 滾動到角色介紹區（不依賴 scrollToSection 的 disabled 檢查）
     const target = document.getElementById('character');
     if (target) {
         const topbar = document.querySelector('.topbar-inner');
@@ -1361,13 +900,10 @@ async function goToCharacter(gameName, charName) {
         const targetY = target.getBoundingClientRect().top + window.scrollY - topbarHeight;
         window.scrollTo({ top: targetY, behavior: 'smooth' });
     }
-
     return found;
 }
 
-// 跳轉到指定角色的攻略
 async function goToGuide(gameName, charName) {
-    // 1. 清空搜索
     const input = document.getElementById('searchInput');
     const resultsEl = document.getElementById('searchResults');
     if (input) { input.value = ''; input.blur(); }
@@ -1376,15 +912,12 @@ async function goToGuide(gameName, charName) {
         resultsEl.innerHTML = '';
     }
 
-    // 2. 切換遊戲
     if (currentGame !== gameName) {
         await selectGame(gameName);
     }
 
-    // 3. 等一下讓 DOM 渲染完
     await new Promise(r => setTimeout(r, 120));
 
-    // 4. 在攻略區找到該角色按鈕並點擊
     const navItems = document.querySelectorAll('#guideNav .char-nav-item');
     let found = false;
     for (const item of navItems) {
@@ -1396,7 +929,6 @@ async function goToGuide(gameName, charName) {
         }
     }
 
-    // 5. 滾動到攻略區
     const target = document.getElementById('guide');
     if (target) {
         const topbar = document.querySelector('.topbar-inner');
@@ -1404,200 +936,15 @@ async function goToGuide(gameName, charName) {
         const targetY = target.getBoundingClientRect().top + window.scrollY - topbarHeight;
         window.scrollTo({ top: targetY, behavior: 'smooth' });
     }
-
     return found;
 }
 
-// 點擊空白處收起搜索結果
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('.search-wrap')) {
-        document.getElementById('searchResults')?.classList.remove('show');
-    }
-});
 
-// ===== 首次進站：首頁簡介打字機效果 =====
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-        const descEl = document.getElementById('homeDesc');
-        if (!descEl) return;
-
-        const text = descEl.textContent;
-        if (text && text.trim()) {
-            typewriterText(descEl, text, 35);
-        }
-    }, 800);
-
-    // 點擊簡介卡片 → 跳過打字
-    document.getElementById('homeDesc')?.addEventListener('click', skipTypewriter);
-});
-
-// ===== 工具函式（命運邂逅評分需要） =====
-function extractNumber(str) {
-    if (!str) return null;
-    const m = String(str).match(/\d+/);
-    return m ? parseInt(m[0], 10) : null;
-}
-
-function extractAge(str) {
-    if (!str) return null;
-    const n = extractNumber(str);
-    if (n === null) return 'unknown';
-    if (n < 20) return 'teen';
-    if (n < 30) return 'young';
-    return 'old';
-}
-
-// ===== 命運邂逅（升級版：多選 + 評分排序） =====
-let mmIndex = null;
-let mmIndexPromise = null;   // ← 加這行
-let mmFilters = {
-    height: [],
-    body: [],
-    age: [],
-    personality: []
-};
-// 匹配度門檻（0 / 50 / 70 / 90）
+// =========================================================
+// 命運邂逅
+// =========================================================
+let mmFilters = { height: [], body: [], age: [], personality: [] };
 let mmThreshold = 0;
-
-// 體型歸類（保持不變）
-function classifyBody(str) {
-    if (!str) return '其他';
-    if (/蘿莉|萝莉|娇小|嬌小/.test(str)) return '蘿莉';
-    if (/少女|标准纤细|標準纖細|标准|標準/.test(str)) return '少女';
-    if (/御姐|丰满|豐滿|高挑|勻稱|匀称/.test(str)) return '御姐';
-    return '其他';
-}
-
-// 年齡歸類（保持不變）
-function classifyAge(str) {
-    if (!str) return 'unknown';
-    if (/暂无|暫無|外表|成年/.test(str)) return 'unknown';
-    const n = extractNumber(str);
-    if (n === null) return 'unknown';
-    if (n < 20) return 'teen';
-    if (n < 30) return 'young';
-    return 'old';
-}
-
-// 性格標籤（保持不變）
-function classifyPersonality(str) {
-    if (!str) return [];
-    const tags = [];
-    if (/認真|认真|努力|優等生|责任|負責/.test(str)) tags.push('認真');
-    if (/溫柔|温柔|体贴|體貼|照顾|照顧|关怀|關懷|母性/.test(str)) tags.push('溫柔');
-    if (/開朗|开朗|活泼|活力|热情|熱情|元氣/.test(str)) tags.push('開朗');
-    if (/調皮|调皮|恶作剧|惡作劇|捉弄|玩笑|幽默/.test(str)) tags.push('調皮');
-    if (/害羞|怕生|靦腆|内向|內向|纯情|純情/.test(str)) tags.push('害羞');
-    if (/冷靜|冷静|寡言|沉稳|沉穩|理性|成熟/.test(str)) tags.push('冷靜');
-    return tags;
-}
-
-async function buildMMIndex(force = false) {
-    // 只有「非空且非強制」才直接回傳
-    if (!force && mmIndex && mmIndex.length > 0) return mmIndex;
-    if (!force && mmIndexPromise) return mmIndexPromise;
-
-    mmIndexPromise = (async () => {
-        const index = [];
-        for (const game of Object.keys(GAME_CODES)) {
-            try {
-                const res = await fetch(`/api/games/${encodeURIComponent(game)}/characters`);
-                if (!res.ok) continue;
-                const names = await res.json();
-                const code = GAME_CODES[game];
-
-                for (let i = 0; i < names.length; i++) {
-                    try {
-                        const r = await fetch(`/api/characters/${encodeURIComponent(names[i])}`);
-                        if (!r.ok) continue;
-                        const char = await r.json();
-                        index.push({
-                            ...char,
-                            game, code,
-                            index: i + 1,
-                            heightNum: extractNumber(char.height) || 0,
-                            bodyCat: classifyBody(char.body_type),
-                            ageCat: classifyAge(char.age),
-                            personalityTags: classifyPersonality(char.personality)
-                        });
-                    } catch (e) {}
-                }
-            } catch (e) {
-                console.error('buildMMIndex 失敗:', game, e);
-            }
-        }
-
-        mmIndex = index;
-        mmIndexPromise = null;
-        return index;
-    })();
-
-    return mmIndexPromise;
-}
-
-// ===== 評分函式（核心）=====
-function scoreCharacterMM(char, filters) {
-    let score = 0;
-    let maxScore = 0;
-    const matched = [];
-    const missed = [];
-
-    // 身高（權重 20）
-    if (filters.height.length > 0) {
-        const W = 20;
-        maxScore += W;
-        const h = char.heightNum;
-        let hit = false;
-        for (const f of filters.height) {
-            if (f === 'short'  && h > 0 && h < 150)  { hit = true; break; }
-            if (f === 'medium' && h >= 150 && h < 160) { hit = true; break; }
-            if (f === 'tall'   && h >= 160)          { hit = true; break; }
-        }
-        if (hit) { score += W; matched.push('身高'); }
-        else     { missed.push('身高'); }
-    }
-
-    // 體型（權重 30）
-    if (filters.body.length > 0) {
-        const W = 30;
-        maxScore += W;
-        if (filters.body.includes(char.bodyCat)) {
-            score += W;
-            matched.push(`體型 ${char.bodyCat}`);
-        } else {
-            missed.push(`體型 ${char.bodyCat}`);
-        }
-    }
-
-    // 年齡（權重 25）
-    if (filters.age.length > 0) {
-        const W = 25;
-        maxScore += W;
-        if (filters.age.includes(char.ageCat)) {
-            score += W;
-            matched.push('年齡');
-        } else {
-            missed.push('年齡');
-        }
-    }
-
-    // 性格（權重 15，按命中比例）
-    if (filters.personality.length > 0) {
-        const W = 15;
-        maxScore += W;
-        const hit = filters.personality.filter(p => char.personalityTags.includes(p));
-        if (hit.length > 0) {
-            score += W * (hit.length / filters.personality.length);
-            matched.push(`性格 ${hit.join('、')}`);
-        }
-        if (hit.length < filters.personality.length) {
-            missed.push('性格');
-        }
-    }
-
-    const percent = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
-    return { score, percent, matched, missed };
-}
 
 function matchLevel(p) {
     if (p >= 90) return 'perfect';
@@ -1606,36 +953,9 @@ function matchLevel(p) {
     return 'ok';
 }
 
-// 有篩選 → 打分排序；無篩選 → 全部
-function getMMResults() {
-    const anyFilter = Object.values(mmFilters).some(arr => arr.length > 0);
-    if (!anyFilter) return [];
-
-    return mmIndex
-        .map(c => {
-            const r = scoreCharacterMM(c, mmFilters);
-            return { ...c, matchPercent: r.percent, matched: r.matched, missed: r.missed };
-        })
-        .filter(c => c.matchPercent > 0 && c.matchPercent >= mmThreshold)   // ← 加門檻過濾
-        .sort((a, b) => b.matchPercent - a.matchPercent);
-}
-
 async function searchMatchmaker() {
     const btn = document.getElementById('mmSearch');
     const resultEl = document.getElementById('mmResult');
-
-    // 如果 mmIndex 是空的（可能上次拉失敗），強制重建
-    if (!mmIndex || mmIndex.length === 0) {
-        resultEl.innerHTML = `
-            <div class="mm-loading">
-                <div class="mm-loading-magic"><div class="mm-loading-core"></div></div>
-                <div class="mm-loading-text">載入角色資料中…</div>
-            </div>
-        `;
-        await buildMMIndex(true);
-    } else {
-        await buildMMIndex();
-    }
 
     const anyFilter = Object.values(mmFilters).some(arr => arr.length > 0);
     if (!anyFilter) {
@@ -1643,14 +963,47 @@ async function searchMatchmaker() {
             <div class="mm-empty">
                 <div class="mm-empty-title">請至少選擇一個條件</div>
                 <div class="mm-empty-desc">身高 / 體型 / 年齡 / 性格 任選一個即可</div>
-            </div>
-        `;
+            </div>`;
         return;
     }
 
-    const pool = getMMResults();
+    // 彩蛋 6：蘿莉 + 30+
+    if (mmFilters.body.includes('蘿莉') && mmFilters.age.includes('old')) {
+        setTimeout(() => {
+            showEasterToast('🧙 找到了長生不老的蘿莉！', '500 歲的叢雨報到～');
+        }, 400);
+    }
 
-    if (pool.length === 0) {
+    btn.classList.add('rolling');
+    btn.disabled = true;
+    resultEl.innerHTML = `
+        <div class="mm-loading">
+            <div class="mm-loading-magic"><div class="mm-loading-core"></div></div>
+            <div class="mm-loading-text">占卜中…</div>
+        </div>`;
+
+    const params = new URLSearchParams();
+    if (mmFilters.height.length) params.set('height', mmFilters.height.join(','));
+    if (mmFilters.body.length) params.set('body', mmFilters.body.join(','));
+    if (mmFilters.age.length) params.set('age', mmFilters.age.join(','));
+    if (mmFilters.personality.length) params.set('personality', mmFilters.personality.join(','));
+    params.set('threshold', String(mmThreshold));
+
+    let data;
+    try {
+        const res = await fetch(`/api/matchmaker?${params.toString()}`);
+        data = await res.json();
+    } catch (e) {
+        console.error('命運邂逅失敗', e);
+        data = { total: 0, results: [] };
+    }
+
+    await new Promise(r => setTimeout(r, 500));
+
+    btn.classList.remove('rolling');
+    btn.disabled = false;
+
+    if (data.total === 0) {
         const hint = mmThreshold > 0
             ? `沒有 ${mmThreshold}% 以上匹配的角色，試著降低門檻或放寬條件吧`
             : '試著放寬一些條件吧';
@@ -1658,94 +1011,21 @@ async function searchMatchmaker() {
             <div class="mm-empty">
                 <div class="mm-empty-title">沒有符合條件的角色</div>
                 <div class="mm-empty-desc">${hint}</div>
-            </div>
-        `;
+            </div>`;
         return;
     }
 
-    btn.classList.add('rolling');
-    btn.disabled = true;
+    renderMMList(data.results);
 
-    // ⭐ 魔法陣 loading 動畫
-    resultEl.innerHTML = `
-        <div class="mm-loading">
-            <div class="mm-loading-magic"><div class="mm-loading-core"></div></div>
-            <div class="mm-loading-text">占卜中…</div>
-        </div>
-    `;
-
-    await new Promise(r => setTimeout(r, 500));
-
-    renderMMList(pool);
-
-    btn.classList.remove('rolling');
-    btn.disabled = false;
-
-    // ⭐ 如果有完美匹配（90%+），灑金光
-    const hasPerfect = pool.some(c => c.matchPercent >= 90);
-    if (hasPerfect) {
+    if (data.results.some(c => c.match_percent >= 90)) {
         mmSparkleBurst();
     }
 }
 
-// ===== 命運邂逅：跳轉過渡特效 =====
-function showMMTransition(char, onComplete) {
-    // 移除舊的
-    document.querySelectorAll('.mm-transition').forEach(el => el.remove());
-
-    // 建立遮罩
-    const overlay = document.createElement('div');
-    overlay.className = 'mm-transition';
-
-    const safeCode = escapeAttr(char.code || 'game');
-    const safeIndex = safeInt(char.index, 0);
-    const thumb = `picture/thumb-${safeCode}-${safeIndex}.png`;
-
-    overlay.innerHTML = `
-        <div class="mm-transition-bg"></div>
-        <div class="mm-transition-magic">
-            <div class="mm-transition-label">命 運 指 引</div>
-            <div class="mm-transition-avatar" style="background-image: url('${thumb}')"></div>
-            <div class="mm-transition-name">${escapeHtml(char.name)}</div>
-        </div>
-    `;
-
-    document.body.appendChild(overlay);
-
-    // 環繞星光（12 顆）
-    const magic = overlay.querySelector('.mm-transition-magic');
-    for (let i = 0; i < 12; i++) {
-        const spark = document.createElement('div');
-        spark.className = 'mm-transition-spark';
-        const angle = (Math.PI * 2 * i) / 12;
-        const radius = 48;    // 百分比
-        spark.style.left = (50 + Math.cos(angle) * radius) + '%';
-        spark.style.top  = (50 + Math.sin(angle) * radius) + '%';
-        spark.style.animationDelay = (i * 0.15) + 's';
-        magic.appendChild(spark);
-    }
-
-    // 進場
-    requestAnimationFrame(() => {
-        overlay.classList.add('show');
-    });
-
-    // 2.2 秒後開始淡出，並在過程中切換頁面
-    setTimeout(() => {
-        overlay.classList.add('leaving');
-
-        // 淡出同時，後台已經跳好（沒有視覺跳動）
-        if (typeof onComplete === 'function') onComplete();
-
-        // 淡出後移除
-        setTimeout(() => overlay.remove(), 500);
-    }, 2200);
-}
-
 function renderMMList(pool) {
     const resultEl = document.getElementById('mmResult');
+    const perfect = pool.filter(c => c.match_percent >= 90).length;
 
-    const perfect = pool.filter(c => c.matchPercent >= 90).length;
     let html = '<div class="mm-result-grid">';
     html += `<div class="mm-result-count">共 ${pool.length} 位符合條件${perfect > 0 ? ` · ${perfect} 位完美契合 ✨` : ''}</div>`;
 
@@ -1753,7 +1033,7 @@ function renderMMList(pool) {
         const stats = [];
         if (char.height) stats.push(char.height);
 
-        const badge = `<div class="mm-match-badge mm-match-${matchLevel(char.matchPercent)}">${safeInt(char.matchPercent, 0)}%</div>`;
+        const badge = `<div class="mm-match-badge mm-match-${matchLevel(char.match_percent)}">${safeInt(char.match_percent, 0)}%</div>`;
 
         let reasonsHtml = '';
         if (char.matched.length > 0 || char.missed.length > 0) {
@@ -1762,16 +1042,13 @@ function renderMMList(pool) {
             reasonsHtml = `<div class="mm-match-reasons">${hits}${miss}</div>`;
         }
 
-        // ⭐ 交錯動畫：每張卡片延遲 60ms（最多累積到 600ms）
         const delay = Math.min(index * 60, 600);
-
         const safeCode = escapeAttr(char.code || 'game');
         const safeIndex = safeInt(char.index, 0);
-        const safeDelay = safeInt(delay, 0);
 
         html += `
-            <div class="mm-result-item ${char.matchPercent >= 90 ? 'perfect-match' : ''}"
-                 style="animation-delay: ${safeDelay}ms"
+            <div class="mm-result-item ${char.match_percent >= 90 ? 'perfect-match' : ''}"
+                 style="animation-delay: ${safeInt(delay, 0)}ms"
                  data-game="${escapeAttr(char.game)}" data-name="${escapeAttr(char.name)}">
                 ${badge}
                 <div class="mm-result-thumb"
@@ -1782,8 +1059,7 @@ function renderMMList(pool) {
                     ${stats.map(s => `<span class="mm-result-stat">${escapeHtml(s)}</span>`).join('')}
                 </div>
                 ${reasonsHtml}
-            </div>
-        `;
+            </div>`;
     });
 
     html += `
@@ -1812,45 +1088,29 @@ function renderMMList(pool) {
                             <stop offset="1" stop-color="#c4b5fd" stop-opacity="0"/>
                         </radialGradient>
                     </defs>
-
-                    <!-- 外光暈 -->
                     <circle cx="12" cy="10" r="9" fill="url(#orbAura)" class="orb-aura"/>
-
-                    <!-- 球體 -->
-                    <circle cx="12" cy="10" r="7" fill="url(#orbGlow)"
-                            stroke="url(#orbRimGrad)" stroke-width="0.7"/>
-
-                    <!-- 內部星光 -->
+                    <circle cx="12" cy="10" r="7" fill="url(#orbGlow)" stroke="url(#orbRimGrad)" stroke-width="0.7"/>
                     <circle cx="9"    cy="7"    r="0.8"  fill="#fff" class="orb-star" style="animation-delay:0s"/>
                     <circle cx="14.5" cy="8"    r="0.55" fill="#fff" class="orb-star" style="animation-delay:0.3s"/>
                     <circle cx="11"   cy="12"   r="0.5"  fill="#fff" class="orb-star" style="animation-delay:0.6s"/>
                     <circle cx="15"   cy="11.5" r="0.45" fill="#fff" class="orb-star" style="animation-delay:0.9s"/>
                     <circle cx="8.5"  cy="11"   r="0.4"  fill="#fff" class="orb-star" style="animation-delay:1.2s"/>
                     <circle cx="12.5" cy="9.5"  r="0.35" fill="#fff" class="orb-star" style="animation-delay:0.45s"/>
-
-                    <!-- 玻璃高光 -->
                     <ellipse cx="9"   cy="6.5" rx="2.5" ry="1.3" fill="#fff" opacity="0.55" transform="rotate(-30 9 6.5)"/>
                     <ellipse cx="8.5" cy="7.5" rx="0.8" ry="0.4" fill="#fff" opacity="0.75" transform="rotate(-30 8.5 7.5)"/>
-
-                    <!-- 底座 -->
                     <path d="M 7.5 17.5 Q 12 16.5 16.5 17.5 L 15.5 20 Q 12 20.8 8.5 20 Z"
                         fill="url(#orbBaseGrad)" stroke="#8b6914" stroke-width="0.6"/>
                 </svg>
                 <span>從這 ${pool.length} 位隨機選一個</span>
             </button>
-            <!-- ⭐ 快速隨機按鈕 -->
             <button class="mm-btn-random-fast" id="mmRandomFastBtn" title="不播動畫，立刻跳轉">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <path d="M13 2 L 4 14 L 11 14 L 10 22 L 20 10 L 13 10 Z"
-                          fill="currentColor"
-                          stroke="currentColor"
-                          stroke-width="0.8"
-                          stroke-linejoin="round"/>
+                          fill="currentColor" stroke="currentColor" stroke-width="0.8" stroke-linejoin="round"/>
                 </svg>
                 <span>快速隨機</span>
             </button>
-        </div>
-    `;
+        </div>`;
 
     html += '</div>';
     resultEl.innerHTML = html;
@@ -1864,26 +1124,87 @@ function renderMMList(pool) {
     document.getElementById('mmRandomBtn')?.addEventListener('click', (e) => {
         const btn = e.currentTarget;
         btn.classList.add('spinning');
-
         setTimeout(() => {
             btn.classList.remove('spinning');
             const pick = pool[Math.floor(Math.random() * pool.length)];
-
-            // ⭐ 先播跳轉特效，在特效中後段才真正跳頁
             showMMTransition(pick, () => {
                 goToCharacter(pick.game, pick.name);
             });
         }, 700);
     });
 
-    // ⭐ 快速隨機：不播動畫，直接跳轉
     document.getElementById('mmRandomFastBtn')?.addEventListener('click', () => {
         const pick = pool[Math.floor(Math.random() * pool.length)];
         goToCharacter(pick.game, pick.name);
     });
 }
 
-// ===== 事件綁定（多選 toggle） =====
+function mmSparkleBurst() {
+    const icons = ['✨', '⭐', '💫', '🌟', '💛'];
+    const count = 30;
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight * 0.5;
+
+    for (let i = 0; i < count; i++) {
+        const el = document.createElement('div');
+        el.className = 'mm-sparkle';
+        el.textContent = icons[Math.floor(Math.random() * icons.length)];
+        el.style.left = cx + 'px';
+        el.style.top = cy + 'px';
+
+        const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.8;
+        const dist = 120 + Math.random() * 260;
+        el.style.setProperty('--dx', (Math.cos(angle) * dist).toFixed(0) + 'px');
+        el.style.setProperty('--dy', (Math.sin(angle) * dist - 30).toFixed(0) + 'px');
+
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 1800);
+    }
+}
+
+function showMMTransition(char, onComplete) {
+    document.querySelectorAll('.mm-transition').forEach(el => el.remove());
+
+    const overlay = document.createElement('div');
+    overlay.className = 'mm-transition';
+
+    const safeCode = escapeAttr(char.code || 'game');
+    const safeIndex = safeInt(char.index, 0);
+    const thumb = `picture/thumb-${safeCode}-${safeIndex}.png`;
+
+    overlay.innerHTML = `
+        <div class="mm-transition-bg"></div>
+        <div class="mm-transition-magic">
+            <div class="mm-transition-label">命 運 指 引</div>
+            <div class="mm-transition-avatar" style="background-image: url('${thumb}')"></div>
+            <div class="mm-transition-name">${escapeHtml(char.name)}</div>
+        </div>`;
+
+    document.body.appendChild(overlay);
+
+    const magic = overlay.querySelector('.mm-transition-magic');
+    for (let i = 0; i < 12; i++) {
+        const spark = document.createElement('div');
+        spark.className = 'mm-transition-spark';
+        const angle = (Math.PI * 2 * i) / 12;
+        const radius = 48;
+        spark.style.left = (50 + Math.cos(angle) * radius) + '%';
+        spark.style.top = (50 + Math.sin(angle) * radius) + '%';
+        spark.style.animationDelay = (i * 0.15) + 's';
+        magic.appendChild(spark);
+    }
+
+    requestAnimationFrame(() => overlay.classList.add('show'));
+
+    setTimeout(() => {
+        overlay.classList.add('leaving');
+        if (typeof onComplete === 'function') onComplete();
+        setTimeout(() => overlay.remove(), 500);
+    }, 2200);
+}
+
+
+// 命運邂逅：多選條件綁定
 document.addEventListener('DOMContentLoaded', () => {
     const bindGroup = (groupId, filterKey) => {
         const group = document.getElementById(groupId);
@@ -1893,7 +1214,6 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.addEventListener('click', () => {
                 const val = btn.dataset.val;
 
-                // 「不限」= 清空該組
                 if (val === 'all') {
                     group.querySelectorAll('button').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
@@ -1901,20 +1221,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                // 取消「不限」
                 group.querySelector('button[data-val="all"]')?.classList.remove('active');
-
-                // toggle 當前按鈕
                 btn.classList.toggle('active');
 
-                // 收集所有 active 的值
                 const selected = [];
                 group.querySelectorAll('button.active').forEach(b => {
                     if (b.dataset.val !== 'all') selected.push(b.dataset.val);
                 });
                 mmFilters[filterKey] = selected;
 
-                // 全空 → 恢復「不限」高亮
                 if (selected.length === 0) {
                     group.querySelector('button[data-val="all"]')?.classList.add('active');
                 }
@@ -1929,7 +1244,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('mmSearch')?.addEventListener('click', searchMatchmaker);
 
-        // 匹配強度門檻
     const thresholdGroup = document.getElementById('mmThreshold');
     if (thresholdGroup) {
         thresholdGroup.querySelectorAll('button').forEach(btn => {
@@ -1941,7 +1255,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 重置按鈕
     document.getElementById('mmReset')?.addEventListener('click', () => {
         ['mmHeight', 'mmBody', 'mmAge', 'mmPersonality'].forEach(id => {
             const group = document.getElementById(id);
@@ -1953,7 +1266,6 @@ document.addEventListener('DOMContentLoaded', () => {
         mmFilters = { height: [], body: [], age: [], personality: [] };
         mmThreshold = 0;
 
-        // 門檻按鈕也回到「全部」
         const thresholdGroup = document.getElementById('mmThreshold');
         if (thresholdGroup) {
             thresholdGroup.querySelectorAll('button').forEach(b => {
@@ -1966,8 +1278,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// ===== 回到頂部 =====
+
+// =========================================================
+// 回到頂部
+// =========================================================
+let returnTopCount = 0;
+let returnTopTimer = null;
+
 function scrollToTop() {
+    // 彩蛋 7：連點 5 次
+    returnTopCount++;
+    clearTimeout(returnTopTimer);
+    returnTopTimer = setTimeout(() => { returnTopCount = 0; }, 3000);
+    if (returnTopCount === 5) {
+        showEasterToast('🚀 已經很上面了～', '你是想飛到宇宙嗎？');
+        returnTopCount = 0;
+    }
+
     const btn = document.getElementById('returnTop');
     if (btn) {
         btn.classList.remove('launching');
@@ -1975,32 +1302,22 @@ function scrollToTop() {
         btn.classList.add('launching');
         setTimeout(() => btn.classList.remove('launching'), 800);
     }
-
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// 滾動時顯示/隱藏按鈕
 function updateReturnTopBtn() {
     const btn = document.getElementById('returnTop');
     if (!btn) return;
-
-    if (window.scrollY > 300) {
-        btn.classList.add('show');
-    } else {
-        btn.classList.remove('show');
-    }
+    btn.classList.toggle('show', window.scrollY > 300);
 }
 
 window.addEventListener('scroll', updateReturnTopBtn, { passive: true });
-
-// 初始化
 document.addEventListener('DOMContentLoaded', updateReturnTopBtn);
 
-// =========================================================
-// 隱藏彩蛋
-// =========================================================
 
-// ===== 彩蛋 1：Konami 密碼（↑↑↓↓←→←→BA） =====
+// =========================================================
+// 彩蛋
+// =========================================================
 const KONAMI_CODE = [
     'ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown',
     'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight',
@@ -2009,7 +1326,6 @@ const KONAMI_CODE = [
 let konamiIndex = 0;
 
 document.addEventListener('keydown', (e) => {
-    // 不要在輸入框裡觸發
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
     if (e.key.toLowerCase() === KONAMI_CODE[konamiIndex].toLowerCase() ||
@@ -2025,7 +1341,6 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// 角色頭像雨
 const EASTER_THUMBS = [
     'senren-1', 'senren-2', 'senren-3', 'senren-4', 'senren-5', 'senren-6',
     'tenshi-1', 'tenshi-2', 'tenshi-3', 'tenshi-4', 'tenshi-5', 'tenshi-6',
@@ -2038,66 +1353,45 @@ function triggerCharacterRain() {
     layer.className = 'easter-rain';
     document.body.appendChild(layer);
 
-    const count = 40;
-
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < 40; i++) {
         const drop = document.createElement('div');
         drop.className = 'rain-drop';
-
         const thumb = EASTER_THUMBS[Math.floor(Math.random() * EASTER_THUMBS.length)];
         drop.style.backgroundImage = `url('picture/thumb-${thumb}.png')`;
-
-        // 隨機水平位置、大小、速度、延遲
         drop.style.left = Math.random() * 100 + '%';
         const size = 40 + Math.random() * 40;
         drop.style.width = size + 'px';
         drop.style.height = size + 'px';
         drop.style.animationDuration = (2.5 + Math.random() * 2) + 's';
         drop.style.animationDelay = (Math.random() * 1.5) + 's';
-
         layer.appendChild(drop);
     }
-
-    // 6 秒後移除
     setTimeout(() => layer.remove(), 6000);
 }
 
-// ===== 彩蛋 2：搜尋「ciallo」 =====
-const _originalPerformSearch = performSearch;
-performSearch = async function(query) {
-    const q = query.trim().toLowerCase();
+let toastTimer = null;
 
-    // 檢測 ciallo 彩蛋
-    if (q === 'ciallo' || q === 'ciallo～' || q === 'ciallo~' || q === '(∠·ω<)') {
-        const resultsEl = document.getElementById('searchResults');
-        resultsEl.innerHTML = `
-            <div class="search-result-item search-result-special"
-                 data-game="魔女的夜宴" data-name="因幡巡">
-                <div class="search-result-thumb"
-                     style="background-image: url('picture/thumb-sabbat-2.png')"></div>
-                <div class="search-result-info">
-                    <div class="search-result-name">因幡巡</div>
-                    <div class="search-result-game">魔女的夜宴</div>
-                </div>
-            </div>
-        `;
-        resultsEl.classList.add('show');
+function showEasterToast(title, desc = '') {
+    const old = document.querySelector('.easter-toast');
+    if (old) old.remove();
+    clearTimeout(toastTimer);
 
-        // 綁定點擊
-        resultsEl.querySelector('.search-result-item').addEventListener('click', () => {
-            goToCharacter('魔女的夜宴', '因幡巡');
-        });
+    const toast = document.createElement('div');
+    toast.className = 'easter-toast';
+    toast.innerHTML = `
+        <span class="toast-title">${escapeHtml(title)}</span>
+        ${desc ? `<span class="toast-desc">${escapeHtml(desc)}</span>` : ''}
+    `;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
 
-        // 顯示提示
-        showEasterToast('⭐ Ciallo～(∠·ω< )⌒★', '因幡巡向你打招呼！');
-        return;
-    }
+    toastTimer = setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 400);
+    }, 4000);
+}
 
-    // 其他情況走原本邏輯
-    return _originalPerformSearch.call(this, query);
-};
-
-// ===== 彩蛋 3：點擊標題 10 次 =====
+// 彩蛋 3：點擊標題 10 次
 let titleClickCount = 0;
 let titleClickTimer = null;
 
@@ -2110,11 +1404,8 @@ document.addEventListener('DOMContentLoaded', () => {
         brand.classList.add('pressed');
         setTimeout(() => brand.classList.remove('pressed'), 300);
 
-        // 2 秒內沒繼續點就重置
         clearTimeout(titleClickTimer);
-        titleClickTimer = setTimeout(() => {
-            titleClickCount = 0;
-        }, 2000);
+        titleClickTimer = setTimeout(() => { titleClickCount = 0; }, 2000);
 
         if (titleClickCount === 10) {
             triggerCharacterRain();
@@ -2124,45 +1415,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// ===== 提示框共用函式 =====
-let toastTimer = null;
-
-function showEasterToast(title, desc = '') {
-    // 移除舊的
-    const old = document.querySelector('.easter-toast');
-    if (old) old.remove();
-
-    clearTimeout(toastTimer);
-
-    const toast = document.createElement('div');
-    toast.className = 'easter-toast';
-    toast.innerHTML = `
-        <span class="toast-title">${escapeHtml(title)}</span>
-        ${desc ? `<span class="toast-desc">${escapeHtml(desc)}</span>` : ''}
-    `;
-    document.body.appendChild(toast);
-
-    // 觸發動畫
-    requestAnimationFrame(() => {
-        toast.classList.add('show');
-    });
-
-    // 4 秒後淡出
-    toastTimer = setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 400);
-    }, 4000);
-}
-
-// ===== 彩蛋 4：雙擊角色頭像 =====
+// 彩蛋 4：雙擊頭像
 document.addEventListener('dblclick', (e) => {
     const navItem = e.target.closest('.char-nav-item');
     if (navItem) {
         triggerHeartBurst(e.clientX, e.clientY);
         return;
     }
-
-    // 雙擊立繪也可以
     if (e.target.closest('#charPortrait') || e.target.closest('#guidePortrait')) {
         triggerHeartBurst(e.clientX, e.clientY);
     }
@@ -2186,91 +1445,18 @@ function triggerHeartBurst(x, y) {
             will-change: transform, opacity;
             animation: heartFly 1s ease-out forwards;
         `;
-
         const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
         const dist = 80 + Math.random() * 60;
-        const dx = Math.cos(angle) * dist;
-        const dy = Math.sin(angle) * dist - 30;
-
-        heart.style.setProperty('--dx', dx + 'px');
-        heart.style.setProperty('--dy', dy + 'px');
-
+        heart.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+        heart.style.setProperty('--dy', (Math.sin(angle) * dist - 30) + 'px');
         document.body.appendChild(heart);
         setTimeout(() => heart.remove(), 1100);
     }
 }
 
-// ===== 彩蛋 5：連續切換遊戲 5 次 =====
-let switchGameCount = 0;
-let switchGameTimer = null;
-
-const _originalSelectGame = selectGame;
-selectGame = async function(gameName) {
-    // 記錄切換
-    switchGameCount++;
-    clearTimeout(switchGameTimer);
-    switchGameTimer = setTimeout(() => {
-        switchGameCount = 0;
-    }, 8000);
-
-    if (switchGameCount === 5) {
-        showEasterToast('🤔 你是在猶豫嗎？', '每部作品都很棒，慢慢選吧～');
-        switchGameCount = 0;
-    }
-
-    return _originalSelectGame.call(this, gameName);
-};
-
-// ===== 彩蛋 6：命運邂逅選「蘿莉 + 30+」 =====
-const _originalSearchMatchmaker = searchMatchmaker;
-searchMatchmaker = async function() {
-    const result = await _originalSearchMatchmaker.call(this);
-
-    // 檢查是否選了「蘿莉 + 30+」這種特殊組合
-    if (mmFilters.body === '蘿莉' && mmFilters.age === 'old') {
-        setTimeout(() => {
-            showEasterToast('🧙 找到了長生不老的蘿莉！', '500 歲的叢雨報到～');
-        }, 400);
-    }
-
-    return result;
-};
-
-// ===== 彩蛋 7：連續點「回到頂部」5 次 =====
-let returnTopCount = 0;
-let returnTopTimer = null;
-
-const _originalScrollToTop = scrollToTop;
-scrollToTop = function() {
-    returnTopCount++;
-    clearTimeout(returnTopTimer);
-    returnTopTimer = setTimeout(() => {
-        returnTopCount = 0;
-    }, 3000);
-
-    if (returnTopCount === 5) {
-        showEasterToast('🚀 已經很上面了～', '你是想飛到宇宙嗎？');
-        returnTopCount = 0;
-    }
-
-    return _originalScrollToTop.call(this);
-};
-
-// ===== 彩蛋 8：搜尋「柚子」 =====
-const _originalPerformSearch2 = performSearch;
-performSearch = async function(query) {
-    const q = query.trim().toLowerCase();
-
-    if (q === '柚子' || q === 'yuzu' || q === 'yuzusoft') {
-        showEasterToast('🍊 柚子社 YUZUSOFT', '感謝你喜歡柚子社的作品！');
-        // 繼續正常搜索
-    }
-
-    return _originalPerformSearch2.call(this, query);
-};
 
 // =========================================================
-// 人氣排行榜
+// 排行榜
 // =========================================================
 let rankingLoaded = false;
 
@@ -2307,14 +1493,12 @@ async function loadRanking() {
                         <div class="ranking-game">${escapeHtml(item.game)}</div>
                     </div>
                     <div class="ranking-count" data-target="${count}">0 次</div>
-                </div>
-            `;
+                </div>`;
         });
 
         listEl.innerHTML = html;
         rankingLoaded = true;
 
-        // ⭐ 數字滾動動畫
         listEl.querySelectorAll('.ranking-count[data-target]').forEach(el => {
             const target = parseInt(el.dataset.target, 10) || 0;
             if (target === 0) { el.textContent = '0 次'; return; }
@@ -2324,7 +1508,6 @@ async function loadRanking() {
 
             function tick(now) {
                 const t = Math.min((now - startTime) / duration, 1);
-                // easeOutCubic
                 const eased = 1 - Math.pow(1 - t, 3);
                 const current = Math.round(eased * target);
                 el.textContent = current + ' 次';
@@ -2334,19 +1517,16 @@ async function loadRanking() {
             requestAnimationFrame(tick);
         });
 
-        // 点击跳转
         listEl.querySelectorAll('.ranking-item').forEach(el => {
             el.addEventListener('click', () => {
                 goToCharacter(el.dataset.game, el.dataset.name);
             });
         });
-
     } catch (e) {
         listEl.innerHTML = '<p class="ranking-empty">排行榜載入失敗，請稍後再試</p>';
     }
 }
 
-// 滚到排行榜时才加载
 const rankingObserver = new IntersectionObserver((entries) => {
     if (entries[0].isIntersecting && !rankingLoaded) {
         loadRanking();
@@ -2358,10 +1538,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (section) rankingObserver.observe(section);
 });
 
-// 刷新排行榜（浏览后调用）
 let refreshTimer = null;
 function refreshRanking() {
-    if (!rankingLoaded) return;   // 还没加载过就不用刷
+    if (!rankingLoaded) return;
     clearTimeout(refreshTimer);
     refreshTimer = setTimeout(async () => {
         rankingLoaded = false;
@@ -2369,22 +1548,22 @@ function refreshRanking() {
     }, 300);
 }
 
-// ===== 前端防刷：同一瀏覽器同角色每 10 分鐘上報一次 =====
+
+// =========================================================
+// 前端防刷
+// =========================================================
 const VIEW_LOCAL_KEY = 'yuzu-view-recent';
-const VIEW_INTERVAL_MS = 10 * 60 * 1000;   // 10 分鐘
+const VIEW_INTERVAL_MS = 10 * 60 * 1000;
 
 function getViewRecords() {
     try {
         const raw = localStorage.getItem(VIEW_LOCAL_KEY);
         if (!raw) return {};
         const data = JSON.parse(raw);
-        // 清掉超過 24 小時的舊記錄（避免無限增長）
         const now = Date.now();
         const cleaned = {};
         for (const [name, ts] of Object.entries(data)) {
-            if (now - ts < 24 * 60 * 60 * 1000) {
-                cleaned[name] = ts;
-            }
+            if (now - ts < 24 * 60 * 60 * 1000) cleaned[name] = ts;
         }
         return cleaned;
     } catch { return {}; }
@@ -2402,11 +1581,14 @@ function hasViewedRecently(name) {
     return Date.now() - ts < VIEW_INTERVAL_MS;
 }
 
+
 // =========================================================
-// 我的最愛（收藏）
+// 收藏
 // =========================================================
 const FAV_KEY = 'yuzu-favorites';
-let favCharsCache = {};   // {角色名: {game, code, index}}
+const FAV_SEEN_KEY = 'yuzu-fav-seen';
+let favCharsCache = {};
+let favSeen = parseInt(localStorage.getItem(FAV_SEEN_KEY) || '0', 10);
 
 function loadFavorites() {
     try {
@@ -2426,26 +1608,18 @@ function isFavorite(name) {
 function toggleFavorite(name) {
     const list = loadFavorites();
     const idx = list.indexOf(name);
-    if (idx === -1) {
-        list.push(name);
-    } else {
-        list.splice(idx, 1);
-    }
+    if (idx === -1) list.push(name);
+    else list.splice(idx, 1);
     saveFavorites(list);
 
-    // ⚠️ 新增：如果移除後總數比「已查看」還少，把已查看也降下來
     if (list.length < favSeen) {
         favSeen = list.length;
         localStorage.setItem(FAV_SEEN_KEY, String(favSeen));
     }
     updateFavCount();
     renderFavorites();
-    return idx === -1;  // true=新加入
+    return idx === -1;
 }
-
-// ===== 收藏紅點（未查看計數） =====
-const FAV_SEEN_KEY = 'yuzu-fav-seen';
-let favSeen = parseInt(localStorage.getItem(FAV_SEEN_KEY) || '0', 10);
 
 function updateFavCount() {
     const btn = document.getElementById('favButton');
@@ -2463,25 +1637,21 @@ function updateFavCount() {
     }
 }
 
-// 標記「已查看」（點收藏按鈕 or 滾到收藏區時呼叫）
 function markFavsSeen() {
     const total = loadFavorites().length;
-    if (total === favSeen) return;   // 沒有變化就不做
+    if (total === favSeen) return;
     favSeen = total;
     localStorage.setItem(FAV_SEEN_KEY, String(favSeen));
     updateFavCount();
 }
 
-// 在角色立繪上注入收藏按鈕
 function injectFavButton(char, code, index) {
     const portrait = document.getElementById('charPortrait');
     if (!portrait) return;
 
-    // 移除舊按鈕
     portrait.querySelectorAll('.char-fav-btn').forEach(b => b.remove());
 
     const active = isFavorite(char.name);
-
     const btn = document.createElement('button');
     btn.className = 'char-fav-btn' + (active ? ' active' : '');
     btn.title = active ? '取消收藏' : '加入最愛';
@@ -2490,10 +1660,8 @@ function injectFavButton(char, code, index) {
     btn.innerHTML = `
         <svg class="fav-heart" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 21s-7.5-4.35-9.5-9.5C1 8 3 4 7 4c2.5 0 4 1.5 5 3 1-1.5 2.5-3 5-3 4 0 6 4 4.5 7.5C19.5 16.65 12 21 12 21z"/>
-        </svg>
-    `;
+        </svg>`;
 
-    // ⚠️ 關鍵：index 是 0-based，存進 cache 時要轉成 1-based（跟圖片檔名一致）
     const oneBasedIndex = index + 1;
 
     btn.addEventListener('click', (e) => {
@@ -2505,7 +1673,6 @@ function injectFavButton(char, code, index) {
 
         favCharsCache[char.name] = { game: currentGame, code, index: oneBasedIndex };
 
-        // ⭐ 灑愛心粒子（只在加入時）
         if (added) {
             const rect = btn.getBoundingClientRect();
             const cx = rect.left + rect.width / 2;
@@ -2518,13 +1685,11 @@ function injectFavButton(char, code, index) {
                 h.textContent = hearts[Math.floor(Math.random() * hearts.length)];
                 h.style.left = cx + 'px';
                 h.style.top = cy + 'px';
-
                 const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.6;
                 const dist = 40 + Math.random() * 50;
                 h.style.setProperty('--fdx', (Math.cos(angle) * dist).toFixed(0) + 'px');
                 h.style.setProperty('--fdy', (Math.sin(angle) * dist - 20).toFixed(0) + 'px');
                 h.style.setProperty('--frot', Math.floor(Math.random() * 720 - 360) + 'deg');
-
                 document.body.appendChild(h);
                 setTimeout(() => h.remove(), 1200);
             }
@@ -2532,12 +1697,9 @@ function injectFavButton(char, code, index) {
     });
 
     portrait.appendChild(btn);
-
-    // 順便把角色資訊存起來（收藏區要用）
     favCharsCache[char.name] = { game: currentGame, code, index: oneBasedIndex };
 }
 
-// 渲染收藏區
 async function renderFavorites() {
     const listEl = document.getElementById('favoritesList');
     if (!listEl) return;
@@ -2549,13 +1711,11 @@ async function renderFavorites() {
         return;
     }
 
-    // 補齊缺少的角色資訊（可能從 localStorage 讀到的名字，cache 裡還沒）
     for (const name of favs) {
         if (!favCharsCache[name]) {
             try {
                 const res = await fetch(`/api/characters/${encodeURIComponent(name)}`);
                 if (res.ok) {
-                    // 需要找到 game/code/index，用 API 反查
                     for (const game of Object.keys(GAME_CODES)) {
                         const gr = await fetch(`/api/games/${encodeURIComponent(game)}/characters`);
                         if (!gr.ok) continue;
@@ -2579,7 +1739,6 @@ async function renderFavorites() {
     for (const name of favs) {
         const info = favCharsCache[name];
         if (!info) continue;
-
         const safeCode = escapeAttr(info.code || 'game');
         const safeIndex = safeInt(info.index, 0);
 
@@ -2590,12 +1749,10 @@ async function renderFavorites() {
                      style="background-image: url('picture/thumb-${safeCode}-${safeIndex}.png')"></div>
                 <div class="favorite-name">${escapeHtml(name)}</div>
                 <div class="favorite-game">${escapeHtml(info.game)}</div>
-            </div>
-        `;
+            </div>`;
     }
     listEl.innerHTML = html;
 
-    // 點擊跳轉
     listEl.querySelectorAll('.favorite-item').forEach(el => {
         el.addEventListener('click', (e) => {
             if (e.target.classList.contains('favorite-remove')) return;
@@ -2603,45 +1760,25 @@ async function renderFavorites() {
         });
     });
 
-    // 移除收藏
     listEl.querySelectorAll('.favorite-remove').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const name = btn.dataset.name;
-            toggleFavorite(name);
+            toggleFavorite(btn.dataset.name);
         });
     });
 }
 
-// 掛勾到現有的 selectCharacter（用包裝方式，不動你原本的代碼）
-const _originalSelectCharacter = selectCharacter;
-selectCharacter = function(chars, index, code, trackView = true) {
-    const result = _originalSelectCharacter.call(this, chars, index, code, trackView);
-    const char = chars[index];
-    if (char && char.name) {
-        injectFavButton(char, code, index);
-    }
-    return result;
-};
-
-// 頁面載入時初始化
-// 頁面載入時初始化
 document.addEventListener('DOMContentLoaded', () => {
     updateFavCount();
     renderFavorites();
 
-    // 點收藏按鈕 → 標記為已查看
     document.getElementById('favButton')?.addEventListener('click', () => {
-        // 延遲一點，讓 scrollToSection 執行完再隱藏
         setTimeout(markFavsSeen, 300);
     });
 });
 
-// 滾到收藏區也標記為已讀
 const favSeenObserver = new IntersectionObserver((entries) => {
-    if (entries[0].isIntersecting) {
-        markFavsSeen();
-    }
+    if (entries[0].isIntersecting) markFavsSeen();
 }, { threshold: 0.3 });
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -2649,8 +1786,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sec) favSeenObserver.observe(sec);
 });
 
+
 // =========================================================
-// 攻略進度追蹤
+// 攻略進度
 // =========================================================
 const GUIDE_PROGRESS_KEY = 'yuzu-guide-progress';
 
@@ -2665,33 +1803,25 @@ function saveGuideProgress(data) {
 }
 
 function getCharProgress(charName) {
-    const data = loadGuideProgress();
-    return data[charName] || [];
+    return loadGuideProgress()[charName] || [];
 }
 
 function setCharProgress(charName, arr) {
     const data = loadGuideProgress();
-    if (arr.length === 0) {
-        delete data[charName];
-    } else {
-        data[charName] = arr;
-    }
+    if (arr.length === 0) delete data[charName];
+    else data[charName] = arr;
     saveGuideProgress(data);
 }
 
-function toggleGuideOption(charName, optionIndex, totalCount) {
+function toggleGuideOption(charName, optionIndex) {
     const current = getCharProgress(charName);
     const idx = current.indexOf(optionIndex);
-    if (idx === -1) {
-        current.push(optionIndex);
-    } else {
-        current.splice(idx, 1);
-    }
+    if (idx === -1) current.push(optionIndex);
+    else current.splice(idx, 1);
     setCharProgress(charName, current);
     return current.length;
 }
 
-// ===== 增強攻略選項：加 checkbox + 點擊切換 =====
 function enhanceGuideWithProgress(guide) {
     const optionsEl = document.getElementById('guideOptions');
     const progressEl = document.getElementById('guideProgress');
@@ -2704,22 +1834,18 @@ function enhanceGuideWithProgress(guide) {
     const charName = guide.character_name;
     const items = optionsEl.querySelectorAll('.guide-option-item');
 
-    // 「普通結局」這類沒有選項的，隱藏進度條
     if (items.length === 0) {
         if (progressEl) progressEl.style.display = 'none';
         return;
     }
     if (progressEl) progressEl.style.display = 'flex';
 
-    // 取得進度
     const progress = getCharProgress(charName);
     const total = items.length;
 
-    // 為每個選項加 checkbox + 點擊
     items.forEach((item, i) => {
         const oneBasedIndex = i + 1;
 
-        // 加 checkbox 圈圈
         if (!item.querySelector('.guide-option-check')) {
             const check = document.createElement('span');
             check.className = 'guide-option-check';
@@ -2727,24 +1853,18 @@ function enhanceGuideWithProgress(guide) {
             item.appendChild(check);
         }
 
-        // 設定初始完成狀態
         item.classList.toggle('done', progress.includes(oneBasedIndex));
-
-        // 綁定點擊（先移除舊的，避免重複）
         item.onclick = null;
         item.addEventListener('click', () => {
-            const count = toggleGuideOption(charName, oneBasedIndex, total);
+            const count = toggleGuideOption(charName, oneBasedIndex);
             item.classList.toggle('done');
             updateProgressUI(count, total, fillEl, textEl);
         });
     });
 
-    // 更新進度條
     updateProgressUI(progress.length, total, fillEl, textEl);
 
-    // 重置按鈕
     if (resetBtn) {
-        // ⭐ 用 cloneNode 徹底替換按鈕，清掉所有舊 listener
         const newResetBtn = resetBtn.cloneNode(true);
         resetBtn.parentNode.replaceChild(newResetBtn, resetBtn);
 
@@ -2770,11 +1890,7 @@ function updateProgressUI(done, total, fillEl, textEl) {
         fillEl.classList.add('done');
         textEl.classList.add('done');
         textEl.textContent = `🎉 ${done} / ${total}`;
-
-        // ⭐ 只有「剛剛變成完成」才播慶祝
-        if (!wasComplete) {
-            triggerGuideCompleteCelebration();
-        }
+        if (!wasComplete) triggerGuideCompleteCelebration();
     } else {
         fillEl.classList.remove('done');
         textEl.classList.remove('done');
@@ -2782,27 +1898,22 @@ function updateProgressUI(done, total, fillEl, textEl) {
     }
 }
 
-// ⭐ 攻略全通慶祝
 function triggerGuideCompleteCelebration() {
     const optionsEl = document.getElementById('guideOptions');
     if (!optionsEl) return;
 
-    // 1. 卡片內顯示全通提示
     if (!optionsEl.querySelector('.guide-complete-toast')) {
         const toast = document.createElement('div');
         toast.className = 'guide-complete-toast';
         toast.innerHTML = `
             <div class="complete-icon">🎉</div>
             <div class="complete-text">全 路 線 通 關</div>
-            <div class="complete-sub">ALL CLEAR</div>
-        `;
-        // 讓它顯示在選項框內
+            <div class="complete-sub">ALL CLEAR</div>`;
         optionsEl.style.position = 'relative';
         optionsEl.appendChild(toast);
         setTimeout(() => toast.remove(), 4000);
     }
 
-    // 2. 全屏金光爆炸
     const icons = ['✨', '⭐', '💫', '🌟', '💛', '🎉'];
     const count = 40;
     const cx = window.innerWidth / 2;
@@ -2821,66 +1932,32 @@ function triggerGuideCompleteCelebration() {
         el.style.setProperty('--gdy', (Math.sin(angle) * dist - 30).toFixed(0) + 'px');
         el.style.setProperty('--grot', Math.floor(Math.random() * 1080 - 540) + 'deg');
         el.style.animationDelay = (Math.random() * 0.2) + 's';
-
         document.body.appendChild(el);
         setTimeout(() => el.remove(), 1800);
     }
 }
 
-// ===== 掛勾到 selectGuide：每次切換角色時重建進度 =====
-const _originalSelectGuideForProgress = selectGuide;
-selectGuide = function(guides, index, code, map) {
-    const result = _originalSelectGuideForProgress.call(this, guides, index, code, map);
-    const guide = guides[index];
-    if (guide) {
-        // 等 DOM 更新完
-        setTimeout(() => enhanceGuideWithProgress(guide), 0);
-    }
-    return result;
-};
 
 // =========================================================
-// 全局視覺特效
+// 視覺特效
 // =========================================================
-
-// ===== 2. 立繪切換動畫 =====
 function triggerPortraitSwitch(el) {
     if (!el) return;
     el.classList.remove('switching');
-    void el.offsetWidth;   // 強制重繪
+    void el.offsetWidth;
     el.classList.add('switching');
     setTimeout(() => el.classList.remove('switching'), 700);
 }
 
-// 掛勾到 selectCharacter（動畫）
-const _prevSelectCharacterForAnim = selectCharacter;
-selectCharacter = function(chars, index, code, trackView = true) {
-    const result = _prevSelectCharacterForAnim.call(this, chars, index, code, trackView);
-    triggerPortraitSwitch(document.getElementById('charPortrait'));
-    return result;
-};
-
-// 掛勾到 selectGuide（動畫）
-const _prevSelectGuideForAnim = selectGuide;
-selectGuide = function(guides, index, code, map) {
-    const result = _prevSelectGuideForAnim.call(this, guides, index, code, map);
-    triggerPortraitSwitch(document.getElementById('guidePortrait'));
-    return result;
-};
-
-// ===== 3. Section 滾動淡入 =====
 function initSectionFadeIn() {
     if (!('IntersectionObserver' in window)) {
-        // 舊瀏覽器 fallback：全部直接顯示
         document.querySelectorAll('.section-inner').forEach(el => el.classList.add('visible'));
         return;
     }
 
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('visible');
-            }
+            if (entry.isIntersecting) entry.target.classList.add('visible');
         });
     }, {
         threshold: 0.1,
@@ -2892,21 +1969,19 @@ function initSectionFadeIn() {
         if (inner) observer.observe(inner);
     });
 
-    // 首頁立即顯示（不等待滾動）
     const homeInner = document.querySelector('#home .section-inner');
     if (homeInner) homeInner.classList.add('visible');
 }
 
-// ===== 啟動 =====
 document.addEventListener('DOMContentLoaded', () => {
     initSectionFadeIn();
 });
 
+
 // =========================================================
-// 事件綁定（因 CSP 禁 inline onclick，改用 addEventListener）
+// 事件綁定
 // =========================================================
 document.addEventListener('DOMContentLoaded', () => {
-    // 頂部按鈕
     document.getElementById('menuButton')?.addEventListener('click', openMenu);
     document.getElementById('closeButton')?.addEventListener('click', closeMenu);
     document.getElementById('overlay')?.addEventListener('click', closeMenu);
@@ -2915,7 +1990,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('returnTop')?.addEventListener('click', scrollToTop);
 
-    // 遊戲選單
     document.querySelectorAll('#gameList a[data-game]').forEach(a => {
         a.addEventListener('click', (e) => {
             e.preventDefault();
@@ -2923,49 +1997,57 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 取消選擇遊戲
     document.getElementById('clearGameBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         clearGame();
     });
 
-    // 功能選單
     document.querySelectorAll('#featureList a').forEach(a => {
         a.addEventListener('click', (e) => {
             e.preventDefault();
             const href = a.getAttribute('href');
-            if (href && href.startsWith('#')) {
-                scrollToSection(href.slice(1));
-            }
+            if (href && href.startsWith('#')) scrollToSection(href.slice(1));
         });
     });
 });
 
+
 // =========================================================
-// 頁面載入動畫：淡出
+// 首頁打字機（首次進站）
+// =========================================================
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        const descEl = document.getElementById('homeDesc');
+        if (!descEl) return;
+        const text = descEl.textContent;
+        if (text && text.trim()) {
+            typewriterText(descEl, text, 35);
+        }
+    }, 800);
+
+    document.getElementById('homeDesc')?.addEventListener('click', skipTypewriter);
+});
+
+
+// =========================================================
+// 頁面載入動畫
 // =========================================================
 (function initPageLoader() {
     const loader = document.getElementById('pageLoader');
     if (!loader) return;
 
-    // 最短顯示時間（避免閃一下）
     const MIN_DURATION = 700;
     const start = Date.now();
 
-    // 等 DOM + 主要資源載入完
     window.addEventListener('load', () => {
         const elapsed = Date.now() - start;
         const delay = Math.max(0, MIN_DURATION - elapsed);
-
         setTimeout(() => {
             loader.classList.add('hide');
-
-            // 移除 DOM（節省記憶體）
             setTimeout(() => loader.remove(), 700);
         }, delay);
     });
 
-    // 保險：如果 load 事件永遠不觸發（極少數情況），5 秒後強制移除
     setTimeout(() => {
         if (document.body.contains(loader)) {
             loader.classList.add('hide');
