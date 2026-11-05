@@ -2007,9 +2007,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('#featureList a').forEach(a => {
         a.addEventListener('click', (e) => {
-            e.preventDefault();
             const href = a.getAttribute('href');
-            if (href && href.startsWith('#')) scrollToSection(href.slice(1));
+            if (href && href.startsWith('#')) {
+                e.preventDefault();
+                scrollToSection(href.slice(1));
+            }
         });
     });
 });
