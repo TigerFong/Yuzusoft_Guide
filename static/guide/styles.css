@@ -4406,3 +4406,32 @@ body.has-game .menu-list a.clear-game {
         max-height: 50vh;    /* 但選項框仍限制高度，內部滾動 */
     }
 }
+
+/* ===== 攻略站前往遊戲按鈕 ===== */
+.topbar-game-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(38px, 4vw, 46px);
+    height: clamp(38px, 4vw, 46px);
+    background: linear-gradient(180deg, #8b1010 0%, #b81a1a 100%);
+    border: 1.5px solid #d4af37;
+    border-radius: 8px;
+    color: #ffd700;
+    font-size: 20px;
+    text-decoration: none;
+    box-shadow: 0 3px 8px rgba(122, 12, 12, 0.35), inset 0 0 0 1px rgba(255,215,0,0.3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    flex-shrink: 0;
+}
+.topbar-game-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(184, 26, 26, 0.5), inset 0 0 0 1px rgba(255,215,0,0.5);
+}
+@media (max-width: 560px) {
+    .topbar-game-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 16px;
+    }
+}

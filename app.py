@@ -1,27 +1,22 @@
 # 文件：app.py
 import os
 import datetime
+from dotenv import load_dotenv
+load_dotenv()
+import datetime
 from flask import Flask, jsonify, render_template, request, session
 
 from backend.core import (
-    apply_security_headers,
-    list_all_characters,
-    list_all_guides,
-    list_games,
-    list_game_characters,
-    list_game_guides,
-    get_meta,
-    get_ranking,
-    get_health_info,
-    handle_character,
-    handle_guide,
-    handle_view,
-    handle_search,
-    handle_matchmaker,
+    apply_security_headers, list_all_characters, list_all_guides,
+    list_games, list_game_characters, list_game_guides, get_meta,
+    get_ranking, get_health_info, handle_character, handle_guide,
+    handle_view, handle_search, handle_matchmaker,
 )
 from backend.auth import (
     require_login, register_user, login_user, get_player_data
 )
+# 新增引入 game_core
+from backend.game_core import get_pool_info, update_wishlist, draw_cards, get_awaken_info, do_awaken, start_battle, end_battle
 
 app = Flask(__name__)
 
@@ -39,6 +34,35 @@ app.permanent_session_lifetime = datetime.timedelta(days=365)
 @app.after_request
 def _security_headers(response):
     return apply_security_headers(response)
+
+# =========================================================
+# 新增：Gacha API
+# =========================================================
+@app.route('/api/gacha/pool', methods=['GET'])
+@require_login
+def api_gacha_pool():
+    res, status = get_pool_info(session['user_id'])
+    return jsonify(res), status
+
+@app.route('/api/gacha/draw', methods=['POST'])
+@require_login
+def api_gacha_draw():
+    data = request.json or {}
+    count = data.get('count', 1)
+    res, status = draw_cards(session['user_id'], count)
+    return jsonify(res), status
+
+@app.route('/api/gacha/wishlist', methods=['POST'])
+@require_login
+def api_gacha_wishlist():
+    data = request.json or {}
+    wishlist = data.get('wishlist', [])
+    res, status = update_wishlist(session['user_id'], wishlist)
+    return jsonify(res), status
+
+@app.route('/battle-test')
+def battle_test():
+    return render_template('battle-test.html')
 
 
 # =========================================================
@@ -196,6 +220,36 @@ def api_matchmaker():
 @app.route('/health')
 def health():
     return jsonify(get_health_info())
+
+@app.route('/api/awaken/<path:character>', methods=['GET'])
+@require_login
+def api_awaken_info(character):
+    res, status = get_awaken_info(session['user_id'], character)
+    return jsonify(res), status
+
+@app.route('/api/awaken/<path:character>', methods=['POST'])
+@require_login
+def api_awaken_do(character):
+    res, status = do_awaken(session['user_id'], character)
+    return jsonify(res), status
+
+# =========================================================
+# 新增：Battle API
+# =========================================================
+@app.route('/api/battle/<stage_id>', methods=['GET'])
+@require_login
+def api_battle_start(stage_id):
+    res, status = start_battle(session['user_id'], stage_id)
+    return jsonify(res), status
+
+@app.route('/api/battle/end', methods=['POST'])
+@require_login
+def api_battle_end():
+    data = request.json or {}
+    stage_id = data.get('stage_id')
+    is_win = data.get('is_win', False)
+    res, status = end_battle(session['user_id'], stage_id, is_win)
+    return jsonify(res), status
 
 
 # =========================================================

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>卡牌戰鬥測試 - 柚子社</title>
+    <link rel="stylesheet" href="/static/game/styles.css">
+</head>
+<body class="battle-body">
+
+    <!-- 戰鬥主容器 -->
+    <div id="battleContainer" class="battle-container">
+        
+        <!-- 敵方區域 -->
+        <div class="enemy-area">
+            <!-- 敵人 1：心魔 -->
+            <div class="enemy-card">
+                <div class="enemy-avatar-wrap">
+                    <div class="enemy-portrait mirror-filter" style="background-image: url('/static/picture/char-senren-1.png');"></div>
+                    <div class="enemy-shadow"></div>
+                </div>
+                <div class="enemy-info">
+                    <div class="enemy-name">心魔 · 朝武芳乃</div>
+                    <div class="enemy-mind">凜</div>
+                    <div class="hp-bar"><div class="hp-fill" style="width: 80%;"></div></div>
+                    <div class="toughness-bar"><div class="toughness-fill" style="width: 100%;"></div></div>
+                </div>
+            </div>
+
+            <!-- 敵人 2：心魔 -->
+            <div class="enemy-card">
+                <div class="enemy-avatar-wrap">
+                    <div class="enemy-portrait mirror-filter" style="background-image: url('/static/picture/char-sabbat-1.png');"></div>
+                    <div class="enemy-shadow"></div>
+                </div>
+                <div class="enemy-info">
+                    <div class="enemy-name">心魔 · 綾地寧寧</div>
+                    <div class="enemy-mind">凜</div>
+                    <div class="hp-bar"><div class="hp-fill" style="width: 100%;"></div></div>
+                    <div class="toughness-bar"><div class="toughness-fill" style="width: 100%;"></div></div>
+                </div>
+            </div>
+
+            <!-- 敵人 3：原創 BOSS -->
+            <div class="enemy-card boss">
+                <div class="enemy-avatar-wrap">
+                    <!-- 如果有圖就放 style="background-image: url(...)"，沒圖就顯示佔位文字 -->
+                    <div class="enemy-portrait boss-portrait">
+                        <div class="boss-aura"></div>
+                        <div class="boss-title">祟神·大蛇</div>
+                    </div>
+                    <div class="enemy-shadow boss-shadow"></div>
+                </div>
+                <div class="enemy-info">
+                    <div class="enemy-name">祟神 · 大蛇</div>
+                    <div class="enemy-mind" style="color: #ff4444; font-weight: 900;">BOSS · 凜</div>
+                    <div class="hp-bar"><div class="hp-fill" style="width: 100%;"></div></div>
+                    <div class="toughness-bar"><div class="toughness-fill" style="width: 100%;"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 戰場中區：我方狀態與控制 -->
+        <div class="mid-area">
+            <!-- 我方角色狀態列（無立繪） -->
+            <div class="player-party">
+                <div class="player-status">
+                    <img src="/static/picture/thumb-senren-3.png" class="party-thumb">
+                    <div class="party-info">
+                        <div class="party-name">叢雨</div>
+                        <div class="mini-bar hp"><div style="width: 100%;"></div></div>
+                        <div class="mini-bar ep"><div style="width: 40%;"></div></div>
+                    </div>
+                </div>
+                <div class="player-status">
+                    <img src="/static/picture/thumb-cafe-1.png" class="party-thumb">
+                    <div class="party-info">
+                        <div class="party-name">明月栞那</div>
+                        <div class="mini-bar hp"><div style="width: 90%;"></div></div>
+                        <div class="mini-bar ep"><div style="width: 80%;"></div></div>
+                    </div>
+                </div>
+                <div class="player-status">
+                    <img src="/static/picture/thumb-tenshi-2.png" class="party-thumb">
+                    <div class="party-info">
+                        <div class="party-name">谷風天音</div>
+                        <div class="mini-bar hp"><div style="width: 100%;"></div></div>
+                        <div class="mini-bar ep"><div style="width: 100%;"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右下角控制區 -->
+            <div class="battle-controls">
+                <div class="sp-display">⚡ SP: <span>3</span> / 5</div>
+                <button class="btn-end-turn">結束回合</button>
+            </div>
+        </div>
+
+        <!-- 手牌區域 -->
+        <div class="hand-area">
+            <!-- 卡牌 1：攻擊卡 -->
+            <div class="battle-card">
+                <div class="card-cost">1</div>
+                <div class="card-mind mind-rin">凜</div>
+                <div class="card-thumb" style="background-image: url('/static/picture/thumb-senren-1.png');"></div>
+                <div class="card-title">神樂·斬</div>
+                <div class="card-desc">對單體造成 100% 傷害。</div>
+            </div>
+
+            <!-- 卡牌 2：防禦卡 -->
+            <div class="battle-card">
+                <div class="card-cost">2</div>
+                <div class="card-mind mind-rin">凜</div>
+                <div class="card-thumb" style="background-image: url('/static/picture/thumb-senren-1.png');"></div>
+                <div class="card-title">巫女之護</div>
+                <div class="card-desc">全隊獲得 20% 減傷護盾。</div>
+            </div>
+
+            <!-- 卡牌 3：治療卡 -->
+            <div class="battle-card">
+                <div class="card-cost">1</div>
+                <div class="card-mind mind-yo">陽</div>
+                <div class="card-thumb" style="background-image: url('/static/picture/thumb-senren-3.png');"></div>
+                <div class="card-title">摸頭</div>
+                <div class="card-desc">恢復單體 15% HP。</div>
+            </div>
+
+            <!-- 卡牌 4：必殺卡（滿 EP 觸發，不耗 SP，邊框金色） -->
+            <div class="battle-card ultimate">
+                <div class="card-cost">0</div>
+                <div class="card-mind mind-yo">陽</div>
+                <div class="card-thumb" style="background-image: url('/static/picture/thumb-tenshi-2.png');"></div>
+                <div class="card-title">傲嬌爆發</div>
+                <div class="card-desc">對單體造成巨額傷害，對 SSR 額外 +50%。</div>
+            </div>
+
+            <!-- 卡牌 5：輔助卡 -->
+            <div class="battle-card">
+                <div class="card-cost">1</div>
+                <div class="card-mind mind-rin">凜</div>
+                <div class="card-thumb" style="background-image: url('/static/picture/thumb-sabbat-1.png');"></div>
+                <div class="card-title">學習輔導</div>
+                <div class="card-desc">目標下次攻擊傷害 +50%。</div>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

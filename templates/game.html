@@ -9,12 +9,17 @@
 </head>
 <body>
 
-    <!-- 遊戲主界面 -->
     <div id="gameContainer" class="game-container" style="display: none;">
         <header class="game-header">
             <div class="header-left">
                 <a href="/" class="btn-back">📖 返回攻略站</a>
                 <span class="game-logo">柚子社 · 幻境交錯</span>
+                <!-- 新增：頁籤切換 -->
+                <div class="nav-tabs">
+                    <button class="nav-tab" data-view="battle">⚔️ 異界裂縫</button>
+                    <button class="nav-tab active" data-view="gacha">✨ 幻境卡池</button>
+                    <button class="nav-tab" data-view="roster">🎴 我的角色</button>
+                </div>
             </div>
             <div class="header-right">
                 <div class="user-coins">
@@ -29,38 +34,134 @@
         </header>
 
         <main class="game-main">
-            <div class="placeholder-panel">
-                <h1>系統登入成功</h1>
-                <p>抽卡與戰鬥系統將於近期實裝。</p>
+            <!-- 視圖 1：抽卡 -->
+            <div id="gachaView" class="view-panel active">
+                <div class="gacha-panel">
+                    <div class="gacha-title">常駐幻境卡池</div>
+                    <div class="pity-info">距離 SSR 保底：<span id="pityCount" class="highlight">0</span> / 80</div>
+                    <div class="gacha-buttons">
+                        <button class="btn-draw" id="draw1Btn">
+                            <span class="draw-name">單次邂逅</span>
+                            <span class="draw-cost">160 柚幣</span>
+                        </button>
+                        <button class="btn-draw ten" id="draw10Btn">
+                            <span class="draw-name">十連邂逅</span>
+                            <span class="draw-cost">1,600 柚幣</span>
+                        </button>
+                    </div>
+                    <button class="btn-wishlist" id="openWishlistBtn">⭐ 設定心願單 (最高 67% 命中率)</button>
+                </div>
+            </div>
+
+            <!-- 視圖 2：角色圖鑑 -->
+            <div id="rosterView" class="view-panel">
+                <div class="roster-panel">
+                    <div class="gacha-title">我的角色</div>
+                    <div id="rosterGrid" class="roster-grid">
+                        <!-- JS 動態渲染 -->
+                    </div>
+                </div>
+            </div>
+            <!-- 視圖 3：戰鬥 (新增) -->
+            <div id="battleView" class="view-panel">
+                <div id="battleContainer" class="battle-container" style="display:none;">
+                    <!-- 敵方區域 -->
+                    <div class="enemy-area" id="enemyArea">
+                        <!-- JS 動態生成 -->
+                    </div>
+                    <!-- 我方狀態與控制 -->
+                    <div class="mid-area">
+                        <div class="player-party" id="playerParty"></div>
+                        <div class="battle-controls">
+                            <div class="sp-display">⚡ SP: <span id="spValue">3</span> / 10</div>
+                            <button class="btn-end-turn" id="endTurnBtn">結束回合</button>
+                        </div>
+                    </div>
+                    <!-- 手牌區 -->
+                    <div class="hand-area" id="handArea"></div>
+                </div>
+                
+                <!-- 選擇關卡入口 -->
+                <div id="stageSelect" style="text-align:center; padding: 50px;">
+                    <h2 style="color:var(--gold-light); margin-bottom:20px;">異界裂縫</h2>
+                    <button class="btn-draw" id="enterStageBtn">進入 千戀＊萬花 第一章</button>
+                </div>
             </div>
         </main>
     </div>
 
-    <!-- 登入遮罩 -->
+    <!-- 登入遮罩 (保持不變) -->
     <div id="loginOverlay" class="login-overlay">
         <div class="login-box">
-            <div class="login-header">
-                <h1>YUZUSOFT</h1>
-                <p>幻境交錯 · 登入</p>
-            </div>
-            
+            <div class="login-header"><h1>YUZUSOFT</h1><p>幻境交錯 · 登入</p></div>
             <div class="login-tabs">
                 <button class="tab-btn active" data-tab="login">登入</button>
                 <button class="tab-btn" data-tab="register">註冊</button>
             </div>
-
             <form id="authForm" class="auth-form">
-                <div class="input-group">
-                    <input type="text" id="usernameInput" placeholder="用戶名 (1-20字)" required autocomplete="username">
-                </div>
-                <div class="input-group">
-                    <input type="password" id="passwordInput" placeholder="密碼 (至少6位)" required autocomplete="current-password">
-                </div>
-                
+                <div class="input-group"><input type="text" id="usernameInput" placeholder="用戶名" required></div>
+                <div class="input-group"><input type="password" id="passwordInput" placeholder="密碼" required></div>
                 <div id="authError" class="auth-error"></div>
-
                 <button type="submit" id="submitBtn" class="btn-submit">進 入 幻 境</button>
             </form>
+        </div>
+    </div>
+
+    <!-- 抽卡結果彈窗 (保持不變) -->
+    <div id="gachaResultModal" class="modal-overlay">
+        <div class="modal-content gacha-result">
+            <div id="gachaCards" class="cards-container"></div>
+            <button id="closeResultBtn" class="btn-primary">確定</button>
+        </div>
+    </div>
+
+    <!-- 心願單彈窗 (保持不變) -->
+    <div id="wishlistModal" class="modal-overlay">
+        <div class="modal-content wishlist-content">
+            <h2>設定心願單</h2>
+            <p class="wish-desc">抽到對應稀有度時，有 67% 機率命中你選的角色（最多 3 個）</p>
+            <div id="wishlistGrid" class="wish-grid"></div>
+            <div class="modal-actions">
+                <button id="closeWishlistBtn" class="btn-secondary">取消</button>
+                <button id="saveWishlistBtn" class="btn-primary">儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 覺醒彈窗 (新增) -->
+    <div id="awakenModal" class="modal-overlay">
+        <div class="modal-content awaken-content">
+            <div class="awaken-header">
+                <img id="awakenImg" src="" alt="">
+                <div class="awaken-info">
+                    <h2 id="awakenName">角色名稱</h2>
+                    <div class="awaken-stars" id="awakenRarity">SSR</div>
+                    <div class="awaken-shards">持有碎片：<span id="awakenShards">0</span></div>
+                </div>
+            </div>
+            
+            <div class="awaken-levels">
+                <!-- I -->
+                <div class="awaken-level" id="awakenLvl1">
+                    <div class="lvl-title">覺醒 I <span class="lvl-cost">消耗 1 碎片</span></div>
+                    <p class="lvl-desc">效果加載中...</p>
+                </div>
+                <!-- II -->
+                <div class="awaken-level" id="awakenLvl2">
+                    <div class="lvl-title">覺醒 II <span class="lvl-cost">消耗 2 碎片</span></div>
+                    <p class="lvl-desc">效果加載中...</p>
+                </div>
+                <!-- III -->
+                <div class="awaken-level" id="awakenLvl3">
+                    <div class="lvl-title">覺醒 III <span class="lvl-cost">消耗 3 碎片</span></div>
+                    <p class="lvl-desc">效果加載中...</p>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button id="closeAwakenBtn" class="btn-secondary">關閉</button>
+                <button id="doAwakenBtn" class="btn-primary">進行覺醒</button>
+            </div>
         </div>
     </div>
 
