@@ -29,104 +29,94 @@ BATTLE_STAGES = {
     }
 }
 
+# =========================================================
+# 戰鬥入口（薄封裝，全部轉交 battle_engine）
+# =========================================================
+from .battle_engine import (
+    create_battle, play_card, end_turn, claim_reward, get_state,
+)
+
+
+def _load_owned_cards(user_id):
+    """回傳 dict；DB 模式自動解析 JSON。"""
+    if not db_pool:
+        pd = memory_db.player_data.get(user_id)
+        return pd["cards"] if pd else {}
+
+    try:
+        conn = db_pool.getconn()
+        cur = conn.cursor()
+        cur.execute("SELECT cards FROM player_data WHERE user_id = %s", (user_id,))
+        row = cur.fetchone()
+        cur.close()
+        db_pool.putconn(conn)
+        if row and row[0]:
+            if isinstance(row[0], str):
+                import json
+                return json.loads(row[0])
+            return row[0]
+        return {}
+    except Exception as e:
+        print("讀取玩家卡牌失敗:", e)
+        return {}
+
+
 def start_battle(user_id, stage_id):
     if stage_id not in BATTLE_STAGES:
         return {"ok": False, "error": "關卡不存在"}, 404
-        
-    stage = BATTLE_STAGES[stage_id]
-    
-    try:
-        # 獲取玩家擁有的角色作為可用卡牌來源
-        if not db_pool:
-            pd = memory_db.player_data.get(user_id)
-            owned_cards = pd["cards"] if pd else {}
-        else:
-            conn = db_pool.getconn()
-            cur = conn.cursor()
-            cur.execute("SELECT cards FROM player_data WHERE user_id = %s", (user_id,))
-            row = cur.fetchone()
-            cur.close()
-            db_pool.putconn(conn)
-            
-            # 確保取出的資料是 dict
-            if row and row[0]:
-                if isinstance(row[0], str):
-                    import json
-                    owned_cards = json.loads(row[0])
-                else:
-                    owned_cards = row[0]
-            else:
-                owned_cards = {}
-                
-        if not owned_cards:
-            return {"ok": False, "error": "你沒有任何角色，無法戰鬥！"}, 400
 
-        # 將玩家擁有的角色，轉換為詳細數據
-        party_data = []
-        for name in list(owned_cards.keys())[:3]: # 最多取3個
-            if name in GAME_CHARACTERS:
-                info = GAME_CHARACTERS[name]
-                
-                # 獲取覺醒等級
-                awaken_lvl = 0
-                if name in owned_cards:
-                    awaken_lvl = owned_cards[name].get("awaken", 0)
-                
-                # 技能數值加成：每覺醒一級 +10% 傷害/治療/護盾
-                multiplier = 1.0 + (awaken_lvl * 0.10)
-                
-                # 複製一份技能數據，避免汙染原始字典
-                import copy
-                skills_data = copy.deepcopy(info["skills"])
-                for k in ["normal", "skill", "ultimate"]:
-                    skills_data[k]["value"] = int(skills_data[k]["value"] * multiplier)
+    owned = _load_owned_cards(user_id)
+    if not owned:
+        return {"ok": False, "error": "你沒有任何角色，無法戰鬥！"}, 400
 
-                party_data.append({
-                    "name": name,
-                    "mind": info["mind"],
-                    "rarity": info["rarity"],
-                    "role": info["role"],
-                    "awaken": awaken_lvl, # 傳入覺醒等級
-                    "skills": skills_data
-                })
+    state, err = create_battle(user_id, stage_id, owned, BATTLE_STAGES[stage_id])
+    if err:
+        return {"ok": False, "error": err}, 400
+    return {"ok": True, "state": state}, 200
 
-        return {
-            "ok": True,
-            "stage_name": stage["name"],
-            "enemies": stage["enemies"],
-            "party": party_data, 
-            "reward_coins": stage["reward_coins"]
-        }, 200
-        
-    except Exception as e:
-        print("開啟戰鬥發生錯誤:", e)
-        return {"ok": False, "error": f"伺服器內部錯誤: {str(e)}"}, 500
 
-def end_battle(user_id, stage_id, is_win):
-    if not is_win:
-        return {"ok": True, "msg": "戰鬥失敗，沒有獎勵"}, 200
-        
-    if stage_id not in BATTLE_STAGES:
-        return {"ok": False, "error": "關卡不存在"}, 404
-        
-    reward = BATTLE_STAGES[stage_id]["reward_coins"]
-    
+def battle_action(user_id, card_index, target_index):
+    result, err = play_card(user_id, card_index, target_index)
+    if err:
+        return {"ok": False, "error": err}, 400
+    return {"ok": True, **result}, 200
+
+
+def battle_end_turn(user_id):
+    result, err = end_turn(user_id)
+    if err:
+        return {"ok": False, "error": err}, 400
+    return {"ok": True, **result}, 200
+
+
+def claim_battle_reward(user_id):
+    result, err = claim_reward(user_id)
+    if err:
+        return {"ok": False, "error": err}, 400
+
+    reward = result["reward"]
+
+    # 發幣
     if not db_pool:
         pd = memory_db.player_data.get(user_id)
         if pd:
             pd["coins"] += reward
-        return {"ok": True, "reward": reward}, 200
-        
-    try:
-        conn = db_pool.getconn()
-        cur = conn.cursor()
-        cur.execute("UPDATE player_data SET coins = coins + %s WHERE user_id = %s", (reward, user_id))
-        conn.commit()
-        cur.close()
-        db_pool.putconn(conn)
-        return {"ok": True, "reward": reward}, 200
-    except Exception as e:
-        return {"ok": False, "error": "結算失敗"}, 500
+    else:
+        try:
+            conn = db_pool.getconn()
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE player_data SET coins = coins + %s WHERE user_id = %s",
+                (reward, user_id),
+            )
+            conn.commit()
+            cur.close()
+            db_pool.putconn(conn)
+        except Exception as e:
+            print("發放獎勵失敗:", e)
+            return {"ok": False, "error": "發放獎勵失敗"}, 500
+
+    return {"ok": True, "reward": reward}, 200
 
 def is_tester(user_id):
     """檢查是否為 tester 帳號"""

@@ -4,13 +4,11 @@ let allCharacters = {}; // 儲存所有角色 { name, game, code, index, rarity 
 let playerData = null;
 let currentWishlist = [];
 let currentAwakenChar = null;
-let currentBattleData = null;
-let currentSP = 3;
-let currentEnemies = [];
-let currentHand = [];
+
+// --- 戰鬥狀態（全部走後端結算）---
+let currentBattleState = null;
 let selectedCardIndex = null;
-let playerParty = []; // 我方隊伍狀態
-let isEnemyTurn = false; // 防止連點
+let isBusy = false;
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM 元素 ---
@@ -28,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pityCount = document.getElementById('pityCount');
     const draw1Btn = document.getElementById('draw1Btn');
     const draw10Btn = document.getElementById('draw10Btn');
-    
+
     // 視圖切換與覺醒元素
     const gachaView = document.getElementById('gachaView');
     const rosterView = document.getElementById('rosterView');
@@ -79,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
         errorDiv.textContent = '';
 
         const url = currentMode === 'login' ? '/api/auth/login' : '/api/auth/register';
-        
+
         fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -110,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
             navTabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
-            
+
             if (tab.dataset.view === 'gacha') {
                 gachaView.classList.add('active');
             } else if (tab.dataset.view === 'battle') {
@@ -124,10 +122,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    document.getElementById('enterStageBtn')?.addEventListener('click', () => {
-        enterBattle('senren-1');
-    });
-
     // --- 抽卡相關 ---
     draw1Btn.addEventListener('click', () => handleDraw(1));
     draw10Btn.addEventListener('click', () => handleDraw(10));
@@ -138,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeWishlistBtn = document.getElementById('closeWishlistBtn');
     const saveWishlistBtn = document.getElementById('saveWishlistBtn');
     const wishlistGrid = document.getElementById('wishlistGrid');
-    
+
     openWishlistBtn.addEventListener('click', () => {
         if (Object.keys(allCharacters).length === 0) {
             alert('正在載入角色數據，請稍候...');
@@ -147,19 +141,19 @@ document.addEventListener('DOMContentLoaded', () => {
         renderWishlistGrid();
         wishlistModal.classList.add('show');
     });
-    
+
     closeWishlistBtn.addEventListener('click', () => wishlistModal.classList.remove('show'));
 
     saveWishlistBtn.addEventListener('click', () => {
         const selected = Array.from(wishlistGrid.querySelectorAll('.wish-item.selected')).map(el => el.dataset.name);
-        if (selected.length > 1) { // 改為 1
+        if (selected.length > 1) {
             alert('心願單只能選擇 1 個角色！');
             return;
         }
-        
+
         saveWishlistBtn.disabled = true;
         saveWishlistBtn.textContent = '儲存中...';
-        
+
         fetch('/api/gacha/wishlist', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -201,12 +195,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!data.ok) {
                 alert(data.error);
             } else {
-                // 更新本地數據並重繪
                 playerData.cards[currentAwakenChar].awaken = data.awaken;
                 playerData.cards[currentAwakenChar].shards = data.shards;
-                
-                await openAwakenModal(currentAwakenChar); // 刷新彈窗內容
-                renderRoster(); // 刷新圖鑑
+                await openAwakenModal(currentAwakenChar);
+                renderRoster();
             }
         } catch (e) {
             alert('覺醒失敗');
@@ -222,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCoinsUI(playerData.coins);
         pityCount.textContent = playerData.pity;
         currentWishlist = playerData.wishlist || [];
-        
+
         loginOverlay.style.opacity = '0';
         setTimeout(() => {
             loginOverlay.style.display = 'none';
@@ -258,11 +250,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const metaRes = await fetch('/api/meta');
             const meta = await metaRes.json();
-            
-            // 手動補齊稀有度對照表 (從 game_data.py 同步)
+
             const rarityMap = {
                 "朝武芳乃":"SSR", "白雪乃愛":"SSR", "明月栞那":"SSR", "綾地寧寧":"SSR",
-                "常陸茉子":"SR", "叢雨":"SR", "谷風天音":"SR", "星河輝耶":"SR", 
+                "常陸茉子":"SR", "叢雨":"SR", "谷風天音":"SR", "星河輝耶":"SR",
                 "百里風實花":"SR", "四季夏目":"SR", "墨染希":"SR", "因幡巡":"SR", "椎葉紬":"SR"
             };
 
@@ -285,13 +276,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderWishlistGrid() {
         wishlistGrid.innerHTML = '';
-        // 只篩選 SSR 角色
         const ssrNames = Object.keys(allCharacters).filter(name => allCharacters[name].rarity === 'SSR');
-        
+
         ssrNames.forEach(name => {
             const info = allCharacters[name];
             const isSel = currentWishlist.includes(name);
-            
+
             const div = document.createElement('div');
             div.className = `wish-item ${isSel ? 'selected' : ''}`;
             div.dataset.name = name;
@@ -299,13 +289,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 <img src="/static/picture/thumb-${info.code}-${info.index}.png" alt="${name}">
                 <span>${name}</span>
             `;
-            
+
             div.addEventListener('click', () => {
                 if (div.classList.contains('selected')) {
                     div.classList.remove('selected');
                 } else {
                     const currentSel = wishlistGrid.querySelectorAll('.wish-item.selected').length;
-                    if (currentSel >= 1) { // 改為 1
+                    if (currentSel >= 1) {
                         alert('心願單只能選擇 1 個角色！');
                         return;
                     }
@@ -318,7 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleDraw(count) {
         if (playerData.coins < 160 * count) return;
-        
+
         draw1Btn.disabled = true;
         draw10Btn.disabled = true;
 
@@ -329,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ count })
             });
             const data = await res.json();
-            
+
             if (!data.ok) {
                 alert(data.error);
                 return;
@@ -337,8 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             updateCoinsUI(data.coins);
             pityCount.textContent = data.pity;
-            
-            // 重要：抽卡後重新獲取用戶資料，以更新 playerData.cards
+
             const meRes = await fetch('/api/auth/me');
             const meData = await meRes.json();
             if (meData.logged_in) {
@@ -363,18 +352,18 @@ document.addEventListener('DOMContentLoaded', () => {
         results.forEach((card, idx) => {
             const info = allCharacters[card.name] || { code: 'game', index: 1 };
             const delay = idx * 0.15;
-            
+
             const div = document.createElement('div');
             div.className = `card-item ${card.rarity}`;
             div.style.animationDelay = `${delay}s`;
-            
+
             let tagHtml = `<div class="card-tag">+${card.shards} 碎片</div>`;
             if (card.is_new) {
                 tagHtml = `<div class="card-tag new">NEW 解鎖</div>`;
             } else if (card.refund > 0) {
                 tagHtml = `<div class="card-tag" style="color: #ffd700; font-weight: bold;">滿覺 返還+${card.refund}幣</div>`;
             }
-            
+
             div.innerHTML = `
                 <img src="/static/picture/char-${info.code}-${info.index}.png" onerror="this.src='/static/picture/thumb-${info.code}-${info.index}.png'">
                 <div class="card-info">
@@ -390,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderRoster() {
         if (!playerData || !playerData.cards) return;
         rosterGrid.innerHTML = '';
-        
+
         const ownedChars = Object.keys(playerData.cards);
         if (ownedChars.length === 0) {
             rosterGrid.innerHTML = '<p style="color:#aaa; grid-column:1/-1; text-align:center;">還沒有任何角色，去抽卡吧！</p>';
@@ -409,7 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = playerData.cards[name];
             const info = allCharacters[name] || { code: 'game', index: 1 };
             const rarity = info.rarity || 'R';
-            
+
             const div = document.createElement('div');
             div.className = `roster-card ${rarity}`;
             div.innerHTML = `
@@ -439,7 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             data.effects.forEach((desc, idx) => {
                 const el = awakenLvlEls[idx];
-                if(!el) return; // 防呆
+                if(!el) return;
                 el.querySelector('.lvl-desc').textContent = desc;
                 if (idx < data.awaken) {
                     el.classList.add('active');
@@ -468,59 +457,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 戰鬥核心邏輯
+    // =========================================================
+    // 戰鬥（全部走後端）
+    // =========================================================
     async function enterBattle(stageId) {
         try {
             const res = await fetch(`/api/battle/${stageId}`);
-            if (!res.ok) {
-                throw new Error(`伺服器返回錯誤: ${res.status}`);
-            }
             const data = await res.json();
-            
             if (!data.ok) {
                 return alert(data.error || "進入戰鬥失敗");
             }
-            
-            currentBattleData = data;
+            currentBattleState = data.state;
+            selectedCardIndex = null;
+            isBusy = false;
             document.getElementById('stageSelect').style.display = 'none';
             document.getElementById('battleContainer').style.display = 'flex';
-            
-            // 初始化敵人
-            currentEnemies = data.enemies.map((e, i) => ({ 
-                ...e, id: i, toughness: 3, max_toughness: 3, is_stunned: false 
-            }));
-            
-            // 初始化我方隊伍
-            playerParty = data.party.map(p => ({
-                ...p, hp: 1000, max_hp: 1000, ep: 0, max_ep: 100
-            }));
-            
-            // 初始化狀態
-            currentSP = 3;
-            isEnemyTurn = false;
-            updateSPUI();
-            renderEnemies();
-            renderPlayerParty();
-            drawHand(5);
-            
+            renderBattle();
         } catch (e) {
-            console.error("進入戰鬥詳細錯誤:", e);
             alert(`進入戰鬥失敗: ${e.message}`);
+        }
+    }
+
+    function renderBattle() {
+        if (!currentBattleState) return;
+        renderEnemies();
+        renderPlayerParty();
+        renderHand();
+        updateSPUI();
+        const btn = document.getElementById('endTurnBtn');
+        if (btn) {
+            btn.textContent = currentBattleState.battle_over ? "戰鬥結束" : "結束回合";
+            btn.disabled = currentBattleState.battle_over || isBusy;
         }
     }
 
     function renderEnemies() {
         const area = document.getElementById('enemyArea');
+        if (!area || !currentBattleState) return;
         area.innerHTML = '';
-        currentEnemies.forEach((enemy, idx) => {
+        currentBattleState.enemies.forEach((enemy, idx) => {
             if (enemy.hp <= 0) return;
-            
+
             const el = document.createElement('div');
             el.className = `enemy-card ${enemy.is_stunned ? 'stunned' : ''}`;
-            
-            // 韌性條顯示
+            el.dataset.enemyId = idx;
+
             let toughHtml = '<div class="toughness-bar">';
-            for(let i=0; i<enemy.max_toughness; i++) {
+            for (let i = 0; i < enemy.max_toughness; i++) {
                 toughHtml += `<div class="toughness-seg ${i < enemy.toughness ? 'active' : ''}"></div>`;
             }
             toughHtml += '</div>';
@@ -534,17 +517,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="enemy-info">
                     <div class="enemy-name">${enemy.name}</div>
                     <div class="enemy-mind">心相：${enemy.mind}</div>
-                    <div class="hp-bar"><div class="hp-fill" style="width: ${(enemy.hp/enemy.max_hp)*100}%;"></div></div>
+                    <div class="hp-bar"><div class="hp-fill" style="width: ${(enemy.hp / enemy.max_hp) * 100}%;"></div></div>
                     ${toughHtml}
                 </div>
             `;
             el.addEventListener('click', () => {
-                if (isEnemyTurn) return;
-                if (selectedCardIndex !== null) {
-                    playCard(selectedCardIndex, idx);
-                } else {
-                    alert("請先點擊下方手牌選擇一張卡牌！");
+                if (isBusy || !currentBattleState || currentBattleState.battle_over) return;
+                if (selectedCardIndex === null) {
+                    return alert("請先點擊下方手牌選擇一張卡牌！");
                 }
+                doPlayCard(selectedCardIndex, idx);
             });
             area.appendChild(el);
         });
@@ -552,8 +534,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderPlayerParty() {
         const area = document.getElementById('playerParty');
+        if (!area || !currentBattleState) return;
         area.innerHTML = '';
-        playerParty.forEach(p => {
+        currentBattleState.party.forEach((p) => {
             const info = allCharacters[p.name] || { code: 'game', index: 1 };
             const el = document.createElement('div');
             el.className = `player-status ${p.hp <= 0 ? 'dead' : ''}`;
@@ -561,8 +544,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <img src="/static/picture/thumb-${info.code}-${info.index}.png" class="party-thumb">
                 <div class="party-info">
                     <div class="party-name">${p.name} (${p.role})</div>
-                    <div class="mini-bar hp"><div style="width: ${(p.hp/p.max_hp)*100}%;"></div></div>
-                    <div class="mini-bar ep"><div style="width: ${(p.ep/p.max_ep)*100}%;"></div></div>
+                    <div class="mini-bar hp"><div style="width: ${(p.hp / p.max_hp) * 100}%;"></div></div>
+                    <div class="mini-bar ep"><div style="width: ${(p.ep / p.max_ep) * 100}%;"></div></div>
                     ${p.shield > 0 ? `<div style="font-size:10px; color:#00e5ff;">🛡️ ${p.shield}</div>` : ''}
                 </div>
             `;
@@ -570,269 +553,158 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function drawHand(count) {
-        currentHand = [];
-        const aliveChars = playerParty.filter(p => p.hp > 0);
-        if (aliveChars.length === 0) return;
-        
-        for (let i = 0; i < count; i++) {
-            const char = aliveChars[Math.floor(Math.random() * aliveChars.length)];
-            const info = allCharacters[char.name] || { code: 'game', index: 1 };
-            const skills = char.skills;
-            
-            // 如果 EP 滿了，強制塞入必殺卡
-            if (char.ep >= char.max_ep) {
-                currentHand.push({
-                    name: char.name, title: skills.ultimate.name, cost: 0,
-                    mind: char.mind, desc: skills.ultimate.desc,
-                    code: info.code, index: info.index, type: "ultimate",
-                    actionType: skills.ultimate.type, value: skills.ultimate.value,
-                    ownerIndex: playerParty.indexOf(char)
-                });
-                char.ep = 0;
-            } else {
-                // 60% 機率出普攻，40% 出戰技
-                const isSkill = Math.random() < 0.4;
-                const sData = isSkill ? skills.skill : skills.normal;
-                
-                currentHand.push({
-                    name: char.name, title: sData.name, cost: sData.cost,
-                    mind: char.mind, desc: sData.desc,
-                    code: info.code, index: info.index, type: isSkill ? "skill" : "normal",
-                    actionType: sData.type, value: sData.value,
-                    ownerIndex: playerParty.indexOf(char)
-                });
-            }
-        }
-        renderHand();
-        renderPlayerParty();
-    }
-
-    function updateSPUI() {
-        const spEl = document.getElementById('spValue');
-        if (spEl) {
-            spEl.textContent = currentSP;
-        }
-    }
-
     function renderHand() {
         const area = document.getElementById('handArea');
+        if (!area || !currentBattleState) return;
         area.innerHTML = '';
-        currentHand.forEach((card, idx) => {
+        currentBattleState.hand.forEach((card, idx) => {
+            const info = allCharacters[card.name] || { code: 'game', index: 1 };
             const el = document.createElement('div');
-            el.className = `battle-card ${selectedCardIndex === idx ? 'selected' : ''} ${card.type === 'ultimate' ? 'ultimate' : ''}`;
+            el.className = `battle-card ${selectedCardIndex === idx ? 'selected' : ''} ${card.card_type === 'ultimate' ? 'ultimate' : ''}`;
             el.innerHTML = `
                 <div class="card-cost">${card.cost}</div>
                 <div class="card-mind mind-rin">${card.mind}</div>
-                <div class="card-thumb" style="background-image: url('/static/picture/thumb-${card.code}-${card.index}.png');"></div>
+                <div class="card-thumb" style="background-image: url('/static/picture/thumb-${info.code}-${info.index}.png');"></div>
                 <div class="card-title">${card.name} - ${card.title}</div>
                 <div class="card-desc">${card.desc}</div>
             `;
             el.addEventListener('click', () => {
-                if (isEnemyTurn) return;
-                if (currentSP >= card.cost) {
-                    selectedCardIndex = idx;
-                    renderHand();
+                if (isBusy || !currentBattleState || currentBattleState.battle_over) return;
+                if (card.cost > currentBattleState.sp) {
+                    return alert("SP 不足！");
+                }
+                // AOE / 治療 / 護盾：直接出，不需選目標
+                if (card.target === 'aoe' || card.action_type !== 'damage') {
+                    doPlayCard(idx, null);
                 } else {
-                    alert("SP 不足！");
+                    selectedCardIndex = (selectedCardIndex === idx) ? null : idx;
+                    renderHand();
                 }
             });
             area.appendChild(el);
         });
     }
-    
+
     function updateSPUI() {
         const spEl = document.getElementById('spValue');
-        if (spEl) spEl.textContent = currentSP;
+        if (spEl && currentBattleState) spEl.textContent = currentBattleState.sp;
     }
 
-    function playCard(cardIndex, enemyIndex) {
-        const card = currentHand[cardIndex];
-        const enemy = enemyIndex !== null ? currentEnemies[enemyIndex] : null;
-        const char = playerParty[card.ownerIndex];
-        
-        if (card.cost > currentSP) return alert("SP 不足");
-        
-        currentSP -= card.cost;
-        if (card.type === 'ultimate') char.ep = 0;
-        
-        // 增加 EP
-        if (card.type !== 'ultimate') char.ep = Math.min(char.max_ep, char.ep + 30);
-
-        let damage = 0;
-        let isCrit = false;
-
-        // 結算效果
-        if (card.actionType === 'damage') {
-            if (!enemy || enemy.hp <= 0) return alert("請選擇一個存活的目標！");
-            damage = card.value;
-            isCrit = checkMindCounter(card.mind, enemy.mind);
-            if (isCrit) damage = Math.floor(damage * 1.5);
-            
-            enemy.hp -= damage;
-            if (enemy.hp < 0) enemy.hp = 0;
-            
-            // 破韌
-            if (enemy.hp > 0 && enemy.toughness > 0) {
-                enemy.toughness -= isCrit ? 2 : 1;
-                if (enemy.toughness <= 0) { enemy.toughness = 0; enemy.is_stunned = true; }
+    async function doPlayCard(cardIndex, targetIndex) {
+        if (isBusy || !currentBattleState) return;
+        isBusy = true;
+        try {
+            const res = await fetch('/api/battle/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ card_index: cardIndex, target_index: targetIndex })
+            });
+            const data = await res.json();
+            if (!data.ok) {
+                alert(data.error);
+                return;
             }
-            showDamageNumber(enemyIndex, damage, isCrit);
-        } 
-        else if (card.actionType === 'heal') {
-            // 判斷是單體還是全體
-            const isAoe = card.desc.includes("全") || card.desc.includes("群");
-            if (isAoe || card.type === 'ultimate') {
-                playerParty.forEach(p => p.hp = Math.min(p.max_hp, p.hp + card.value));
-            } else {
-                // 單體治療補給血量最少的
-                const target = playerParty.filter(p => p.hp > 0).sort((a,b)=>a.hp-b.hp)[0];
-                if (target) target.hp = Math.min(target.max_hp, target.hp + card.value);
+            selectedCardIndex = null;
+            currentBattleState = data.state;
+            renderBattle();
+            playEvents(data.events);
+
+            if (currentBattleState.battle_over) {
+                setTimeout(() => finishBattle(currentBattleState.victory), 700);
             }
+        } catch (e) {
+            alert('操作失敗：' + e.message);
+        } finally {
+            isBusy = false;
+            renderBattle();
         }
-        else if (card.actionType === 'shield') {
-            const isAoe = card.desc.includes("全") || card.desc.includes("群");
-            if (isAoe || card.type === 'ultimate') {
-                playerParty.forEach(p => p.shield = (p.shield || 0) + card.value);
-            } else {
-                const target = playerParty.filter(p => p.hp > 0)[0]; // 默認給第一個
-                if (target) target.shield = (target.shield || 0) + card.value;
-            }
+    }
+
+    async function doEndTurn() {
+        if (isBusy || !currentBattleState || currentBattleState.battle_over) return;
+        isBusy = true;
+        const btn = document.getElementById('endTurnBtn');
+        if (btn) {
+            btn.textContent = "敵方行動中...";
+            btn.disabled = true;
         }
+        try {
+            const res = await fetch('/api/battle/end-turn', { method: 'POST' });
+            const data = await res.json();
+            if (!data.ok) {
+                alert(data.error);
+                return;
+            }
+            currentBattleState = data.state;
+            renderBattle();
+            playEvents(data.events);
 
-        currentHand.splice(cardIndex, 1);
-        selectedCardIndex = null;
-        
-        updateSPUI();
-        renderEnemies();
-        renderPlayerParty();
-        renderHand();
-        checkBattleEnd();
+            if (currentBattleState.battle_over) {
+                setTimeout(() => finishBattle(currentBattleState.victory), 700);
+            }
+        } catch (e) {
+            alert('結束回合失敗：' + e.message);
+        } finally {
+            isBusy = false;
+            renderBattle();
+        }
     }
 
-    function checkMindCounter(myMind, enemyMind) {
-        const counterMap = {"凛":"戏", "戏":"羞", "羞":"静", "静":"阳", "阳":"和", "和":"凛"};
-        return counterMap[myMind] === enemyMind;
+    function playEvents(events) {
+        if (!events || !events.length) return;
+        events.forEach(ev => {
+            if (ev.type === 'damage') {
+                showDamageNumber(ev.target, ev.value, ev.is_crit);
+            } else if (ev.type === 'enemy_attack') {
+                // 敵方攻擊可在此擴充頭像飄字
+            }
+        });
     }
 
-    function showDamageNumber(enemyIndex, damage, isCounter) {
-        const enemyEl = document.getElementById('enemyArea').querySelectorAll('.enemy-card')[enemyIndex];
-        if (!enemyEl) return;
-        
+    function showDamageNumber(enemyId, damage, isCrit) {
+        const el = document.querySelector(`.enemy-card[data-enemy-id="${enemyId}"]`);
+        if (!el) return;
         const floatText = document.createElement('div');
-        floatText.className = `damage-float ${isCounter ? 'crit' : ''}`;
+        floatText.className = `damage-float ${isCrit ? 'crit' : ''}`;
         floatText.textContent = `-${damage}`;
-        if(isCounter) {
+        if (isCrit) {
             const critLabel = document.createElement('div');
             critLabel.className = 'crit-label';
             critLabel.textContent = '克制!';
             floatText.appendChild(critLabel);
         }
-        
-        enemyEl.appendChild(floatText);
+        el.appendChild(floatText);
         setTimeout(() => floatText.remove(), 1000);
     }
 
-    function checkBattleEnd() {
-        const alive = currentEnemies.filter(e => e.hp > 0);
-        if (alive.length === 0) {
-            setTimeout(() => finishBattle(true), 800);
-        }
-    }
-
-    // ==========================================
-    // 回合結束與敵人反擊
-    // ==========================================
-    document.getElementById('endTurnBtn')?.addEventListener('click', async () => {
-        if (isEnemyTurn) return;
-        const aliveEnemies = currentEnemies.filter(e => e.hp > 0);
-        if (aliveEnemies.length === 0) return;
-        
-        isEnemyTurn = true;
-        document.getElementById('endTurnBtn').textContent = "敵方行動中...";
-        document.getElementById('endTurnBtn').disabled = true;
-
-        // 敵人逐一反擊
-        for (let enemy of aliveEnemies) {
-            if (enemy.hp <= 0) continue;
-            
-            // 如果眩暈，跳過攻擊，解除眩暈並恢復韌性
-            if (enemy.is_stunned) {
-                enemy.is_stunned = false;
-                enemy.toughness = enemy.max_toughness;
-                renderEnemies();
-                await new Promise(r => setTimeout(r, 600));
-                continue;
-            }
-
-            // 隨機挑選存活的我方角色
-            const aliveChars = playerParty.filter(p => p.hp > 0);
-            if (aliveChars.length === 0) break;
-            
-            const target = aliveChars[Math.floor(Math.random() * aliveChars.length)];
-            let dmg = 150;
-            
-            // 護盾抵扣
-            if (target.shield > 0) {
-                if (target.shield >= dmg) {
-                    target.shield -= dmg;
-                    dmg = 0;
-                } else {
-                    dmg -= target.shield;
-                    target.shield = 0;
-                }
-            }
-            
-            if (dmg > 0) {
-                target.hp -= dmg;
-                if (target.hp < 0) target.hp = 0;
-            }
-            
-            renderPlayerParty();
-            target.ep = Math.min(target.max_ep, target.ep + 20);
-            await new Promise(r => setTimeout(r, 600));
-        }
-
-        // 檢查我方是否全滅
-        const aliveParty = playerParty.filter(p => p.hp > 0);
-        if (aliveParty.length === 0) {
-            setTimeout(() => finishBattle(false), 800);
-            return;
-        }
-
-        // 進入新回合
-        currentSP = Math.min(10, currentSP + 3);
-        updateSPUI();
-        drawHand(5); // 補充新手牌
-        
-        isEnemyTurn = false;
-        const btn = document.getElementById('endTurnBtn');
-        btn.textContent = "結束回合";
-        btn.disabled = false;
-    });
-
-    async function finishBattle(isWin) {
-        try {
-            const res = await fetch('/api/battle/end', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ stage_id: "senren-1", is_win: isWin })
-            });
-            const data = await res.json();
-            
-            if (isWin) {
-                alert(`戰鬥勝利！獲得 ${data.reward} 柚幣！`);
-                fetch('/api/auth/me').then(r=>r.json()).then(d=>{
-                    if(d.logged_in) updateCoinsUI(d.player.coins);
-                });
-            } else {
-                alert("戰鬥失敗，全員陣亡...");
-            }
-            
+    async function finishBattle(victory) {
+        if (!victory) {
+            alert("戰鬥失敗，全員陣亡...");
             document.getElementById('stageSelect').style.display = 'block';
             document.getElementById('battleContainer').style.display = 'none';
-        } catch(e) {
+            currentBattleState = null;
+            return;
+        }
+        try {
+            const res = await fetch('/api/battle/claim-reward', { method: 'POST' });
+            const data = await res.json();
+            if (data.ok) {
+                alert(`戰鬥勝利！獲得 ${data.reward} 柚幣！`);
+                fetch('/api/auth/me').then(r => r.json()).then(d => {
+                    if (d.logged_in) updateCoinsUI(d.player.coins);
+                });
+            } else {
+                alert(data.error);
+            }
+        } catch (e) {
             alert("結算失敗");
         }
+        document.getElementById('stageSelect').style.display = 'block';
+        document.getElementById('battleContainer').style.display = 'none';
+        currentBattleState = null;
     }
+
+    // --- 戰鬥按鈕綁定 ---
+    document.getElementById('endTurnBtn')?.addEventListener('click', doEndTurn);
+    document.getElementById('enterStageBtn')?.addEventListener('click', () => enterBattle('senren-1'));
 });

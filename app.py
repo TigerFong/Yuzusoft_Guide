@@ -16,7 +16,10 @@ from backend.auth import (
     require_login, register_user, login_user, get_player_data
 )
 # 新增引入 game_core
-from backend.game_core import get_pool_info, update_wishlist, draw_cards, get_awaken_info, do_awaken, start_battle, end_battle
+from backend.game_core import (
+    get_pool_info, update_wishlist, draw_cards, get_awaken_info, do_awaken,
+    start_battle, battle_action, battle_end_turn, claim_battle_reward,
+)
 
 app = Flask(__name__)
 
@@ -234,7 +237,7 @@ def api_awaken_do(character):
     return jsonify(res), status
 
 # =========================================================
-# 新增：Battle API
+# Battle API
 # =========================================================
 @app.route('/api/battle/<stage_id>', methods=['GET'])
 @require_login
@@ -242,13 +245,30 @@ def api_battle_start(stage_id):
     res, status = start_battle(session['user_id'], stage_id)
     return jsonify(res), status
 
-@app.route('/api/battle/end', methods=['POST'])
+
+@app.route('/api/battle/action', methods=['POST'])
 @require_login
-def api_battle_end():
+def api_battle_action():
     data = request.json or {}
-    stage_id = data.get('stage_id')
-    is_win = data.get('is_win', False)
-    res, status = end_battle(session['user_id'], stage_id, is_win)
+    res, status = battle_action(
+        session['user_id'],
+        data.get('card_index', 0),
+        data.get('target_index'),
+    )
+    return jsonify(res), status
+
+
+@app.route('/api/battle/end-turn', methods=['POST'])
+@require_login
+def api_battle_end_turn():
+    res, status = battle_end_turn(session['user_id'])
+    return jsonify(res), status
+
+
+@app.route('/api/battle/claim-reward', methods=['POST'])
+@require_login
+def api_battle_claim_reward():
+    res, status = claim_battle_reward(session['user_id'])
     return jsonify(res), status
 
 
