@@ -51,11 +51,24 @@ def start_battle(user_id, stage_id):
     if not owned_cards:
         return {"ok": False, "error": "你沒有任何角色，無法戰鬥！"}, 400
 
+    # 將玩家擁有的角色，轉換為詳細數據
+    from .game_data import GAME_CHARACTERS
+    party_data = []
+    for name in list(owned_cards.keys())[:3]: # 最多取3個
+        if name in GAME_CHARACTERS:
+            info = GAME_CHARACTERS[name]
+            party_data.append({
+                "name": name,
+                "mind": info["mind"],
+                "rarity": info["rarity"],
+                "role": info["role"]
+            })
+
     return {
         "ok": True,
         "stage_name": stage["name"],
         "enemies": stage["enemies"],
-        "owned_cards": list(owned_cards.keys()), # 返回玩家擁有的角色名字列表
+        "party": party_data, # 替換原本的 owned_cards
         "reward_coins": stage["reward_coins"]
     }, 200
 
@@ -134,11 +147,13 @@ def get_pool_info(user_id):
 
 
 def update_wishlist(user_id, new_wishlist):
-    if not isinstance(new_wishlist, list) or len(new_wishlist) > 3:
-        return {"ok": False, "error": "心願單最多只能放 3 個角色"}, 400
+    if not isinstance(new_wishlist, list) or len(new_wishlist) > 1:
+        return {"ok": False, "error": "心願單最多只能放 1 個角色"}, 400
     for name in new_wishlist:
         if name not in GAME_CHARACTERS:
             return {"ok": False, "error": f"角色 {name} 不存在"}, 400
+        if GAME_CHARACTERS[name]["rarity"] != "SSR":
+            return {"ok": False, "error": "心願單只能放入 SSR 角色"}, 400
 
     if not db_pool:
         if user_id in memory_db.player_data:
@@ -172,21 +187,32 @@ def draw_cards(user_id, count):
         if current_coins < cost: return {"ok": False, "error": "柚幣不足"}, 400
 
         pity, wishlist, cards = pd["pity"], pd["wishlist"], pd["cards"]
-        
         results = []
         has_sr_or_above = False
+        refund_coins = 0
         
         for i in range(count):
             is_last = (i == count - 1)
             rarity = "R"
             
+            # === 米哈遊式軟保底邏輯 ===
             if pity >= 79:
+                # 第 80 抽硬保底
                 rarity = "SSR"
             else:
+                # 從第 50 抽（pity >= 49）開始，每抽增加 5% 概率
+                current_ssr_rate = 2.0
+                if pity >= 49:
+                    current_ssr_rate += (pity - 48) * 5.0 
+                
+                # 判定
                 roll = random.uniform(0, 100)
-                if roll < 2.0: rarity = "SSR"
-                elif roll < 17.0: rarity = "SR"
-                else: rarity = "R"
+                if roll < current_ssr_rate: 
+                    rarity = "SSR"
+                elif roll < current_ssr_rate + 15.0: 
+                    rarity = "SR"
+                else: 
+                    rarity = "R"
                     
             if count == 10 and is_last and not has_sr_or_above:
                 if rarity == "R": rarity = "SR"
@@ -196,32 +222,43 @@ def draw_cards(user_id, count):
             else: pity += 1
                 
             pool = POOL_BY_RARITY[rarity]
-            wish_pool = [name for name in wishlist if name in pool]
             
-            if wish_pool and random.random() < 0.67:
-                char_name = random.choice(wish_pool)
+            # 心願單（單一 SSR）
+            if rarity == "SSR":
+                if wishlist and wishlist[0] in pool and random.random() < 0.67:
+                    char_name = wishlist[0]
+                else:
+                    char_name = random.choice(pool)
             else:
                 char_name = random.choice(pool)
                 
             is_new = False
             shards = 0
             awaken = 0
+            refund = 0
             
             if char_name in cards:
-                cards[char_name]["shards"] += 1
-                shards = cards[char_name]["shards"]
                 awaken = cards[char_name]["awaken"]
+                if awaken >= 3:
+                    refund = 160 if rarity == "SSR" else (80 if rarity == "SR" else 40)
+                    refund_coins += refund
+                    shards = cards[char_name]["shards"]
+                else:
+                    cards[char_name]["shards"] += 1
+                    shards = cards[char_name]["shards"]
             else:
                 is_new = True
                 cards[char_name] = {"shards": 0, "awaken": 0}
                 
-            results.append({"name": char_name, "rarity": rarity, "is_new": is_new, "shards": shards, "awaken": awaken})
+            results.append({
+                "name": char_name, "rarity": rarity, "is_new": is_new, 
+                "shards": shards, "awaken": awaken, "refund": refund
+            })
 
-        # 更新餘額
         if tester:
             pd["coins"] = TESTER_COINS
         else:
-            pd["coins"] -= cost
+            pd["coins"] = pd["coins"] - cost + refund_coins
             
         pd["pity"] = pity
         pd["cards"] = cards
@@ -249,17 +286,23 @@ def draw_cards(user_id, count):
 
         results = []
         has_sr_or_above = False
+        refund_coins = 0
         
         for i in range(count):
             is_last = (i == count - 1)
             rarity = "R"
             
+            # === 米哈遊式軟保底邏輯 ===
             if pity >= 79:
                 rarity = "SSR"
             else:
+                current_ssr_rate = 2.0
+                if pity >= 49:
+                    current_ssr_rate += (pity - 48) * 5.0 
+                
                 roll = random.uniform(0, 100)
-                if roll < 0.8: rarity = "SSR"
-                elif roll < 15.8: rarity = "SR"
+                if roll < current_ssr_rate: rarity = "SSR"
+                elif roll < current_ssr_rate + 15.0: rarity = "SR"
                 else: rarity = "R"
                     
             if count == 10 and is_last and not has_sr_or_above:
@@ -270,31 +313,42 @@ def draw_cards(user_id, count):
             else: pity += 1
                 
             pool = POOL_BY_RARITY[rarity]
-            wish_pool = [name for name in wishlist if name in pool]
             
-            if wish_pool and random.random() < 0.67:
-                char_name = random.choice(wish_pool)
+            if rarity == "SSR":
+                if wishlist and wishlist[0] in pool and random.random() < 0.67:
+                    char_name = wishlist[0]
+                else:
+                    char_name = random.choice(pool)
             else:
                 char_name = random.choice(pool)
                 
             is_new = False
             shards = 0
             awaken = 0
+            refund = 0
             
             if char_name in cards:
-                cards[char_name]["shards"] += 1
-                shards = cards[char_name]["shards"]
                 awaken = cards[char_name]["awaken"]
+                if awaken >= 3:
+                    refund = 160 if rarity == "SSR" else (80 if rarity == "SR" else 40)
+                    refund_coins += refund
+                    shards = cards[char_name]["shards"]
+                else:
+                    cards[char_name]["shards"] += 1
+                    shards = cards[char_name]["shards"]
             else:
                 is_new = True
                 cards[char_name] = {"shards": 0, "awaken": 0}
                 
-            results.append({"name": char_name, "rarity": rarity, "is_new": is_new, "shards": shards, "awaken": awaken})
+            results.append({
+                "name": char_name, "rarity": rarity, "is_new": is_new, 
+                "shards": shards, "awaken": awaken, "refund": refund
+            })
 
         if tester:
             new_coins = TESTER_COINS
         else:
-            new_coins = db_coins - cost
+            new_coins = db_coins - cost + refund_coins
             
         cur.execute("UPDATE player_data SET coins = %s, pity = %s, cards = %s WHERE user_id = %s", (new_coins, pity, Json(cards), user_id))
         conn.commit()
