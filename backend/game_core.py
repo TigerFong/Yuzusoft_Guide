@@ -1,7 +1,9 @@
 # 文件：backend/game_core.py
 import random
+import json
 from .db import db_pool, memory_db
 from .game_data import GAME_CHARACTERS, RARITY_WEIGHTS
+from .auth import get_player_data
 
 try:
     from psycopg2.extras import Json
@@ -15,30 +17,211 @@ for name, data in GAME_CHARACTERS.items():
 
 TESTER_COINS = 999999
 
-# 文件：backend/game_core.py (追加在最後)
-
-# 簡單的關卡配置
+# =========================================================
+# 完整關卡配置（契合原作日常與奇幻設定）
+# =========================================================
 BATTLE_STAGES = {
+    # ================= 千戀＊萬花 =================
     "senren-1": {
-        "name": "千戀＊萬花 · 第一章",
-        "enemies": [
-            {"name": "心魔·叢雨", "hp": 500, "max_hp": 500, "mind": "陽", "code": "senren", "index": 3},
-            {"name": "心魔·茉子", "hp": 800, "max_hp": 800, "mind": "戲", "code": "senren", "index": 2}
+        "name": "千戀＊萬花 · 第一章：神刀的試煉",
+        "story": "你意外來到了穗織町，為了證明自己有資格握住神刀「叢雨丸」，芳乃決定對你進行一場淨化試煉。叢雨和茉子的幻影出現在你面前……",
+        "waves": [
+            [{"name": "幻影·叢雨", "hp": 1000, "mind": "陽", "code": "senren", "index": 3}, {"name": "幻影·茉子", "hp": 1000, "mind": "戲", "code": "senren", "index": 2}],
+            [{"name": "淨化之刃", "hp": 2500, "mind": "和", "code": "senren", "index": 3}]
         ],
-        "reward_coins": 80
+        "reward_coins": 120
+    },
+    "senren-2": {
+        "name": "千戀＊萬花 · 第二章：甜品店的日常",
+        "story": "在甜品店打工的日常中，小春因為過度勞累，不小心讓「想要做出最棒甜點」的執念具象化了。快幫她打碎這些暴走的甜點！",
+        "waves": [
+            [{"name": "暴走甜點", "hp": 1500, "mind": "陽", "code": "senren", "index": 5}, {"name": "暴走甜點", "hp": 1500, "mind": "陽", "code": "senren", "index": 5}],
+            [{"name": "執念·小春", "hp": 2500, "mind": "和", "code": "senren", "index": 5}, {"name": "執念·蘆花", "hp": 2500, "mind": "和", "code": "senren", "index": 6}]
+        ],
+        "reward_coins": 150
+    },
+    "senren-3": {
+        "name": "千戀＊萬花 · 第三章：巫女姬的決意",
+        "story": "面對小鎮的詛咒，芳乃決定直面自己的軟弱。在這片精神空間中，她必須先戰勝自己的「心魔」，才能完成真正的蛻變。",
+        "waves": [
+            [{"name": "過去的記憶", "hp": 2000, "mind": "陽", "code": "senren", "index": 4}, {"name": "害怕的幻影", "hp": 2000, "mind": "戲", "code": "senren", "index": 2}],
+            [{"name": "心魔·芳乃", "hp": 4500, "mind": "凜", "code": "senren", "index": 1}]
+        ],
+        "reward_coins": 200
+    },
+    "senren-4": {
+        "name": "千戀＊萬花 · 第四章：詛咒的蔓延",
+        "story": "祟神的怨念化作黑影，開始侵蝕現實。你們必須在幻境中擊退這些黑影，為現實中的儀式爭取時間！",
+        "waves": [
+            [{"name": "黑影刺客", "hp": 1500, "mind": "戲", "code": "senren", "index": 2}, {"name": "黑影刺客", "hp": 1500, "mind": "戲", "code": "senren", "index": 2}, {"name": "黑影刺客", "hp": 1500, "mind": "戲", "code": "senren", "index": 2}],
+            [{"name": "詛咒化身", "hp": 5000, "mind": "陽", "code": "senren", "index": 3}, {"name": "怨念·叢雨", "hp": 3000, "mind": "陽", "code": "senren", "index": 3}]
+        ],
+        "reward_coins": 250
+    },
+    "senren-5": {
+        "name": "千戀＊萬花 · 終章：祟神降臨",
+        "story": "最終的淨化儀式開始，祟神的完全體在結界中具象化。握緊叢雨丸，守護穗織町的未來吧！",
+        "waves": [
+            [{"name": "祟神護衛", "hp": 3000, "mind": "和", "code": "senren", "index": 6}, {"name": "祟神護衛", "hp": 3000, "mind": "凜", "code": "senren", "index": 1}],
+            [{"name": "穢土觸手", "hp": 4000, "mind": "陽", "code": "senren", "index": 4}, {"name": "穢土觸手", "hp": 4000, "mind": "戲", "code": "senren", "index": 2}],
+            [{"name": "祟神", "hp": 10000, "mind": "靜", "code": "senren", "index": 3}]
+        ],
+        "reward_coins": 300
+    },
+
+    # ================= 天使紛擾 =================
+    "tenshi-1": {
+        "name": "天使紛擾 · 第一章：天降之物",
+        "story": "自稱天使的乃愛從天而降。為了確認你「魔王轉世」的身份，她設下了神聖的結界考驗你的力量……",
+        "waves": [
+            [{"name": "異界魔物", "hp": 1200, "mind": "靜", "code": "tenshi", "index": 5}, {"name": "異界魔物", "hp": 1200, "mind": "靜", "code": "tenshi", "index": 5}],
+            [{"name": "心魔·天音", "hp": 2800, "mind": "陽", "code": "tenshi", "index": 2}]
+        ],
+        "reward_coins": 120
+    },
+    "tenshi-2": {
+        "name": "天使紛擾 · 第二章：魔族來襲",
+        "story": "魔族皇女星河輝耶帶著侍從強勢降臨！她認為你搶走了魔王的力量，一場異世界之間的鬧劇就此展開。",
+        "waves": [
+            [{"name": "心魔·歐麗葉", "hp": 1800, "mind": "凜", "code": "tenshi", "index": 5}, {"name": "心魔·來海", "hp": 1800, "mind": "戲", "code": "tenshi", "index": 3}],
+            [{"name": "心魔·輝耶", "hp": 4000, "mind": "戲", "code": "tenshi", "index": 4}]
+        ],
+        "reward_coins": 150
+    },
+    "tenshi-3": {
+        "name": "天使紛擾 · 第三章：皇女的惡戲",
+        "story": "為了爭奪「魔王」，天使與魔族在你的精神世界中大打出手。你需要擊敗她們的幻影，讓這場騷動平息下來。",
+        "waves": [
+            [{"name": "魔力殘影", "hp": 2200, "mind": "羞", "code": "tenshi", "index": 4}, {"name": "魔力殘影", "hp": 2200, "mind": "羞", "code": "tenshi", "index": 4}],
+            [{"name": "心魔·風實花", "hp": 3200, "mind": "和", "code": "tenshi", "index": 6}, {"name": "心魔·乃愛", "hp": 3200, "mind": "靜", "code": "tenshi", "index": 1}]
+        ],
+        "reward_coins": 200
+    },
+    "tenshi-4": {
+        "name": "天使紛擾 · 第四章：教師的關愛",
+        "story": "乃愛因為過度使用神力而陷入昏迷。在夢境中，你必須面對她內心的恐懼，將她從黑暗中拉回來。",
+        "waves": [
+            [{"name": "恐懼具象", "hp": 2800, "mind": "靜", "code": "tenshi", "index": 1}, {"name": "恐懼具象", "hp": 2800, "mind": "陽", "code": "tenshi", "index": 2}],
+            [{"name": "黑暗天使", "hp": 5500, "mind": "羞", "code": "tenshi", "index": 5}]
+        ],
+        "reward_coins": 250
+    },
+    "tenshi-5": {
+        "name": "天使紛擾 · 終章：魔王覺醒",
+        "story": "前世的記憶如潮水般湧來。作為魔王轉世的你，必須直面這份力量。為了守護現在的日常，徹底斬斷前世的宿命吧！",
+        "waves": [
+            [{"name": "前世眷屬", "hp": 3500, "mind": "戲", "code": "tenshi", "index": 3}, {"name": "前世眷屬", "hp": 3500, "mind": "凜", "code": "tenshi", "index": 5}],
+            [{"name": "夢魘之主", "hp": 5000, "mind": "羞", "code": "tenshi", "index": 4}, {"name": "記憶巨獸", "hp": 4000, "mind": "和", "code": "tenshi", "index": 6}],
+            [{"name": "前世魔王之影", "hp": 11000, "mind": "靜", "code": "tenshi", "index": 1}]
+        ],
+        "reward_coins": 300
+    },
+
+    # ================= 星光咖啡館與死神之蝶 =================
+    "cafe-1": {
+        "name": "星光咖啡館 · 第一章：咖啡館的邀約",
+        "story": "為了協助死神栞那，你開始經營咖啡館。然而，店裡的魔法器具似乎因為栞那的疏忽而暴走了……",
+        "waves": [
+            [{"name": "暴走咖啡機", "hp": 1500, "mind": "陽", "code": "cafe", "index": 5}],
+            [{"name": "心魔·愛衣", "hp": 2500, "mind": "陽", "code": "cafe", "index": 4}, {"name": "心魔·涼音", "hp": 2500, "mind": "陽", "code": "cafe", "index": 5}]
+        ],
+        "reward_coins": 120
+    },
+    "cafe-2": {
+        "name": "星光咖啡館 · 第二章：巫女的祈願",
+        "story": "希察覺到了你身上的死亡氣息，決定為你進行一場驅邪祈福。在神社的結界中，你看到了時間的殘影。",
+        "waves": [
+            [{"name": "時間殘影", "hp": 2200, "mind": "靜", "code": "cafe", "index": 2}, {"name": "時間殘影", "hp": 2200, "mind": "陽", "code": "cafe", "index": 3}],
+            [{"name": "執念的幽靈", "hp": 4500, "mind": "凜", "code": "cafe", "index": 3}]
+        ],
+        "reward_coins": 150
+    },
+    "cafe-3": {
+        "name": "星光咖啡館 · 第三章：高冷女僕",
+        "story": "為了探尋時間回溯的真相，栞那帶領你進入了時間的夾縫。在這裡，你們遭遇了吞噬時間的怪物。",
+        "waves": [
+            [{"name": "虛空爬行者", "hp": 2800, "mind": "靜", "code": "cafe", "index": 2}, {"name": "虛空爬行者", "hp": 2800, "mind": "靜", "code": "cafe", "index": 2}],
+            [{"name": "心魔·栞那", "hp": 5000, "mind": "陽", "code": "cafe", "index": 1}]
+        ],
+        "reward_coins": 200
+    },
+    "cafe-4": {
+        "name": "星光咖啡館 · 第四章：死神之蝶",
+        "story": "死神的規則無法改變。為了尋找破局之法，你與栞那在回憶的夢境中與過去的死神使者交戰。",
+        "waves": [
+            [{"name": "回憶守衛", "hp": 3200, "mind": "戲", "code": "cafe", "index": 4}, {"name": "回憶守衛", "hp": 3200, "mind": "戲", "code": "cafe", "index": 4}],
+            [{"name": "死神使者", "hp": 6000, "mind": "靜", "code": "cafe", "index": 1}]
+        ],
+        "reward_coins": 250
+    },
+    "cafe-5": {
+        "name": "星光咖啡館 · 終章：星光的奇蹟",
+        "story": "時間的因果即將閉合。在星光閃爍的夢境深處，你與栞那攜手，直面死神之蝶的最終考驗。",
+        "waves": [
+            [{"name": "輪迴之影", "hp": 4000, "mind": "和", "code": "cafe", "index": 3}, {"name": "輪迴之影", "hp": 4000, "mind": "和", "code": "cafe", "index": 3}],
+            [{"name": "虛空死神", "hp": 6500, "mind": "靜", "code": "cafe", "index": 2}],
+            [{"name": "夢魘·死神之蝶", "hp": 12000, "mind": "陽", "code": "cafe", "index": 1}]
+        ],
+        "reward_coins": 300
+    },
+
+    # ================= 魔女的夜宴 =================
+    "sabbat-1": {
+        "name": "魔女的夜宴 · 第一章：夜宴開啟",
+        "story": "你撞破了同班同學綾地寧寧是魔女的秘密。恰逢寧寧的魔力突然「發作」，多餘的魔力化作了暴走的造物！",
+        "waves": [
+            [{"name": "失控魔力", "hp": 1500, "mind": "凜", "code": "sabbat", "index": 4}, {"name": "失控魔力", "hp": 1500, "mind": "凜", "code": "sabbat", "index": 4}],
+            [{"name": "心魔·和奏", "hp": 3000, "mind": "戲", "code": "sabbat", "index": 5}]
+        ],
+        "reward_coins": 120
+    },
+    "sabbat-2": {
+        "name": "魔女的夜宴 · 第二章：學生會長",
+        "story": "為了幫寧寧掩飾秘密，你開始尋找其他的魔女。在學生會長憧子的引導下，你進入了一片滿是幻象的結界。",
+        "waves": [
+            [{"name": "心魔·巡", "hp": 2500, "mind": "戲", "code": "sabbat", "index": 2}, {"name": "心魔·憧子", "hp": 2500, "mind": "靜", "code": "sabbat", "index": 4}],
+            [{"name": "魔法幻影", "hp": 4500, "mind": "羞", "code": "sabbat", "index": 3}]
+        ],
+        "reward_coins": 150
+    },
+    "sabbat-3": {
+        "name": "魔女的夜宴 · 第三章：軟糯的轉校生",
+        "story": "轉校生椎葉紬也是魔女，且背負著不能穿女裝的契約代價。她的痛苦回憶化作魔物，將你們困在其中。",
+        "waves": [
+            [{"name": "契約魔物", "hp": 3000, "mind": "和", "code": "sabbat", "index": 3}, {"name": "契約魔物", "hp": 3000, "mind": "和", "code": "sabbat", "index": 3}],
+            [{"name": "心魔·紬", "hp": 5500, "mind": "和", "code": "sabbat", "index": 3}]
+        ],
+        "reward_coins": 200
+    },
+    "sabbat-4": {
+        "name": "魔女的夜宴 · 第四章：魔女的契約",
+        "story": "魔女的契約是絕對的。在幫助寧寧尋找解除代價的過程中，你們遭遇了過去魔女留下的殘留魔力。",
+        "waves": [
+            [{"name": "魔力殘留", "hp": 3800, "mind": "凜", "code": "sabbat", "index": 1}, {"name": "魔力殘留", "hp": 3800, "mind": "凜", "code": "sabbat", "index": 1}],
+            [{"name": "心魔·寧寧", "hp": 6500, "mind": "凜", "code": "sabbat", "index": 1}]
+        ],
+        "reward_coins": 250
+    },
+    "sabbat-5": {
+        "name": "魔女的夜宴 · 終章：誓約之吻",
+        "story": "所有的因果在此交匯。為了拯救寧寧，你牽起她的手，走進了屬於她的內心世界，直面那最純粹的魔力暴走。",
+        "waves": [
+            [{"name": "魔力核心", "hp": 4500, "mind": "羞", "code": "sabbat", "index": 2}, {"name": "魔力核心", "hp": 4500, "mind": "羞", "code": "sabbat", "index": 2}],
+            [{"name": "誓約的守護者", "hp": 7000, "mind": "靜", "code": "sabbat", "index": 4}],
+            [{"name": "魔力暴走·寧寧", "hp": 13000, "mind": "羞", "code": "sabbat", "index": 1}]
+        ],
+        "reward_coins": 300
     }
 }
 
 # =========================================================
-# 戰鬥入口（薄封裝，全部轉交 battle_engine）
+# 戰鬥入口與進度控制
 # =========================================================
 from .battle_engine import (
     create_battle, play_card, end_turn, claim_reward, get_state,
 )
 
-
 def _load_owned_cards(user_id):
-    """回傳 dict；DB 模式自動解析 JSON。"""
     if not db_pool:
         pd = memory_db.player_data.get(user_id)
         return pd["cards"] if pd else {}
@@ -51,17 +234,14 @@ def _load_owned_cards(user_id):
         cur.close()
         db_pool.putconn(conn)
         if row and row[0]:
-            if isinstance(row[0], str):
-                import json
-                return json.loads(row[0])
+            if isinstance(row[0], str): return json.loads(row[0])
             return row[0]
         return {}
     except Exception as e:
         print("讀取玩家卡牌失敗:", e)
         return {}
 
-
-def start_battle(user_id, stage_id):
+def start_battle(user_id, stage_id, party_names=None):
     if stage_id not in BATTLE_STAGES:
         return {"ok": False, "error": "關卡不存在"}, 404
 
@@ -69,46 +249,65 @@ def start_battle(user_id, stage_id):
     if not owned:
         return {"ok": False, "error": "你沒有任何角色，無法戰鬥！"}, 400
 
-    state, err = create_battle(user_id, stage_id, owned, BATTLE_STAGES[stage_id])
+    # 檢查前置關卡解鎖
+    pd = get_player_data(user_id)
+    stats = pd.get("stats", {})
+    cleared = stats.get("cleared_stages", [])
+    
+    game_prefix = stage_id.split("-")[0]
+    stage_num = int(stage_id.split("-")[1])
+    if stage_num > 1:
+        prev_stage = f"{game_prefix}-{stage_num - 1}"
+        if prev_stage not in cleared:
+            return {"ok": False, "error": "請先通關前置關卡！"}, 403
+
+    if party_names is not None:
+        valid = [n for n in party_names if n in owned and n in GAME_CHARACTERS]
+        if not valid: return {"ok": False, "error": "出戰隊伍無效"}, 400
+        party_names = valid
+
+    state, err = create_battle(
+        user_id, stage_id, BATTLE_STAGES[stage_id], owned, party_names=party_names,
+    )
     if err:
         return {"ok": False, "error": err}, 400
-    return {"ok": True, "state": state}, 200
+        
+    return {"ok": True, "state": state, "story": BATTLE_STAGES[stage_id].get("story", "")}, 200
 
-
-def battle_action(user_id, card_index, target_index):
-    result, err = play_card(user_id, card_index, target_index)
-    if err:
-        return {"ok": False, "error": err}, 400
-    return {"ok": True, **result}, 200
-
-
-def battle_end_turn(user_id):
-    result, err = end_turn(user_id)
-    if err:
-        return {"ok": False, "error": err}, 400
-    return {"ok": True, **result}, 200
-
+def get_battle_progress(user_id):
+    pd = get_player_data(user_id)
+    stats = pd.get("stats", {})
+    return {"ok": True, "cleared_stages": stats.get("cleared_stages", [])}, 200
 
 def claim_battle_reward(user_id):
     result, err = claim_reward(user_id)
-    if err:
-        return {"ok": False, "error": err}, 400
+    if err: return {"ok": False, "error": err}, 400
 
     reward = result["reward"]
+    stage_id = result["stage_id"]
 
-    # 發幣
+    # 發幣與更新進度
     if not db_pool:
         pd = memory_db.player_data.get(user_id)
         if pd:
             pd["coins"] += reward
+            stats = pd.setdefault("stats", {})
+            cleared = stats.setdefault("cleared_stages", [])
+            if stage_id not in cleared: cleared.append(stage_id)
     else:
         try:
             conn = db_pool.getconn()
             cur = conn.cursor()
-            cur.execute(
-                "UPDATE player_data SET coins = coins + %s WHERE user_id = %s",
-                (reward, user_id),
-            )
+            cur.execute("SELECT coins, stats FROM player_data WHERE user_id = %s FOR UPDATE", (user_id,))
+            row = cur.fetchone()
+            coins, stats = row[0], row[1]
+            
+            stats = stats or {}
+            cleared = stats.get("cleared_stages", [])
+            if stage_id not in cleared: cleared.append(stage_id)
+            stats["cleared_stages"] = cleared
+
+            cur.execute("UPDATE player_data SET coins = %s, stats = %s WHERE user_id = %s", (coins + reward, Json(stats), user_id))
             conn.commit()
             cur.close()
             db_pool.putconn(conn)
@@ -116,28 +315,50 @@ def claim_battle_reward(user_id):
             print("發放獎勵失敗:", e)
             return {"ok": False, "error": "發放獎勵失敗"}, 500
 
-    return {"ok": True, "reward": reward}, 200
+    return {"ok": True, "reward": reward, "stage_id": stage_id}, 200
+
+# =========================================================
+# 其餘（抽卡、覺醒）保持你原本的代碼不變...
+# =========================================================
+def get_battle_party_info(user_id):
+    owned = _load_owned_cards(user_id)
+    result = []
+    for name, card in owned.items():
+        if name not in GAME_CHARACTERS: continue
+        info = GAME_CHARACTERS[name]
+        result.append({
+            "name": name, "rarity": info["rarity"], "role": info["role"],
+            "mind": info["mind"], "awaken": card.get("awaken", 0), "shards": card.get("shards", 0),
+        })
+    order = {"SSR": 3, "SR": 2, "R": 1}
+    result.sort(key=lambda x: (-order.get(x["rarity"], 0), -x["awaken"], x["name"]))
+    return {"ok": True, "characters": result}, 200
+
+def battle_action(user_id, card_index, target_index):
+    result, err = play_card(user_id, card_index, target_index)
+    if err: return {"ok": False, "error": err}, 400
+    return {"ok": True, **result}, 200
+
+def battle_end_turn(user_id):
+    result, err = end_turn(user_id)
+    if err: return {"ok": False, "error": err}, 400
+    return {"ok": True, **result}, 200
 
 def is_tester(user_id):
-    """檢查是否為 tester 帳號"""
     if not db_pool:
-        # 記憶體模式
         for u in memory_db.users.values():
-            if u["id"] == user_id and u["username"].lower() == "tester":
-                return True
+            if u["id"] == user_id and u["username"].lower() == "tester": return True
         return False
-    else:
-        # 資料庫模式
-        try:
-            conn = db_pool.getconn()
-            cur = conn.cursor()
-            cur.execute("SELECT username_lower FROM users WHERE id = %s", (user_id,))
-            row = cur.fetchone()
-            cur.close()
-            db_pool.putconn(conn)
-            return row and row[0] == "tester"
-        except:
-            return False
+    try:
+        conn = db_pool.getconn()
+        cur = conn.cursor()
+        cur.execute("SELECT username_lower FROM users WHERE id = %s", (user_id,))
+        row = cur.fetchone()
+        cur.close()
+        db_pool.putconn(conn)
+        return row and row[0] == "tester"
+    except: return False
+
 
 
 def get_pool_info(user_id):

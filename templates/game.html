@@ -8,13 +8,11 @@
     <link rel="stylesheet" href="/static/game/styles.css">
 </head>
 <body>
-
     <div id="gameContainer" class="game-container" style="display: none;">
         <header class="game-header">
             <div class="header-left">
                 <a href="/" class="btn-back">📖 返回攻略站</a>
                 <span class="game-logo">柚子社 · 幻境交錯</span>
-                <!-- 新增：頁籤切換 -->
                 <div class="nav-tabs">
                     <button class="nav-tab" data-view="battle">⚔️ 異界裂縫</button>
                     <button class="nav-tab active" data-view="gacha">✨ 幻境卡池</button>
@@ -57,19 +55,14 @@
             <div id="rosterView" class="view-panel">
                 <div class="roster-panel">
                     <div class="gacha-title">我的角色</div>
-                    <div id="rosterGrid" class="roster-grid">
-                        <!-- JS 動態渲染 -->
-                    </div>
+                    <div id="rosterGrid" class="roster-grid"></div>
                 </div>
             </div>
-            <!-- 視圖 3：戰鬥 (新增) -->
+
+            <!-- 視圖 3：戰鬥 -->
             <div id="battleView" class="view-panel">
                 <div id="battleContainer" class="battle-container" style="display:none;">
-                    <!-- 敵方區域 -->
-                    <div class="enemy-area" id="enemyArea">
-                        <!-- JS 動態生成 -->
-                    </div>
-                    <!-- 我方狀態與控制 -->
+                    <div class="enemy-area" id="enemyArea"></div>
                     <div class="mid-area">
                         <div class="player-party" id="playerParty"></div>
                         <div class="battle-controls">
@@ -77,14 +70,30 @@
                             <button class="btn-end-turn" id="endTurnBtn">結束回合</button>
                         </div>
                     </div>
-                    <!-- 手牌區 -->
                     <div class="hand-area" id="handArea"></div>
                 </div>
                 
                 <!-- 選擇關卡入口 -->
-                <div id="stageSelect" style="text-align:center; padding: 50px;">
-                    <h2 style="color:var(--gold-light); margin-bottom:20px;">異界裂縫</h2>
-                    <button class="btn-draw" id="enterStageBtn">進入 千戀＊萬花 第一章</button>
+                <div id="stageSelect" style="text-align:center; padding: 40px; width: 100%; max-width: 900px; margin: 0 auto;">
+                    <h2 style="color:var(--gold-light); margin-bottom:20px; letter-spacing:0.1em;">異界裂縫</h2>
+                    
+                    <div class="stage-game-tabs">
+                        <button class="stage-tab active" data-game="senren">千戀＊萬花</button>
+                        <button class="stage-tab" data-game="tenshi">天使紛擾</button>
+                        <button class="stage-tab" data-game="cafe">星光咖啡館</button>
+                        <button class="stage-tab" data-game="sabbat">魔女的夜宴</button>
+                    </div>
+
+                    <div class="stage-list" id="stageList"></div>
+                    
+                    <div class="party-select-panel" style="margin-top: 30px;">
+                        <h3>選擇出戰隊伍（最多 3 名）</h3>
+                        <div id="partySelectGrid" class="party-select-grid"></div>
+                        <div class="party-select-footer">
+                            <span>已選 <span class="count" id="partySelectCount">0</span> / 3</span>
+                            <button class="btn-primary" id="enterStageBtn" disabled>請先選擇關卡</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -107,7 +116,7 @@
         </div>
     </div>
 
-    <!-- 抽卡結果彈窗 (保持不變) -->
+    <!-- 抽卡結果彈窗 -->
     <div id="gachaResultModal" class="modal-overlay">
         <div class="modal-content gacha-result">
             <div id="gachaCards" class="cards-container"></div>
@@ -115,7 +124,7 @@
         </div>
     </div>
 
-    <!-- 心願單彈窗 (保持不變) -->
+    <!-- 心願單彈窗 -->
     <div id="wishlistModal" class="modal-overlay">
         <div class="modal-content wishlist-content">
             <h2>設定心願單</h2>
@@ -128,7 +137,7 @@
         </div>
     </div>
 
-    <!-- 覺醒彈窗 (新增) -->
+    <!-- 覺醒彈窗 -->
     <div id="awakenModal" class="modal-overlay">
         <div class="modal-content awaken-content">
             <div class="awaken-header">
@@ -139,7 +148,6 @@
                     <div class="awaken-shards">持有碎片：<span id="awakenShards">0</span></div>
                 </div>
             </div>
-            
             <div class="awaken-levels">
                 <div class="awaken-level" id="awakenLvl1"><div class="lvl-title">覺醒 I <span class="lvl-cost">消耗 1 碎片</span></div><p class="lvl-desc"></p></div>
                 <div class="awaken-level" id="awakenLvl2"><div class="lvl-title">覺醒 II <span class="lvl-cost">消耗 1 碎片</span></div><p class="lvl-desc"></p></div>
@@ -148,10 +156,20 @@
                 <div class="awaken-level" id="awakenLvl5"><div class="lvl-title">覺醒 V <span class="lvl-cost">消耗 1 碎片</span></div><p class="lvl-desc"></p></div>
                 <div class="awaken-level" id="awakenLvl6"><div class="lvl-title">覺醒 VI <span class="lvl-cost">消耗 1 碎片</span></div><p class="lvl-desc"></p></div>
             </div>
-
             <div class="modal-actions">
                 <button id="closeAwakenBtn" class="btn-secondary">關閉</button>
                 <button id="doAwakenBtn" class="btn-primary">進行覺醒</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 劇情彈窗 (新增) -->
+    <div id="storyModal" class="modal-overlay" style="z-index: 10005;">
+        <div class="modal-content" style="width: 600px; background: #000; border: 1px solid var(--gold-main); color: #fff; text-align: left;">
+            <h3 style="color: var(--gold-light); margin-bottom: 15px;">劇情簡介</h3>
+            <p id="storyText" style="line-height: 1.8; font-size: 15px; margin-bottom: 25px; color: #ccc;"></p>
+            <div style="text-align: right;">
+                <button id="closeStoryBtn" class="btn-primary">開始戰鬥</button>
             </div>
         </div>
     </div>

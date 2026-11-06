@@ -1,17 +1,51 @@
 // 文件：static/game/script.js
 let currentMode = 'login';
-let allCharacters = {}; // 儲存所有角色 { name, game, code, index, rarity }
+let allCharacters = {};
 let playerData = null;
 let currentWishlist = [];
 let currentAwakenChar = null;
 
-// --- 戰鬥狀態（全部走後端結算）---
+// --- 戰鬥狀態 ---
 let currentBattleState = null;
 let selectedCardIndex = null;
 let isBusy = false;
+let selectedParty = [];
+
+// --- 關卡選擇狀態 ---
+let currentSelectedStageId = null;
+let clearedStages = [];
+const STAGE_DATA = {
+    senren: [
+        { id: 'senren-1', name: '第一章 · 神刀的試煉', reward: 120 },
+        { id: 'senren-2', name: '第二章 · 甜品店的日常', reward: 150 },
+        { id: 'senren-3', name: '第三章 · 巫女姬的決意', reward: 200 },
+        { id: 'senren-4', name: '第四章 · 詛咒的蔓延', reward: 250 },
+        { id: 'senren-5', name: '終章 · 祟神降臨', reward: 300 }
+    ],
+    tenshi: [
+        { id: 'tenshi-1', name: '第一章 · 天降之物', reward: 120 },
+        { id: 'tenshi-2', name: '第二章 · 魔族來襲', reward: 150 },
+        { id: 'tenshi-3', name: '第三章 · 皇女的惡戲', reward: 200 },
+        { id: 'tenshi-4', name: '第四章 · 教師的關愛', reward: 250 },
+        { id: 'tenshi-5', name: '終章 · 魔王覺醒', reward: 300 }
+    ],
+    cafe: [
+        { id: 'cafe-1', name: '第一章 · 咖啡館的邀約', reward: 120 },
+        { id: 'cafe-2', name: '第二章 · 巫女的祈願', reward: 150 },
+        { id: 'cafe-3', name: '第三章 · 高冷女僕', reward: 200 },
+        { id: 'cafe-4', name: '第四章 · 死神之蝶', reward: 250 },
+        { id: 'cafe-5', name: '終章 · 星光的奇蹟', reward: 300 }
+    ],
+    sabbat: [
+        { id: 'sabbat-1', name: '第一章 · 夜宴開啟', reward: 120 },
+        { id: 'sabbat-2', name: '第二章 · 學生會長', reward: 150 },
+        { id: 'sabbat-3', name: '第三章 · 軟糯的轉校生', reward: 200 },
+        { id: 'sabbat-4', name: '第四章 · 魔女的契約', reward: 250 },
+        { id: 'sabbat-5', name: '終章 · 誓約之吻', reward: 300 }
+    ]
+};
 
 document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM 元素 ---
     const loginOverlay = document.getElementById('loginOverlay');
     const gameContainer = document.getElementById('gameContainer');
     const authForm = document.getElementById('authForm');
@@ -27,7 +61,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const draw1Btn = document.getElementById('draw1Btn');
     const draw10Btn = document.getElementById('draw10Btn');
 
-    // 視圖切換與覺醒元素
     const gachaView = document.getElementById('gachaView');
     const rosterView = document.getElementById('rosterView');
     const battleView = document.getElementById('battleView');
@@ -42,19 +75,15 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('awakenLvl5'), document.getElementById('awakenLvl6')
     ];
 
-    // --- 初始化檢查登入狀態 ---
+    // --- 初始化 ---
     fetch('/api/auth/me')
         .then(res => res.json().then(data => ({ status: res.status, data })))
         .then(({ status, data }) => {
-            if (status === 200 && data.logged_in) {
-                initGame(data);
-            } else {
-                showLogin();
-            }
+            if (status === 200 && data.logged_in) initGame(data);
+            else showLogin();
         })
         .catch(() => showLogin());
 
-    // --- 登入/註冊表單 ---
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
             tabs.forEach(t => t.classList.remove('active'));
@@ -71,13 +100,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const username = usernameInput.value.trim();
         const password = passwordInput.value;
         if (!username || !password) return;
-
         submitBtn.disabled = true;
         submitBtn.textContent = '處理中...';
         errorDiv.textContent = '';
-
         const url = currentMode === 'login' ? '/api/auth/login' : '/api/auth/register';
-
         fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -102,19 +128,18 @@ document.addEventListener('DOMContentLoaded', () => {
         fetch('/api/auth/logout', { method: 'POST' }).then(() => window.location.reload());
     });
 
-    // --- 頁籤切換 ---
     navTabs.forEach(tab => {
         tab.addEventListener('click', () => {
             navTabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
-
             if (tab.dataset.view === 'gacha') {
                 gachaView.classList.add('active');
             } else if (tab.dataset.view === 'battle') {
                 battleView.classList.add('active');
                 document.getElementById('stageSelect').style.display = 'block';
                 document.getElementById('battleContainer').style.display = 'none';
+                loadPartySelection();
             } else {
                 rosterView.classList.add('active');
                 renderRoster();
@@ -122,11 +147,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- 抽卡相關 ---
     draw1Btn.addEventListener('click', () => handleDraw(1));
     draw10Btn.addEventListener('click', () => handleDraw(10));
 
-    // --- 心願單 ---
     const openWishlistBtn = document.getElementById('openWishlistBtn');
     const wishlistModal = document.getElementById('wishlistModal');
     const closeWishlistBtn = document.getElementById('closeWishlistBtn');
@@ -134,10 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const wishlistGrid = document.getElementById('wishlistGrid');
 
     openWishlistBtn.addEventListener('click', () => {
-        if (Object.keys(allCharacters).length === 0) {
-            alert('正在載入角色數據，請稍候...');
-            return;
-        }
+        if (Object.keys(allCharacters).length === 0) return alert('正在載入角色數據，請稍候...');
         renderWishlistGrid();
         wishlistModal.classList.add('show');
     });
@@ -146,14 +166,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     saveWishlistBtn.addEventListener('click', () => {
         const selected = Array.from(wishlistGrid.querySelectorAll('.wish-item.selected')).map(el => el.dataset.name);
-        if (selected.length > 1) {
-            alert('心願單只能選擇 1 個角色！');
-            return;
-        }
-
+        if (selected.length > 1) return alert('心願單只能選擇 1 個角色！');
         saveWishlistBtn.disabled = true;
         saveWishlistBtn.textContent = '儲存中...';
-
         fetch('/api/gacha/wishlist', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -174,21 +189,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- 抽卡結果彈窗 ---
     const resultModal = document.getElementById('gachaResultModal');
-    document.getElementById('closeResultBtn').addEventListener('click', () => {
-        resultModal.classList.remove('show');
-    });
+    document.getElementById('closeResultBtn').addEventListener('click', () => resultModal.classList.remove('show'));
 
-    // --- 覺醒彈窗關閉 ---
     closeAwakenBtn.addEventListener('click', () => awakenModal.classList.remove('show'));
 
-    // --- 執行覺醒 ---
     doAwakenBtn.addEventListener('click', async () => {
         if (!currentAwakenChar) return;
         doAwakenBtn.disabled = true;
         doAwakenBtn.textContent = '處理中...';
-
         try {
             const res = await fetch(`/api/awaken/${encodeURIComponent(currentAwakenChar)}`, { method: 'POST' });
             const data = await res.json();
@@ -207,23 +216,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- 核心邏輯函數 ---
+    // --- 核心 ---
     async function initGame(data) {
         playerData = data.player;
         userNameDisplay.textContent = data.username;
         updateCoinsUI(playerData.coins);
         pityCount.textContent = playerData.pity;
         currentWishlist = playerData.wishlist || [];
-
         loginOverlay.style.opacity = '0';
         setTimeout(() => {
             loginOverlay.style.display = 'none';
             gameContainer.style.display = 'flex';
         }, 400);
-
-        if (Object.keys(allCharacters).length === 0) {
-            await fetchAllCharacters();
-        }
+        if (Object.keys(allCharacters).length === 0) await fetchAllCharacters();
         updateDrawButtons();
     }
 
@@ -250,13 +255,11 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const metaRes = await fetch('/api/meta');
             const meta = await metaRes.json();
-
             const rarityMap = {
                 "朝武芳乃":"SSR", "白雪乃愛":"SSR", "明月栞那":"SSR", "綾地寧寧":"SSR",
                 "常陸茉子":"SR", "叢雨":"SR", "谷風天音":"SR", "星河輝耶":"SR",
                 "百里風實花":"SR", "四季夏目":"SR", "墨染希":"SR", "因幡巡":"SR", "椎葉紬":"SR"
             };
-
             for (const [gameName, gameMeta] of Object.entries(meta.games)) {
                 const res = await fetch(`/api/games/${encodeURIComponent(gameName)}/characters`);
                 const names = await res.json();
@@ -277,11 +280,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderWishlistGrid() {
         wishlistGrid.innerHTML = '';
         const ssrNames = Object.keys(allCharacters).filter(name => allCharacters[name].rarity === 'SSR');
-
         ssrNames.forEach(name => {
             const info = allCharacters[name];
             const isSel = currentWishlist.includes(name);
-
             const div = document.createElement('div');
             div.className = `wish-item ${isSel ? 'selected' : ''}`;
             div.dataset.name = name;
@@ -289,15 +290,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 <img src="/static/picture/thumb-${info.code}-${info.index}.png" alt="${name}">
                 <span>${name}</span>
             `;
-
             div.addEventListener('click', () => {
                 if (div.classList.contains('selected')) {
                     div.classList.remove('selected');
                 } else {
-                    const currentSel = wishlistGrid.querySelectorAll('.wish-item.selected').length;
-                    if (currentSel >= 1) {
-                        alert('心願單只能選擇 1 個角色！');
-                        return;
+                    if (wishlistGrid.querySelectorAll('.wish-item.selected').length >= 1) {
+                        return alert('心願單只能選擇 1 個角色！');
                     }
                     div.classList.add('selected');
                 }
@@ -308,10 +306,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleDraw(count) {
         if (playerData.coins < 160 * count) return;
-
         draw1Btn.disabled = true;
         draw10Btn.disabled = true;
-
         try {
             const res = await fetch('/api/gacha/draw', {
                 method: 'POST',
@@ -319,22 +315,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ count })
             });
             const data = await res.json();
-
-            if (!data.ok) {
-                alert(data.error);
-                return;
-            }
-
+            if (!data.ok) return alert(data.error);
             updateCoinsUI(data.coins);
             pityCount.textContent = data.pity;
-
             const meRes = await fetch('/api/auth/me');
             const meData = await meRes.json();
             if (meData.logged_in) {
                 playerData = meData.player;
                 updateCoinsUI(playerData.coins);
             }
-
             showGachaResults(data.results);
         } catch (e) {
             alert('抽卡失敗，請檢查網路連線');
@@ -348,22 +337,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const modal = document.getElementById('gachaResultModal');
         container.innerHTML = '';
         modal.classList.add('show');
-
         results.forEach((card, idx) => {
             const info = allCharacters[card.name] || { code: 'game', index: 1 };
-            const delay = idx * 0.15;
-
             const div = document.createElement('div');
             div.className = `card-item ${card.rarity}`;
-            div.style.animationDelay = `${delay}s`;
-
+            div.style.animationDelay = `${idx * 0.15}s`;
             let tagHtml = `<div class="card-tag">+${card.shards} 碎片</div>`;
-            if (card.is_new) {
-                tagHtml = `<div class="card-tag new">NEW 解鎖</div>`;
-            } else if (card.refund > 0) {
-                tagHtml = `<div class="card-tag" style="color: #ffd700; font-weight: bold;">滿覺 返還+${card.refund}幣</div>`;
-            }
-
+            if (card.is_new) tagHtml = `<div class="card-tag new">NEW 解鎖</div>`;
+            else if (card.refund > 0) tagHtml = `<div class="card-tag" style="color: #ffd700; font-weight: bold;">滿覺 返還+${card.refund}幣</div>`;
             div.innerHTML = `
                 <img src="/static/picture/char-${info.code}-${info.index}.png" onerror="this.src='/static/picture/thumb-${info.code}-${info.index}.png'">
                 <div class="card-info">
@@ -375,17 +356,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- 圖鑑與覺醒 ---
     function renderRoster() {
         if (!playerData || !playerData.cards) return;
         rosterGrid.innerHTML = '';
-
         const ownedChars = Object.keys(playerData.cards);
         if (ownedChars.length === 0) {
             rosterGrid.innerHTML = '<p style="color:#aaa; grid-column:1/-1; text-align:center;">還沒有任何角色，去抽卡吧！</p>';
             return;
         }
-
         ownedChars.sort((a,b) => {
             const aData = playerData.cards[a];
             const bData = playerData.cards[b];
@@ -393,12 +371,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const w = {'SSR':3, 'SR':2, 'R':1};
             return w[allCharacters[b]?.rarity || 'R'] - w[allCharacters[a]?.rarity || 'R'];
         });
-
         ownedChars.forEach(name => {
             const card = playerData.cards[name];
             const info = allCharacters[name] || { code: 'game', index: 1 };
             const rarity = info.rarity || 'R';
-
             const div = document.createElement('div');
             div.className = `roster-card ${rarity}`;
             div.innerHTML = `
@@ -419,13 +395,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`/api/awaken/${encodeURIComponent(charName)}`);
             const data = await res.json();
             if (!data.ok) return alert(data.error);
-
             const info = allCharacters[charName];
             document.getElementById('awakenImg').src = `/static/picture/char-${info.code}-${info.index}.png`;
             document.getElementById('awakenName').textContent = data.name;
             document.getElementById('awakenRarity').textContent = data.rarity;
             document.getElementById('awakenShards').textContent = data.shards;
-
             data.effects.forEach((desc, idx) => {
                 const el = awakenLvlEls[idx];
                 if(!el) return;
@@ -438,18 +412,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     el.querySelector('.lvl-title').innerHTML = `覺醒 ${['I','II','III','IV','V','VI'][idx]} <span class="lvl-cost">消耗 1 碎片</span>`;
                 }
             });
-
             if (data.awaken >= 6) {
                 doAwakenBtn.textContent = '已滿級';
                 doAwakenBtn.disabled = true;
+            } else if (data.shards >= 1) {
+                doAwakenBtn.textContent = `消耗 1 碎片覺醒`;
+                doAwakenBtn.disabled = false;
             } else {
-                if (data.shards >= 1) {
-                    doAwakenBtn.textContent = `消耗 1 碎片覺醒`;
-                    doAwakenBtn.disabled = false;
-                } else {
-                    doAwakenBtn.textContent = `碎片不足 (需 1)`;
-                    doAwakenBtn.disabled = true;
-                }
+                doAwakenBtn.textContent = `碎片不足 (需 1)`;
+                doAwakenBtn.disabled = true;
             }
             awakenModal.classList.add('show');
         } catch (e) {
@@ -458,28 +429,191 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =========================================================
-    // 戰鬥（全部走後端）
+    // 出戰隊伍與關卡選擇
     // =========================================================
-    async function enterBattle(stageId) {
-        try {
-            const res = await fetch(`/api/battle/${stageId}`);
-            const data = await res.json();
-            if (!data.ok) {
-                return alert(data.error || "進入戰鬥失敗");
+    document.querySelectorAll('.stage-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.stage-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            renderStageList(tab.dataset.game);
+        });
+    });
+
+    function renderStageList(gameCode) {
+        const list = document.getElementById('stageList');
+        if (!list) return;
+        list.innerHTML = '';
+        
+        STAGE_DATA[gameCode].forEach((stage, index) => {
+            let isLocked = false;
+            if (index > 0) {
+                const prevStageId = STAGE_DATA[gameCode][index - 1].id;
+                if (!clearedStages.includes(prevStageId)) isLocked = true;
             }
+            const isCleared = clearedStages.includes(stage.id);
+
+            const div = document.createElement('div');
+            div.className = `stage-item ${currentSelectedStageId === stage.id ? 'selected' : ''} ${isLocked ? 'locked' : ''}`;
+            div.innerHTML = `
+                <div class="stage-name">${stage.name} ${isCleared ? '✅' : ''}</div>
+                <div class="stage-reward">${isLocked ? '🔒 需先通關前置' : `獎勵：${stage.reward} 柚幣`}</div>
+            `;
+            if (!isLocked) {
+                div.addEventListener('click', () => {
+                    currentSelectedStageId = stage.id;
+                    renderStageList(gameCode);
+                    updatePartySelectBtn();
+                });
+            }
+            list.appendChild(div);
+        });
+    }
+
+    async function loadPartySelection() {
+        if (!currentSelectedStageId) {
+            const firstTab = document.querySelector('.stage-tab');
+            if (firstTab) renderStageList(firstTab.dataset.game);
+        }
+
+        try {
+            const progRes = await fetch('/api/battle/progress');
+            const progData = await progRes.json();
+            if (progData.ok) clearedStages = progData.cleared_stages;
+        } catch(e) {}
+        
+        try {
+            const res = await fetch('/api/battle/party');
+            const data = await res.json();
+            if (!data.ok) return alert(data.error);
+            renderPartySelection(data.characters);
+        } catch (e) {
+            console.error('載入隊伍失敗', e);
+        }
+    }
+
+    function renderPartySelection(characters) {
+        const grid = document.getElementById('partySelectGrid');
+        if (!grid) return;
+        grid.innerHTML = '';
+        if (!characters || characters.length === 0) {
+            grid.innerHTML = '<p style="color:#aaa; grid-column:1/-1; text-align:center; padding:20px;">還沒有任何角色，去抽卡吧！</p>';
+            selectedParty = [];
+            updatePartySelectBtn();
+            return;
+        }
+        selectedParty = selectedParty.filter(n => characters.some(c => c.name === n));
+        characters.forEach(c => {
+            const info = allCharacters[c.name] || { code: 'game', index: 1 };
+            const isSel = selectedParty.includes(c.name);
+            const div = document.createElement('div');
+            div.className = `party-select-item ${c.rarity} ${isSel ? 'selected' : ''}`;
+            div.dataset.name = c.name;
+            div.innerHTML = `
+                <img src="/static/picture/char-${info.code}-${info.index}.png"
+                    onerror="this.src='/static/picture/thumb-${info.code}-${info.index}.png'"
+                    alt="${c.name}">
+                <div class="party-select-info">
+                    <div class="party-select-name">${c.name}</div>
+                    <div class="party-select-meta">${c.rarity} · ${c.role} · 覺醒 ${c.awaken}</div>
+                </div>
+                <div class="party-select-check">✓</div>
+            `;
+            div.addEventListener('click', () => {
+                if (selectedParty.includes(c.name)) {
+                    selectedParty = selectedParty.filter(n => n !== c.name);
+                } else {
+                    if (selectedParty.length >= 3) return alert('最多只能選擇 3 名角色！');
+                    selectedParty.push(c.name);
+                }
+                renderPartySelection(characters);
+            });
+            grid.appendChild(div);
+        });
+        updatePartySelectBtn();
+    }
+
+    function updatePartySelectBtn() {
+        const countEl = document.getElementById('partySelectCount');
+        if (countEl) countEl.textContent = selectedParty.length;
+        
+        const btn = document.getElementById('enterStageBtn');
+        if (btn) {
+            if (selectedParty.length === 0) {
+                btn.disabled = true;
+                btn.textContent = '請先選擇出戰角色';
+            } else if (!currentSelectedStageId) {
+                btn.disabled = true;
+                btn.textContent = '請先選擇關卡';
+            } else {
+                btn.disabled = false;
+                btn.textContent = '進入戰鬥';
+            }
+        }
+    }
+
+    // =========================================================
+    // 戰鬥
+    // =========================================================
+    async function enterBattle() {
+        if (selectedParty.length === 0) return alert('請先選擇至少 1 名出戰角色！');
+        if (!currentSelectedStageId) return alert('請先選擇一個關卡！');
+        
+        try {
+            const res = await fetch('/api/battle/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ stage_id: currentSelectedStageId, party: selectedParty })
+            });
+            const data = await res.json();
+            if (!data.ok) return alert(data.error || "進入戰鬥失敗");
+            
             currentBattleState = data.state;
-            selectedCardIndex = null;
-            isBusy = false;
-            document.getElementById('stageSelect').style.display = 'none';
-            document.getElementById('battleContainer').style.display = 'flex';
-            renderBattle();
+            const story = data.story || "";
+            
+            if (story) {
+                showStoryModal(story, () => {
+                    startActualBattle();
+                });
+            } else {
+                startActualBattle();
+            }
         } catch (e) {
             alert(`進入戰鬥失敗: ${e.message}`);
         }
     }
 
+    function startActualBattle() {
+        selectedCardIndex = null;
+        isBusy = false;
+        document.getElementById('stageSelect').style.display = 'none';
+        document.getElementById('battleContainer').style.display = 'flex';
+        document.querySelector('.enemy-area').innerHTML = ''; 
+        renderBattle();
+    }
+
+    function showStoryModal(text, callback) {
+        const modal = document.getElementById('storyModal');
+        document.getElementById('storyText').textContent = text;
+        modal.classList.add('show');
+        
+        const btn = document.getElementById('closeStoryBtn');
+        btn.onclick = () => {
+            modal.classList.remove('show');
+            callback();
+        };
+    }
+
     function renderBattle() {
         if (!currentBattleState) return;
+        
+        let waveEl = document.getElementById('waveDisplay');
+        if (!waveEl) {
+            waveEl = document.createElement('div');
+            waveEl.id = 'waveDisplay';
+            document.getElementById('battleContainer').appendChild(waveEl);
+        }
+        waveEl.textContent = `第 ${currentBattleState.wave} / ${currentBattleState.total_waves} 波`;
+
         renderEnemies();
         renderPlayerParty();
         renderHand();
@@ -491,13 +625,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function currentCardNeedsAlly() {
+        if (selectedCardIndex === null || !currentBattleState) return false;
+        const card = currentBattleState.hand[selectedCardIndex];
+        if (!card) return false;
+        if (card.target === 'aoe') return false;
+        return card.action_type !== 'damage';
+    }
+
     function renderEnemies() {
         const area = document.getElementById('enemyArea');
         if (!area || !currentBattleState) return;
         area.innerHTML = '';
         currentBattleState.enemies.forEach((enemy, idx) => {
             if (enemy.hp <= 0) return;
-
             const el = document.createElement('div');
             el.className = `enemy-card ${enemy.is_stunned ? 'stunned' : ''}`;
             el.dataset.enemyId = idx;
@@ -526,6 +667,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (selectedCardIndex === null) {
                     return alert("請先點擊下方手牌選擇一張卡牌！");
                 }
+                const card = currentBattleState.hand[selectedCardIndex];
+                if (!card) return;
+                if (card.action_type !== 'damage') {
+                    return alert("這張卡不是傷害卡，請點擊我方角色作為目標。");
+                }
                 doPlayCard(selectedCardIndex, idx);
             });
             area.appendChild(el);
@@ -536,10 +682,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const area = document.getElementById('playerParty');
         if (!area || !currentBattleState) return;
         area.innerHTML = '';
-        currentBattleState.party.forEach((p) => {
+        const needsAlly = currentCardNeedsAlly();
+
+        currentBattleState.party.forEach((p, index) => {
             const info = allCharacters[p.name] || { code: 'game', index: 1 };
             const el = document.createElement('div');
-            el.className = `player-status ${p.hp <= 0 ? 'dead' : ''}`;
+            const dead = p.hp <= 0;
+            const targetable = needsAlly && !dead;
+            el.className = `player-status ${dead ? 'dead' : ''} ${targetable ? 'targetable' : ''}`;
+            el.dataset.partyIndex = index;
             el.innerHTML = `
                 <img src="/static/picture/thumb-${info.code}-${info.index}.png" class="party-thumb">
                 <div class="party-info">
@@ -549,6 +700,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${p.shield > 0 ? `<div style="font-size:10px; color:#00e5ff;">🛡️ ${p.shield}</div>` : ''}
                 </div>
             `;
+            el.addEventListener('click', () => {
+                if (isBusy || !currentBattleState || currentBattleState.battle_over) return;
+                if (selectedCardIndex === null) return;
+                const card = currentBattleState.hand[selectedCardIndex];
+                if (!card) return;
+                if (card.action_type === 'damage') {
+                    return alert("傷害卡請點擊敵人作為目標。");
+                }
+                if (card.target === 'aoe') return;
+                if (dead) return alert("該角色已倒下！");
+                doPlayCard(selectedCardIndex, index);
+            });
             area.appendChild(el);
         });
     }
@@ -570,16 +733,21 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             el.addEventListener('click', () => {
                 if (isBusy || !currentBattleState || currentBattleState.battle_over) return;
-                if (card.cost > currentBattleState.sp) {
-                    return alert("SP 不足！");
-                }
-                // AOE / 治療 / 護盾：直接出，不需選目標
-                if (card.target === 'aoe' || card.action_type !== 'damage') {
+                if (card.cost > currentBattleState.sp) return alert("SP 不足！");
+
+                if (card.target === 'aoe') {
                     doPlayCard(idx, null);
-                } else {
-                    selectedCardIndex = (selectedCardIndex === idx) ? null : idx;
-                    renderHand();
+                    return;
                 }
+
+                if (selectedCardIndex === idx) {
+                    selectedCardIndex = null;
+                } else {
+                    selectedCardIndex = idx;
+                }
+                renderHand();
+                renderEnemies();
+                renderPlayerParty();
             });
             area.appendChild(el);
         });
@@ -608,7 +776,6 @@ document.addEventListener('DOMContentLoaded', () => {
             currentBattleState = data.state;
             renderBattle();
             playEvents(data.events);
-
             if (currentBattleState.battle_over) {
                 setTimeout(() => finishBattle(currentBattleState.victory), 700);
             }
@@ -635,10 +802,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert(data.error);
                 return;
             }
+            selectedCardIndex = null;
             currentBattleState = data.state;
             renderBattle();
             playEvents(data.events);
-
             if (currentBattleState.battle_over) {
                 setTimeout(() => finishBattle(currentBattleState.victory), 700);
             }
@@ -655,8 +822,14 @@ document.addEventListener('DOMContentLoaded', () => {
         events.forEach(ev => {
             if (ev.type === 'damage') {
                 showDamageNumber(ev.target, ev.value, ev.is_crit);
-            } else if (ev.type === 'enemy_attack') {
-                // 敵方攻擊可在此擴充頭像飄字
+            } else if (ev.type === 'heal') {
+                showHealFloat(ev.target, ev.value);
+            } else if (ev.type === 'shield') {
+                showShieldFloat(ev.target, ev.value);
+            } else if (ev.type === 'sp_gain') {
+                showSPFloat(ev.value);
+            } else if (ev.type === 'log') {
+                console.log("戰鬥提示:", ev.msg);
             }
         });
     }
@@ -674,6 +847,53 @@ document.addEventListener('DOMContentLoaded', () => {
             floatText.appendChild(critLabel);
         }
         el.appendChild(floatText);
+        setTimeout(() => floatText.remove(), 1000);
+    }
+
+    function showHealFloat(partyIndex, value) {
+        const el = document.querySelector(`.player-status[data-party-index="${partyIndex}"]`);
+        if (!el || value <= 0) return;
+        const floatText = document.createElement('div');
+        floatText.style.cssText = `
+            position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+            color: #4ade80; font-size: 18px; font-weight: 900; text-shadow: 0 0 8px #4ade80;
+            pointer-events: none; animation: floatUp 0.9s ease-out forwards;
+        `;
+        floatText.textContent = `+${value}`;
+        el.style.position = 'relative';
+        el.appendChild(floatText);
+        setTimeout(() => floatText.remove(), 1000);
+    }
+
+    function showShieldFloat(partyIndex, value) {
+        const el = document.querySelector(`.player-status[data-party-index="${partyIndex}"]`);
+        if (!el || value <= 0) return;
+        const floatText = document.createElement('div');
+        floatText.style.cssText = `
+            position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+            color: #00e5ff; font-size: 16px; font-weight: 900; text-shadow: 0 0 8px #00e5ff;
+            pointer-events: none; animation: floatUp 0.9s ease-out forwards;
+        `;
+        floatText.textContent = `🛡️+${value}`;
+        el.style.position = 'relative';
+        el.appendChild(floatText);
+        setTimeout(() => floatText.remove(), 1000);
+    }
+
+    function showSPFloat(value) {
+        const spEl = document.getElementById('spValue');
+        if (!spEl) return;
+        const wrap = spEl.parentElement;
+        if (!wrap) return;
+        wrap.style.position = 'relative';
+        const floatText = document.createElement('div');
+        floatText.style.cssText = `
+            position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+            color: #00e5ff; font-size: 16px; font-weight: 900; text-shadow: 0 0 10px #00e5ff;
+            pointer-events: none; animation: floatUp 0.9s ease-out forwards;
+        `;
+        floatText.textContent = `+${value} SP`;
+        wrap.appendChild(floatText);
         setTimeout(() => floatText.remove(), 1000);
     }
 
@@ -704,7 +924,6 @@ document.addEventListener('DOMContentLoaded', () => {
         currentBattleState = null;
     }
 
-    // --- 戰鬥按鈕綁定 ---
     document.getElementById('endTurnBtn')?.addEventListener('click', doEndTurn);
-    document.getElementById('enterStageBtn')?.addEventListener('click', () => enterBattle('senren-1'));
+    document.getElementById('enterStageBtn')?.addEventListener('click', enterBattle);
 });
