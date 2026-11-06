@@ -184,8 +184,8 @@ def draw_cards(user_id, count):
                 rarity = "SSR"
             else:
                 roll = random.uniform(0, 100)
-                if roll < 0.8: rarity = "SSR"
-                elif roll < 15.8: rarity = "SR"
+                if roll < 2.0: rarity = "SSR"
+                elif roll < 17.0: rarity = "SR"
                 else: rarity = "R"
                     
             if count == 10 and is_last and not has_sr_or_above:
