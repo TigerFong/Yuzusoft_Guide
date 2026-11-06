@@ -297,8 +297,9 @@ def draw_cards(user_id, count):
                 rarity = "SSR"
             else:
                 current_ssr_rate = 2.0
+                # 從第 50 抽（pity >= 49）開始，每抽增加 2%
                 if pity >= 49:
-                    current_ssr_rate += (pity - 48) * 5.0 
+                    current_ssr_rate += (pity - 48) * 2.0 
                 
                 roll = random.uniform(0, 100)
                 if roll < current_ssr_rate: rarity = "SSR"
