@@ -39,9 +39,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeAwakenBtn = document.getElementById('closeAwakenBtn');
     const doAwakenBtn = document.getElementById('doAwakenBtn');
     const awakenLvlEls = [
-        document.getElementById('awakenLvl1'),
-        document.getElementById('awakenLvl2'),
-        document.getElementById('awakenLvl3')
+        document.getElementById('awakenLvl1'), document.getElementById('awakenLvl2'),
+        document.getElementById('awakenLvl3'), document.getElementById('awakenLvl4'),
+        document.getElementById('awakenLvl5'), document.getElementById('awakenLvl6')
     ];
 
     // --- 初始化檢查登入狀態 ---
@@ -416,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <img src="/static/picture/char-${info.code}-${info.index}.png" onerror="this.src='/static/picture/thumb-${info.code}-${info.index}.png'">
                 <div class="roster-info">
                     <div class="roster-name">${name}</div>
-                    <div class="roster-awaken">覺醒 ${card.awaken} / 3</div>
+                    <div class="roster-awaken">覺醒 ${card.awaken} / 6</div>
                 </div>
             `;
             div.addEventListener('click', () => openAwakenModal(name));
@@ -433,33 +433,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const info = allCharacters[charName];
             document.getElementById('awakenImg').src = `/static/picture/char-${info.code}-${info.index}.png`;
-            document.getElementById('awakenImg').onerror = function() { this.src = `/static/picture/thumb-${info.code}-${info.index}.png`; };
-            
             document.getElementById('awakenName').textContent = data.name;
             document.getElementById('awakenRarity').textContent = data.rarity;
             document.getElementById('awakenShards').textContent = data.shards;
 
             data.effects.forEach((desc, idx) => {
                 const el = awakenLvlEls[idx];
+                if(!el) return; // 防呆
                 el.querySelector('.lvl-desc').textContent = desc;
                 if (idx < data.awaken) {
                     el.classList.add('active');
-                    el.querySelector('.lvl-title').innerHTML = `覺醒 ${['I','II','III'][idx]} <span class="lvl-cost" style="color:var(--gold-main)">已解鎖</span>`;
+                    el.querySelector('.lvl-title').innerHTML = `覺醒 ${['I','II','III','IV','V','VI'][idx]} <span class="lvl-cost" style="color:var(--gold-main)">已解鎖</span>`;
                 } else {
                     el.classList.remove('active');
+                    el.querySelector('.lvl-title').innerHTML = `覺醒 ${['I','II','III','IV','V','VI'][idx]} <span class="lvl-cost">消耗 1 碎片</span>`;
                 }
             });
 
-            if (data.awaken >= 3) {
+            if (data.awaken >= 6) {
                 doAwakenBtn.textContent = '已滿級';
                 doAwakenBtn.disabled = true;
             } else {
-                const cost = data.awaken + 1;
-                if (data.shards >= cost) {
-                    doAwakenBtn.textContent = `消耗 ${cost} 碎片覺醒`;
+                if (data.shards >= 1) {
+                    doAwakenBtn.textContent = `消耗 1 碎片覺醒`;
                     doAwakenBtn.disabled = false;
                 } else {
-                    doAwakenBtn.textContent = `碎片不足 (需 ${cost})`;
+                    doAwakenBtn.textContent = `碎片不足 (需 1)`;
                     doAwakenBtn.disabled = true;
                 }
             }
@@ -473,8 +472,14 @@ document.addEventListener('DOMContentLoaded', () => {
     async function enterBattle(stageId) {
         try {
             const res = await fetch(`/api/battle/${stageId}`);
+            if (!res.ok) {
+                throw new Error(`伺服器返回錯誤: ${res.status}`);
+            }
             const data = await res.json();
-            if (!data.ok) return alert(data.error);
+            
+            if (!data.ok) {
+                return alert(data.error || "進入戰鬥失敗");
+            }
             
             currentBattleData = data;
             document.getElementById('stageSelect').style.display = 'none';
@@ -485,7 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ...e, id: i, toughness: 3, max_toughness: 3, is_stunned: false 
             }));
             
-            // 初始化我方隊伍 (初始HP 1000, EP 0)
+            // 初始化我方隊伍
             playerParty = data.party.map(p => ({
                 ...p, hp: 1000, max_hp: 1000, ep: 0, max_ep: 100
             }));
@@ -499,7 +504,8 @@ document.addEventListener('DOMContentLoaded', () => {
             drawHand(5);
             
         } catch (e) {
-            alert("進入戰鬥失敗");
+            console.error("進入戰鬥詳細錯誤:", e);
+            alert(`進入戰鬥失敗: ${e.message}`);
         }
     }
 
@@ -557,6 +563,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="party-name">${p.name} (${p.role})</div>
                     <div class="mini-bar hp"><div style="width: ${(p.hp/p.max_hp)*100}%;"></div></div>
                     <div class="mini-bar ep"><div style="width: ${(p.ep/p.max_ep)*100}%;"></div></div>
+                    ${p.shield > 0 ? `<div style="font-size:10px; color:#00e5ff;">🛡️ ${p.shield}</div>` : ''}
                 </div>
             `;
             area.appendChild(el);
@@ -565,39 +572,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function drawHand(count) {
         currentHand = [];
-        // 取存活的角色生成手牌
         const aliveChars = playerParty.filter(p => p.hp > 0);
         if (aliveChars.length === 0) return;
         
         for (let i = 0; i < count; i++) {
             const char = aliveChars[Math.floor(Math.random() * aliveChars.length)];
             const info = allCharacters[char.name] || { code: 'game', index: 1 };
+            const skills = char.skills;
             
-            // 根據 EP 判斷是否刷出必殺卡
-            const isUltimate = char.ep >= char.max_ep;
-            
-            if (isUltimate) {
-                // 必殺卡：不耗 SP，消耗 100 EP
+            // 如果 EP 滿了，強制塞入必殺卡
+            if (char.ep >= char.max_ep) {
                 currentHand.push({
-                    name: char.name, title: "必殺技", cost: 0, 
-                    mind: char.mind, desc: "對單體造成 300 點無視韌性傷害", 
+                    name: char.name, title: skills.ultimate.name, cost: 0,
+                    mind: char.mind, desc: skills.ultimate.desc,
                     code: info.code, index: info.index, type: "ultimate",
+                    actionType: skills.ultimate.type, value: skills.ultimate.value,
                     ownerIndex: playerParty.indexOf(char)
                 });
-                // 消耗 EP (避免重複刷出)
-                char.ep = 0; 
+                char.ep = 0;
             } else {
-                // 普攻卡：消耗 1 SP
+                // 60% 機率出普攻，40% 出戰技
+                const isSkill = Math.random() < 0.4;
+                const sData = isSkill ? skills.skill : skills.normal;
+                
                 currentHand.push({
-                    name: char.name, title: "普通攻擊", cost: 1, 
-                    mind: char.mind, desc: "對單體造成 100 點傷害，削減 1 段韌性", 
-                    code: info.code, index: info.index, type: "normal",
+                    name: char.name, title: sData.name, cost: sData.cost,
+                    mind: char.mind, desc: sData.desc,
+                    code: info.code, index: info.index, type: isSkill ? "skill" : "normal",
+                    actionType: sData.type, value: sData.value,
                     ownerIndex: playerParty.indexOf(char)
                 });
             }
         }
         renderHand();
-        renderPlayerParty(); // 刷新 EP 條
+        renderPlayerParty();
+    }
+
+    function updateSPUI() {
+        const spEl = document.getElementById('spValue');
+        if (spEl) {
+            spEl.textContent = currentSP;
+        }
     }
 
     function renderHand() {
@@ -625,44 +640,66 @@ document.addEventListener('DOMContentLoaded', () => {
             area.appendChild(el);
         });
     }
+    
+    function updateSPUI() {
+        const spEl = document.getElementById('spValue');
+        if (spEl) spEl.textContent = currentSP;
+    }
 
     function playCard(cardIndex, enemyIndex) {
         const card = currentHand[cardIndex];
-        const enemy = currentEnemies[enemyIndex];
+        const enemy = enemyIndex !== null ? currentEnemies[enemyIndex] : null;
         const char = playerParty[card.ownerIndex];
         
-        if (enemy.hp <= 0) return alert("該敵人已死亡");
-        if (currentSP < card.cost) return;
+        if (card.cost > currentSP) return alert("SP 不足");
         
-        // 1. 扣除資源
         currentSP -= card.cost;
-        if (card.type === 'ultimate') char.ep = 0; // 消耗 EP
+        if (card.type === 'ultimate') char.ep = 0;
         
-        // 2. 計算傷害與心相克制
-        let damage = card.type === 'ultimate' ? 300 : 100;
-        const isCounter = checkMindCounter(card.mind, enemy.mind);
-        if (isCounter) damage *= 1.5; // 克制傷害 +50%
-        
-        enemy.hp -= damage;
-        if (enemy.hp < 0) enemy.hp = 0;
-        
-        // 3. 增加攻擊者 EP (非必殺卡才加)
-        if (card.type !== 'ultimate') {
-            char.ep = Math.min(char.max_ep, char.ep + 30);
-        }
-        
-        // 4. 削減韌性
-        if (enemy.hp > 0 && enemy.toughness > 0 && !enemy.is_stunned) {
-            let toughCut = isCounter ? 2 : 1;
-            enemy.toughness -= toughCut;
-            if (enemy.toughness <= 0) {
-                enemy.toughness = 0;
-                enemy.is_stunned = true;
+        // 增加 EP
+        if (card.type !== 'ultimate') char.ep = Math.min(char.max_ep, char.ep + 30);
+
+        let damage = 0;
+        let isCrit = false;
+
+        // 結算效果
+        if (card.actionType === 'damage') {
+            if (!enemy || enemy.hp <= 0) return alert("請選擇一個存活的目標！");
+            damage = card.value;
+            isCrit = checkMindCounter(card.mind, enemy.mind);
+            if (isCrit) damage = Math.floor(damage * 1.5);
+            
+            enemy.hp -= damage;
+            if (enemy.hp < 0) enemy.hp = 0;
+            
+            // 破韌
+            if (enemy.hp > 0 && enemy.toughness > 0) {
+                enemy.toughness -= isCrit ? 2 : 1;
+                if (enemy.toughness <= 0) { enemy.toughness = 0; enemy.is_stunned = true; }
+            }
+            showDamageNumber(enemyIndex, damage, isCrit);
+        } 
+        else if (card.actionType === 'heal') {
+            // 判斷是單體還是全體
+            const isAoe = card.desc.includes("全") || card.desc.includes("群");
+            if (isAoe || card.type === 'ultimate') {
+                playerParty.forEach(p => p.hp = Math.min(p.max_hp, p.hp + card.value));
+            } else {
+                // 單體治療補給血量最少的
+                const target = playerParty.filter(p => p.hp > 0).sort((a,b)=>a.hp-b.hp)[0];
+                if (target) target.hp = Math.min(target.max_hp, target.hp + card.value);
             }
         }
-        
-        // 5. 顯示特效與結算
-        showDamageNumber(enemyIndex, Math.floor(damage), isCounter);
+        else if (card.actionType === 'shield') {
+            const isAoe = card.desc.includes("全") || card.desc.includes("群");
+            if (isAoe || card.type === 'ultimate') {
+                playerParty.forEach(p => p.shield = (p.shield || 0) + card.value);
+            } else {
+                const target = playerParty.filter(p => p.hp > 0)[0]; // 默認給第一個
+                if (target) target.shield = (target.shield || 0) + card.value;
+            }
+        }
+
         currentHand.splice(cardIndex, 1);
         selectedCardIndex = null;
         
@@ -670,7 +707,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderEnemies();
         renderPlayerParty();
         renderHand();
-        
         checkBattleEnd();
     }
 
@@ -734,18 +770,27 @@ document.addEventListener('DOMContentLoaded', () => {
             if (aliveChars.length === 0) break;
             
             const target = aliveChars[Math.floor(Math.random() * aliveChars.length)];
-            const dmg = 150; // 敵人基礎傷害
+            let dmg = 150;
             
-            target.hp -= dmg;
-            if (target.hp < 0) target.hp = 0;
+            // 護盾抵扣
+            if (target.shield > 0) {
+                if (target.shield >= dmg) {
+                    target.shield -= dmg;
+                    dmg = 0;
+                } else {
+                    dmg -= target.shield;
+                    target.shield = 0;
+                }
+            }
             
-            // 顯示我方受傷 (簡單起見，直接更新頭像區)
+            if (dmg > 0) {
+                target.hp -= dmg;
+                if (target.hp < 0) target.hp = 0;
+            }
+            
             renderPlayerParty();
-            
-            // 受擊增加 EP
             target.ep = Math.min(target.max_ep, target.ep + 20);
-            
-            await new Promise(r => setTimeout(r, 600)); // 攻擊間隔
+            await new Promise(r => setTimeout(r, 600));
         }
 
         // 檢查我方是否全滅

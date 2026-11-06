@@ -35,42 +35,72 @@ def start_battle(user_id, stage_id):
         
     stage = BATTLE_STAGES[stage_id]
     
-    # 獲取玩家擁有的角色作為可用卡牌來源
-    if not db_pool:
-        pd = memory_db.player_data.get(user_id)
-        owned_cards = pd["cards"] if pd else {}
-    else:
-        conn = db_pool.getconn()
-        cur = conn.cursor()
-        cur.execute("SELECT cards FROM player_data WHERE user_id = %s", (user_id,))
-        row = cur.fetchone()
-        cur.close()
-        db_pool.putconn(conn)
-        owned_cards = row[0] if row else {}
+    try:
+        # 獲取玩家擁有的角色作為可用卡牌來源
+        if not db_pool:
+            pd = memory_db.player_data.get(user_id)
+            owned_cards = pd["cards"] if pd else {}
+        else:
+            conn = db_pool.getconn()
+            cur = conn.cursor()
+            cur.execute("SELECT cards FROM player_data WHERE user_id = %s", (user_id,))
+            row = cur.fetchone()
+            cur.close()
+            db_pool.putconn(conn)
+            
+            # 確保取出的資料是 dict
+            if row and row[0]:
+                if isinstance(row[0], str):
+                    import json
+                    owned_cards = json.loads(row[0])
+                else:
+                    owned_cards = row[0]
+            else:
+                owned_cards = {}
+                
+        if not owned_cards:
+            return {"ok": False, "error": "你沒有任何角色，無法戰鬥！"}, 400
+
+        # 將玩家擁有的角色，轉換為詳細數據
+        party_data = []
+        for name in list(owned_cards.keys())[:3]: # 最多取3個
+            if name in GAME_CHARACTERS:
+                info = GAME_CHARACTERS[name]
+                
+                # 獲取覺醒等級
+                awaken_lvl = 0
+                if name in owned_cards:
+                    awaken_lvl = owned_cards[name].get("awaken", 0)
+                
+                # 技能數值加成：每覺醒一級 +10% 傷害/治療/護盾
+                multiplier = 1.0 + (awaken_lvl * 0.10)
+                
+                # 複製一份技能數據，避免汙染原始字典
+                import copy
+                skills_data = copy.deepcopy(info["skills"])
+                for k in ["normal", "skill", "ultimate"]:
+                    skills_data[k]["value"] = int(skills_data[k]["value"] * multiplier)
+
+                party_data.append({
+                    "name": name,
+                    "mind": info["mind"],
+                    "rarity": info["rarity"],
+                    "role": info["role"],
+                    "awaken": awaken_lvl, # 傳入覺醒等級
+                    "skills": skills_data
+                })
+
+        return {
+            "ok": True,
+            "stage_name": stage["name"],
+            "enemies": stage["enemies"],
+            "party": party_data, 
+            "reward_coins": stage["reward_coins"]
+        }, 200
         
-    if not owned_cards:
-        return {"ok": False, "error": "你沒有任何角色，無法戰鬥！"}, 400
-
-    # 將玩家擁有的角色，轉換為詳細數據
-    from .game_data import GAME_CHARACTERS
-    party_data = []
-    for name in list(owned_cards.keys())[:3]: # 最多取3個
-        if name in GAME_CHARACTERS:
-            info = GAME_CHARACTERS[name]
-            party_data.append({
-                "name": name,
-                "mind": info["mind"],
-                "rarity": info["rarity"],
-                "role": info["role"]
-            })
-
-    return {
-        "ok": True,
-        "stage_name": stage["name"],
-        "enemies": stage["enemies"],
-        "party": party_data, # 替換原本的 owned_cards
-        "reward_coins": stage["reward_coins"]
-    }, 200
+    except Exception as e:
+        print("開啟戰鬥發生錯誤:", e)
+        return {"ok": False, "error": f"伺服器內部錯誤: {str(e)}"}, 500
 
 def end_battle(user_id, stage_id, is_win):
     if not is_win:
@@ -410,11 +440,11 @@ def do_awaken(user_id, char_name):
         current_lvl = card_data["awaken"]
         current_shards = card_data["shards"]
         
-        if current_lvl >= 3:
+        if current_lvl >= 6: # 改為 6
             return {"ok": False, "error": "已達最高覺醒等級"}, 400
             
-        # 升級消耗：I=1, II=2, III=3
-        cost = current_lvl + 1
+        # 升級消耗：固定為 1
+        cost = 1 
         if current_shards < cost:
             return {"ok": False, "error": f"碎片不足，需要 {cost} 個"}, 400
             
