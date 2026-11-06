@@ -9,10 +9,20 @@ if DATABASE_URL:
     try:
         import psycopg2
         from psycopg2 import pool
-        db_pool = psycopg2.pool.SimpleConnectionPool(1, 10, DATABASE_URL)
+        # 加入 connect_timeout，避免網路卡住時無限等待
+        db_pool = psycopg2.pool.SimpleConnectionPool(
+            1, 10, 
+            DATABASE_URL,
+            connect_timeout=5,
+            keepalives=1,
+            keepalives_idle=30,
+            keepalives_interval=10,
+            keepalives_count=5
+        )
         print("✅ Neon 雲端資料庫連線池建立成功")
     except Exception as e:
-        print("❌ 資料庫連線池建立失敗:", e)
+        print("❌ 資料庫連線池建立失敗 (將降級為本地記憶體模式):", e)
+        db_pool = None
 else:
     print("⚠️ 未設定 DATABASE_URL，將使用本地記憶體資料庫（重啟後資料消失）")
 
@@ -27,6 +37,7 @@ memory_db = MemoryDB()
 def init_db():
     if not db_pool:
         return
+    conn = None
     try:
         conn = db_pool.getconn()
         cur = conn.cursor()
@@ -67,10 +78,14 @@ def init_db():
         
         conn.commit()
         cur.close()
-        db_pool.putconn(conn)
         print("✅ 所有資料表已就緒")
     except Exception as e:
         print("❌ 初始化資料表失敗:", e)
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            db_pool.putconn(conn)
 
 
 def load_view_counts():
@@ -82,18 +97,26 @@ def load_view_counts():
             except Exception:
                 return {}
         return {}
+        
+    conn = None
     try:
         conn = db_pool.getconn()
         cur = conn.cursor()
         cur.execute("SELECT character_name, count FROM view_counts")
         data = {row[0]: row[1] for row in cur.fetchall()}
         cur.close()
-        db_pool.putconn(conn)
         return data
-    except Exception:
+    except Exception as e:
+        print("載入瀏覽量失敗:", e)
+        if conn:
+            conn.rollback()
         return {}
+    finally:
+        if conn:
+            db_pool.putconn(conn)
 
 
+# 啟動時初始化
 init_db()
 view_counts = load_view_counts()
 
@@ -102,6 +125,8 @@ def record_view(name):
     view_counts[name] = view_counts.get(name, 0) + 1
     if not db_pool:
         return
+        
+    conn = None
     try:
         conn = db_pool.getconn()
         cur = conn.cursor()
@@ -113,6 +138,10 @@ def record_view(name):
         """, (name,))
         conn.commit()
         cur.close()
-        db_pool.putconn(conn)
-    except Exception:
-        pass
+    except Exception as e:
+        print("紀錄瀏覽量失敗:", e)
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            db_pool.putconn(conn)

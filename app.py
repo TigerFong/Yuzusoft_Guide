@@ -6,6 +6,7 @@ load_dotenv()
 import datetime
 from flask import Flask, jsonify, render_template, request, session
 
+# ★ 補上 backend.core 的導入
 from backend.core import (
     apply_security_headers, list_all_characters, list_all_guides,
     list_games, list_game_characters, list_game_guides, get_meta,
@@ -18,7 +19,7 @@ from backend.auth import (
 from backend.game_core import (
     get_pool_info, update_wishlist, draw_cards, get_awaken_info, do_awaken,
     start_battle, battle_action, battle_end_turn, claim_battle_reward,
-    get_battle_party_info, get_battle_progress
+    get_battle_party_info, get_battle_progress, upgrade_character, set_awaken_level, toggle_stage_unlock
 )
 
 app = Flask(__name__)
@@ -31,6 +32,29 @@ app.permanent_session_lifetime = datetime.timedelta(days=365)
 @app.after_request
 def _security_headers(response):
     return apply_security_headers(response)
+
+@app.route('/api/upgrade', methods=['POST'])
+@require_login
+def api_upgrade():
+    data = request.json or {}
+    char_name = data.get('name')
+    target_level = data.get('target_level', 2)
+    res, status = upgrade_character(session['user_id'], char_name, target_level)
+    return jsonify(res), status
+
+@app.route('/api/tester/stage', methods=['POST'])
+@require_login
+def api_tester_stage():
+    data = request.json or {}
+    res, status = toggle_stage_unlock(session['user_id'], data.get('stage_id'), data.get('action'))
+    return jsonify(res), status
+
+@app.route('/api/tester/awaken', methods=['POST'])
+@require_login
+def api_tester_awaken():
+    data = request.json or {}
+    res, status = set_awaken_level(session['user_id'], data.get('name'), data.get('target_lvl'))
+    return jsonify(res), status
 
 # 頁面路由
 @app.route('/')

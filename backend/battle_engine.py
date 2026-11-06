@@ -29,21 +29,37 @@ def _build_party(owned_cards, party_names=None):
     party = []
     for name in names:
         info = GAME_CHARACTERS[name]
-        awaken_lvl = owned_cards[name].get("awaken", 0)
-        multiplier = 1.0 + (awaken_lvl * 0.10)
-        skills_data = copy.deepcopy(info["skills"])
+        card_data = owned_cards[name]
+        awaken_lvl = card_data.get("awaken", 0)
+        level = card_data.get("level", 1)
         
+        # 1. 覺醒乘數 (+10% / 級)
+        awaken_multiplier = 1.0 + (awaken_lvl * 0.10)
+        
+        # 2. 等級乘數 (+2% / 級，從 1 級算起)
+        # 例如 1級 = 100%，60級 = 100% + 59*2% = 218%
+        level_multiplier = 1.0 + ((level - 1) * 0.02)
+        
+        # 最終技能乘數
+        total_multiplier = awaken_multiplier * level_multiplier
+        
+        # 生命值成長：基礎 1000 + (等級-1)*20
+        max_hp = 1000 + ((level - 1) * 20)
+
+        skills_data = copy.deepcopy(info["skills"])
         for k in ("normal", "skill", "ultimate"):
             sd = skills_data[k]
-            sd["value"] = int(sd["value"] * multiplier)
+            sd["value"] = int(sd["value"] * total_multiplier)
             if "target" not in sd:
                 sd["target"] = _infer_target(sd.get("desc", ""))
             sd["sp_gain"] = _extract_sp_gain(sd.get("desc", ""))
 
         party.append({
             "name": name, "mind": info["mind"], "rarity": info["rarity"],
-            "role": info["role"], "awaken": awaken_lvl, "skills": skills_data,
-            "hp": 1000, "max_hp": 1000, "ep": 0, "max_ep": 100,
+            "role": info["role"], "awaken": awaken_lvl, "level": level, # 傳入等級
+            "skills": skills_data,
+            "hp": max_hp, "max_hp": max_hp, 
+            "ep": 0, "max_ep": 100,
             "shield": 0, "is_taunting": False, "has_saved": False, "has_killed": False
         })
     return party
@@ -325,6 +341,13 @@ def claim_reward(user_id):
     reward = state["reward_coins"]
     del _battle_states[user_id]
     return {"reward": reward, "stage_id": state["stage_id"]}, None
+
+# =========================================================
+# 獲取當前戰鬥狀態（供未來 API 輪詢使用）
+# =========================================================
+def get_state(user_id):
+    state = _battle_states.get(user_id)
+    return _serialize(state) if state else None
 
 def _serialize(state):
     return {

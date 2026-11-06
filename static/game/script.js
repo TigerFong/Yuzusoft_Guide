@@ -2,6 +2,7 @@
 let currentMode = 'login';
 let allCharacters = {};
 let playerData = null;
+let isTester = false; 
 let currentWishlist = [];
 let currentAwakenChar = null;
 
@@ -74,6 +75,16 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('awakenLvl3'), document.getElementById('awakenLvl4'),
         document.getElementById('awakenLvl5'), document.getElementById('awakenLvl6')
     ];
+    const userExpDisplay = document.getElementById('userExp');
+    const upgradeModal = document.getElementById('upgradeModal');
+    const closeUpgradeBtn = document.getElementById('closeUpgradeBtn');
+    const upgrade1Btn = document.getElementById('upgrade1Btn');
+    const upgradeMaxBtn = document.getElementById('upgradeMaxBtn');
+    const toAwakenBtn = document.getElementById('toAwakenBtn');
+    const upgradeSlider = document.getElementById('upgradeSlider');
+    const targetLvlDisplay = document.getElementById('targetLvlDisplay');
+    const doUpgradeBtn = document.getElementById('doUpgradeBtn');
+    let currentUpgradeChar = null;
 
     // --- 初始化 ---
     fetch('/api/auth/me')
@@ -219,8 +230,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 核心 ---
     async function initGame(data) {
         playerData = data.player;
+        isTester = (data.username === 'tester');
         userNameDisplay.textContent = data.username;
         updateCoinsUI(playerData.coins);
+        updateExpUI(playerData.stats?.exp || 0);
         pityCount.textContent = playerData.pity;
         currentWishlist = playerData.wishlist || [];
         loginOverlay.style.opacity = '0';
@@ -230,6 +243,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 400);
         if (Object.keys(allCharacters).length === 0) await fetchAllCharacters();
         updateDrawButtons();
+    }
+
+    function updateExpUI(exp) {
+        if (!playerData) playerData = {};
+        if (!playerData.stats) playerData.stats = {};
+        playerData.stats.exp = exp;
+        userExpDisplay.textContent = exp;
     }
 
     function showLogin() {
@@ -381,10 +401,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <img src="/static/picture/char-${info.code}-${info.index}.png" onerror="this.src='/static/picture/thumb-${info.code}-${info.index}.png'">
                 <div class="roster-info">
                     <div class="roster-name">${name}</div>
-                    <div class="roster-awaken">覺醒 ${card.awaken} / 6</div>
+                    <div class="roster-awaken">Lv.${card.level || 1} · 覺醒 ${card.awaken} / 6</div>
                 </div>
             `;
-            div.addEventListener('click', () => openAwakenModal(name));
+            // 點擊改為打開升級
+            div.addEventListener('click', () => openUpgradeModal(name));
             rosterGrid.appendChild(div);
         });
     }
@@ -400,10 +421,44 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('awakenName').textContent = data.name;
             document.getElementById('awakenRarity').textContent = data.rarity;
             document.getElementById('awakenShards').textContent = data.shards;
+
             data.effects.forEach((desc, idx) => {
                 const el = awakenLvlEls[idx];
                 if(!el) return;
+                
+                // 清除舊事件與樣式
+                el.onclick = null;
+                el.style.border = 'none';
+                el.style.cursor = 'default';
+                
+                // ★ 測試員專屬：點擊切換覺醒等級
+                if (isTester) {
+                    el.style.cursor = 'pointer';
+                    el.style.border = '1px dashed rgba(212, 175, 55, 0.5)';
+                    el.title = '點擊切換至此覺醒等級';
+                    
+                    el.onclick = async () => {
+                        // 如果點擊的是當前等級，則降一級；否則升/降到點擊的等級
+                        const targetLvl = (idx + 1 === data.awaken) ? idx : (idx + 1);
+                        
+                        const req = await fetch('/api/tester/awaken', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: charName, target_lvl: targetLvl })
+                        });
+                        const reqData = await req.json();
+                        if (reqData.ok) {
+                            // 更新本地數據，防止圖鑑不同步
+                            playerData.cards[charName].awaken = reqData.awaken;
+                            await openAwakenModal(charName); // 刷新當前彈窗
+                            renderRoster(); // 刷新背景圖鑑
+                        }
+                    };
+                }
+
                 el.querySelector('.lvl-desc').textContent = desc;
+                
+                // 判斷是否已解鎖
                 if (idx < data.awaken) {
                     el.classList.add('active');
                     el.querySelector('.lvl-title').innerHTML = `覺醒 ${['I','II','III','IV','V','VI'][idx]} <span class="lvl-cost" style="color:var(--gold-main)">已解鎖</span>`;
@@ -412,18 +467,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     el.querySelector('.lvl-title').innerHTML = `覺醒 ${['I','II','III','IV','V','VI'][idx]} <span class="lvl-cost">消耗 1 碎片</span>`;
                 }
             });
-            if (data.awaken >= 6) {
-                doAwakenBtn.textContent = '已滿級';
+
+            // 底部按鈕狀態
+            if (isTester) {
+                doAwakenBtn.textContent = '✨ 測試員無需碎片，請直接點擊上方等級框切換';
                 doAwakenBtn.disabled = true;
-            } else if (data.shards >= 1) {
-                doAwakenBtn.textContent = `消耗 1 碎片覺醒`;
-                doAwakenBtn.disabled = false;
+                doAwakenBtn.style.opacity = '0.8';
+                doAwakenBtn.style.borderColor = 'transparent';
+                doAwakenBtn.style.backgroundColor = 'transparent';
             } else {
-                doAwakenBtn.textContent = `碎片不足 (需 1)`;
-                doAwakenBtn.disabled = true;
+                doAwakenBtn.style.opacity = '1';
+                doAwakenBtn.style.borderColor = 'var(--red-deep)';
+                doAwakenBtn.style.backgroundColor = '';
+                
+                if (data.awaken >= 6) {
+                    doAwakenBtn.textContent = '已滿級';
+                    doAwakenBtn.disabled = true;
+                } else if (data.shards >= 1) {
+                    doAwakenBtn.textContent = `消耗 1 碎片覺醒`;
+                    doAwakenBtn.disabled = false;
+                } else {
+                    doAwakenBtn.textContent = `碎片不足 (需 1)`;
+                    doAwakenBtn.disabled = true;
+                }
             }
             awakenModal.classList.add('show');
         } catch (e) {
+            console.error(e);
             alert('載入覺醒資訊失敗');
         }
     }
@@ -446,7 +516,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         STAGE_DATA[gameCode].forEach((stage, index) => {
             let isLocked = false;
-            if (index > 0) {
+            // ★ 如果是 Tester，強制不鎖定
+            if (index > 0 && !isTester) {
                 const prevStageId = STAGE_DATA[gameCode][index - 1].id;
                 if (!clearedStages.includes(prevStageId)) isLocked = true;
             }
@@ -454,31 +525,67 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const div = document.createElement('div');
             div.className = `stage-item ${currentSelectedStageId === stage.id ? 'selected' : ''} ${isLocked ? 'locked' : ''}`;
+            
+            let testerBtn = '';
+            if (isTester) {
+                testerBtn = `<button class="btn-tester-toggle" data-id="${stage.id}" data-cleared="${isCleared}" style="background:transparent; border:1px solid #ffd700; color:#ffd700; padding:2px 8px; border-radius:4px; cursor:pointer; z-index:10;">${isCleared ? '🔒 鎖定' : '🔓 解鎖'}</button>`;
+            }
+
             div.innerHTML = `
-                <div class="stage-name">${stage.name} ${isCleared ? '✅' : ''}</div>
+                <div class="stage-name" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>${stage.name} ${isCleared ? '✅' : ''}</span>
+                    ${testerBtn}
+                </div>
                 <div class="stage-reward">${isLocked ? '🔒 需先通關前置' : `獎勵：${stage.reward} 柚幣`}</div>
             `;
-            if (!isLocked) {
-                div.addEventListener('click', () => {
-                    currentSelectedStageId = stage.id;
-                    renderStageList(gameCode);
-                    updatePartySelectBtn();
+            
+            // 關卡本身的點擊事件
+            div.addEventListener('click', (e) => {
+                // 如果點的是內部的解鎖按鈕，則不觸發選擇關卡
+                if (e.target.closest('.btn-tester-toggle')) return;
+                
+                if (isLocked) {
+                    return alert('請先通關前置關卡！');
+                }
+                
+                currentSelectedStageId = stage.id;
+                renderStageList(gameCode);
+                updatePartySelectBtn();
+            });
+
+            // Tester 解鎖按鈕的點擊事件
+            if (isTester) {
+                const btn = div.querySelector('.btn-tester-toggle');
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation(); 
+                    const action = btn.dataset.cleared === 'true' ? 'lock' : 'unlock';
+                    const res = await fetch('/api/tester/stage', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ stage_id: stage.id, action })
+                    });
+                    const d = await res.json();
+                    if (d.ok) {
+                        clearedStages = d.cleared_stages;
+                        renderStageList(gameCode);
+                    }
                 });
             }
+
             list.appendChild(div);
         });
     }
 
     async function loadPartySelection() {
-        if (!currentSelectedStageId) {
-            const firstTab = document.querySelector('.stage-tab');
-            if (firstTab) renderStageList(firstTab.dataset.game);
-        }
-
         try {
             const progRes = await fetch('/api/battle/progress');
             const progData = await progRes.json();
-            if (progData.ok) clearedStages = progData.cleared_stages;
+            if (progData.ok) {
+                clearedStages = progData.cleared_stages;
+                // 重新渲染當前選中的 Tab，確保狀態更新
+                const activeTab = document.querySelector('.stage-tab.active');
+                if (activeTab) renderStageList(activeTab.dataset.game);
+            }
         } catch(e) {}
         
         try {
@@ -514,7 +621,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     alt="${c.name}">
                 <div class="party-select-info">
                     <div class="party-select-name">${c.name}</div>
-                    <div class="party-select-meta">${c.rarity} · ${c.role} · 覺醒 ${c.awaken}</div>
+                    <!-- ★ 修改：補上 Lv.${c.level || 1} -->
+                    <div class="party-select-meta">Lv.${c.level || 1} · ${c.rarity} · 覺醒 ${c.awaken}</div>
                 </div>
                 <div class="party-select-check">✓</div>
             `;
@@ -908,11 +1016,27 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await fetch('/api/battle/claim-reward', { method: 'POST' });
             const data = await res.json();
+            
             if (data.ok) {
-                alert(`戰鬥勝利！獲得 ${data.reward} 柚幣！`);
+                if (data.is_first_clear) {
+                    alert(`首通獎勵！獲得 ${data.reward} 柚幣與 ${data.exp_gain} EXP！`);
+                    if (!clearedStages.includes(currentSelectedStageId)) {
+                        clearedStages.push(currentSelectedStageId);
+                    }
+                } else {
+                    alert(`戰鬥勝利！獲得 ${data.exp_gain} EXP。（該關卡已通關過，無額外柚幣）`);
+                }
+                
+                // 刷新金幣與 EXP
                 fetch('/api/auth/me').then(r => r.json()).then(d => {
-                    if (d.logged_in) updateCoinsUI(d.player.coins);
+                    if (d.logged_in) {
+                        updateCoinsUI(d.player.coins);
+                        updateExpUI(d.player.stats?.exp || 0);
+                    }
                 });
+                
+                const activeTab = document.querySelector('.stage-tab.active');
+                if (activeTab) renderStageList(activeTab.dataset.game);
             } else {
                 alert(data.error);
             }
@@ -924,6 +1048,127 @@ document.addEventListener('DOMContentLoaded', () => {
         currentBattleState = null;
     }
 
+    function openUpgradeModal(charName) {
+        currentUpgradeChar = charName;
+        const card = playerData.cards[charName];
+        const lvl = card.level || 1;
+        
+        document.getElementById('upgradeName').textContent = `${charName} - 升級`;
+        document.getElementById('upgradeCurrentLvl').textContent = lvl;
+        
+        upgradeSlider.min = 1;   // ★ 所有人都是 1
+        upgradeSlider.max = 60;
+        upgradeSlider.value = lvl;
+        
+        updateUpgradeCostUI(lvl, lvl);
+        upgradeModal.classList.add('show');
+    }
+
+    // 滑動條拖動時即時計算
+    upgradeSlider.addEventListener('input', (e) => {
+        const targetLvl = parseInt(e.target.value);
+        const currentLvl = playerData.cards[currentUpgradeChar].level || 1;
+        updateUpgradeCostUI(currentLvl, targetLvl);
+    });
+
+    function updateUpgradeCostUI(currentLvl, targetLvl) {
+        targetLvlDisplay.textContent = targetLvl;
+        const costEl = document.getElementById('upgradeCostInfo');
+
+        if (targetLvl === currentLvl) {
+            costEl.innerHTML = `當前等級不變`;
+            doUpgradeBtn.disabled = true;
+            doUpgradeBtn.textContent = '確認變更';
+            return;
+        }
+
+        // ★ Tester 特權
+        if (isTester) {
+            if (targetLvl < currentLvl) {
+                costEl.innerHTML = `<span style="color: #ffd700;">降級至 Lv.${targetLvl} (測試員特權)</span>`;
+                doUpgradeBtn.textContent = '確認降級';
+            } else {
+                costEl.innerHTML = `<span style="color: #ffd700;">升級至 Lv.${targetLvl} (測試員特權)</span>`;
+                doUpgradeBtn.textContent = '確認升級';
+            }
+            doUpgradeBtn.disabled = false;
+            return;
+        }
+
+        // 普通玩家
+        doUpgradeBtn.textContent = '確認升級';
+        if (targetLvl < currentLvl) {
+            doUpgradeBtn.disabled = true;
+            return;
+        }
+
+        let costExp = 0;
+        for (let i = currentLvl; i < targetLvl; i++) {
+            costExp += i * 20;
+        }
+        
+        const currentExp = playerData.stats?.exp || 0;
+        
+        if (currentExp < costExp) {
+            costEl.innerHTML = `需要消耗：<span style="color: #ff4d4d; font-weight: bold;">${costExp}</span> EXP (經驗不足)`;
+            doUpgradeBtn.disabled = true;
+        } else {
+            costEl.innerHTML = `需要消耗：<span style="color: #00e5ff; font-weight: bold;">${costExp}</span> EXP`;
+            doUpgradeBtn.disabled = false;
+        }
+    }
+
+    closeUpgradeBtn.addEventListener('click', () => upgradeModal.classList.remove('show'));
+
+    doUpgradeBtn.addEventListener('click', async () => {
+        const currentLvl = playerData.cards[currentUpgradeChar].level || 1;
+        const targetLvl = parseInt(upgradeSlider.value);
+        
+        // ★ 改為只有相等時才返回，允許降級
+        if (targetLvl === currentLvl) return;
+
+        doUpgradeBtn.disabled = true;
+        doUpgradeBtn.textContent = '處理中...';
+        
+        try {
+            const res = await fetch('/api/upgrade', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: currentUpgradeChar, target_level: targetLvl })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                playerData.cards[currentUpgradeChar].level = data.level;
+                updateExpUI(data.exp);
+                
+                // ★ 更新滑動條數值，不修改 min，保持 1 以允許自由調節
+                upgradeSlider.min = 1; 
+                upgradeSlider.value = data.level;
+                document.getElementById('upgradeCurrentLvl').textContent = data.level;
+                updateUpgradeCostUI(data.level, data.level);
+                
+                renderRoster();
+                const activeTab = document.querySelector('.stage-tab.active');
+                if (activeTab) loadPartySelection();
+            } else {
+                alert(data.error);
+            }
+        } catch (e) {
+            alert("操作失敗");
+        } finally {
+            doUpgradeBtn.textContent = '確認變更';
+        }
+    });
+
+    // 前往覺醒按鈕（加上 ?. 防呆，就算 HTML 沒寫也不會報錯）
+    toAwakenBtn?.addEventListener('click', () => {
+        upgradeModal.classList.remove('show');
+        if (currentUpgradeChar) {
+            openAwakenModal(currentUpgradeChar);
+        }
+    });
+
+    // 綁定戰鬥按鈕
     document.getElementById('endTurnBtn')?.addEventListener('click', doEndTurn);
     document.getElementById('enterStageBtn')?.addEventListener('click', enterBattle);
 });

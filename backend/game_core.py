@@ -1,6 +1,7 @@
 # 文件：backend/game_core.py
 import random
 import json
+import math
 from .db import db_pool, memory_db
 from .game_data import GAME_CHARACTERS, RARITY_WEIGHTS
 from .auth import get_player_data
@@ -242,7 +243,7 @@ def _load_owned_cards(user_id):
         return {}
 
 def start_battle(user_id, stage_id, party_names=None):
-    if stage_id not in BATTLE_STAGES:
+    if not stage_id or stage_id not in BATTLE_STAGES:
         return {"ok": False, "error": "關卡不存在"}, 404
 
     owned = _load_owned_cards(user_id)
@@ -251,28 +252,35 @@ def start_battle(user_id, stage_id, party_names=None):
 
     # 檢查前置關卡解鎖
     pd = get_player_data(user_id)
-    stats = pd.get("stats", {})
+    stats = pd.get("stats", {}) if pd else {}
     cleared = stats.get("cleared_stages", [])
     
-    game_prefix = stage_id.split("-")[0]
-    stage_num = int(stage_id.split("-")[1])
-    if stage_num > 1:
-        prev_stage = f"{game_prefix}-{stage_num - 1}"
-        if prev_stage not in cleared:
-            return {"ok": False, "error": "請先通關前置關卡！"}, 403
+    # ★ Tester 特權：跳過前置關卡檢查
+    if not is_tester(user_id):
+        game_prefix = stage_id.split("-")[0]
+        stage_num = int(stage_id.split("-")[1])
+        if stage_num > 1:
+            prev_stage = f"{game_prefix}-{stage_num - 1}"
+            if prev_stage not in cleared:
+                return {"ok": False, "error": "請先通關前置關卡！"}, 403
 
     if party_names is not None:
         valid = [n for n in party_names if n in owned and n in GAME_CHARACTERS]
-        if not valid: return {"ok": False, "error": "出戰隊伍無效"}, 400
+        if not valid: 
+            return {"ok": False, "error": "出戰隊伍無效"}, 400
         party_names = valid
 
-    state, err = create_battle(
-        user_id, stage_id, BATTLE_STAGES[stage_id], owned, party_names=party_names,
-    )
-    if err:
-        return {"ok": False, "error": err}, 400
-        
-    return {"ok": True, "state": state, "story": BATTLE_STAGES[stage_id].get("story", "")}, 200
+    try:
+        state, err = create_battle(
+            user_id, stage_id, BATTLE_STAGES[stage_id], owned, party_names=party_names,
+        )
+        if err:
+            return {"ok": False, "error": err}, 400
+            
+        return {"ok": True, "state": state, "story": BATTLE_STAGES[stage_id].get("story", "")}, 200
+    except Exception as e:
+        print("進入戰鬥發生錯誤:", e)
+        return {"ok": False, "error": f"伺服器內部錯誤: {str(e)}"}, 500
 
 def get_battle_progress(user_id):
     pd = get_player_data(user_id)
@@ -286,12 +294,20 @@ def claim_battle_reward(user_id):
     reward = result["reward"]
     stage_id = result["stage_id"]
 
-    # 發幣與更新進度
+    pd = get_player_data(user_id)
+    stats = pd.get("stats", {})
+    cleared = stats.get("cleared_stages", [])
+    
+    is_first_clear = stage_id not in cleared
+    actual_reward = reward if is_first_clear else 0
+    exp_gain = 100 if is_first_clear else 30  # 首通給 100 EXP，重複刷給 30 EXP
+
     if not db_pool:
         pd = memory_db.player_data.get(user_id)
         if pd:
-            pd["coins"] += reward
+            pd["coins"] = pd.get("coins", 0) + actual_reward
             stats = pd.setdefault("stats", {})
+            stats["exp"] = stats.get("exp", 0) + exp_gain
             cleared = stats.setdefault("cleared_stages", [])
             if stage_id not in cleared: cleared.append(stage_id)
     else:
@@ -304,10 +320,16 @@ def claim_battle_reward(user_id):
             
             stats = stats or {}
             cleared = stats.get("cleared_stages", [])
+            
+            is_first_clear = stage_id not in cleared
+            actual_reward = reward if is_first_clear else 0
+            exp_gain = 100 if is_first_clear else 30
+
+            stats["exp"] = stats.get("exp", 0) + exp_gain
             if stage_id not in cleared: cleared.append(stage_id)
             stats["cleared_stages"] = cleared
 
-            cur.execute("UPDATE player_data SET coins = %s, stats = %s WHERE user_id = %s", (coins + reward, Json(stats), user_id))
+            cur.execute("UPDATE player_data SET coins = %s, stats = %s WHERE user_id = %s", (coins + actual_reward, Json(stats), user_id))
             conn.commit()
             cur.close()
             db_pool.putconn(conn)
@@ -315,7 +337,7 @@ def claim_battle_reward(user_id):
             print("發放獎勵失敗:", e)
             return {"ok": False, "error": "發放獎勵失敗"}, 500
 
-    return {"ok": True, "reward": reward, "stage_id": stage_id}, 200
+    return {"ok": True, "reward": actual_reward, "exp_gain": exp_gain, "stage_id": stage_id, "is_first_clear": is_first_clear}, 200
 
 # =========================================================
 # 其餘（抽卡、覺醒）保持你原本的代碼不變...
@@ -651,10 +673,9 @@ def do_awaken(user_id, char_name):
         current_lvl = card_data["awaken"]
         current_shards = card_data["shards"]
         
-        if current_lvl >= 6: # 改為 6
+        if current_lvl >= 6:
             return {"ok": False, "error": "已達最高覺醒等級"}, 400
             
-        # 升級消耗：固定為 1
         cost = 1 
         if current_shards < cost:
             return {"ok": False, "error": f"碎片不足，需要 {cost} 個"}, 400
@@ -663,43 +684,36 @@ def do_awaken(user_id, char_name):
         card_data["awaken"] += 1
         pd["cards"][char_name] = card_data
         
-        # 紀錄首次覺醒獎勵（如果需要的話，這裡先保留接口）
         return {"ok": True, "awaken": card_data["awaken"], "shards": card_data["shards"]}, 200
 
     # DB 模式
     try:
         conn = db_pool.getconn()
         cur = conn.cursor()
-        # 加鎖防止連點
         cur.execute("SELECT cards FROM player_data WHERE user_id = %s FOR UPDATE", (user_id,))
         row = cur.fetchone()
         if not row:
-            cur.close()
-            db_pool.putconn(conn)
+            cur.close(); db_pool.putconn(conn)
             return {"ok": False, "error": "玩家不存在"}, 404
             
         cards = row[0]
         card_data = cards.get(char_name)
         if not card_data:
-            cur.close()
-            db_pool.putconn(conn)
+            cur.close(); db_pool.putconn(conn)
             return {"ok": False, "error": "尚未擁有該角色"}, 400
             
         current_lvl = card_data["awaken"]
         current_shards = card_data["shards"]
         
-        if current_lvl >= 3:
-            cur.close()
-            db_pool.putconn(conn)
+        if current_lvl >= 6:
+            cur.close(); db_pool.putconn(conn)
             return {"ok": False, "error": "已達最高覺醒等級"}, 400
             
-        cost = current_lvl + 1
+        cost = 1
         if current_shards < cost:
-            cur.close()
-            db_pool.putconn(conn)
+            cur.close(); db_pool.putconn(conn)
             return {"ok": False, "error": f"碎片不足，需要 {cost} 個"}, 400
             
-        # 扣除碎片，等級 +1
         cards[char_name]["shards"] -= cost
         cards[char_name]["awaken"] += 1
         
@@ -712,3 +726,171 @@ def do_awaken(user_id, char_name):
     except Exception as e:
         print("覺醒錯誤:", e)
         return {"ok": False, "error": "伺服器內部錯誤"}, 500
+
+# =========================================================
+# 新增：角色升級系統
+# =========================================================
+def upgrade_character(user_id, char_name, target_level):
+    if char_name not in GAME_CHARACTERS:
+        return {"ok": False, "error": "角色不存在"}, 404
+
+    tester = is_tester(user_id)
+
+    if not db_pool:
+        pd = memory_db.player_data.get(user_id)
+        if not pd: return {"ok": False, "error": "玩家不存在"}, 404
+        cards = pd["cards"]
+        stats = pd.get("stats", {})
+        current_exp = stats.get("exp", 0)
+    else:
+        try:
+            conn = db_pool.getconn()
+            cur = conn.cursor()
+            cur.execute("SELECT stats, cards FROM player_data WHERE user_id = %s FOR UPDATE", (user_id,))
+            row = cur.fetchone()
+            if not row:
+                cur.close(); db_pool.putconn(conn)
+                return {"ok": False, "error": "玩家不存在"}, 404
+            stats, cards = row[0] or {}, row[1]
+            current_exp = stats.get("exp", 0)
+        except Exception as e:
+            return {"ok": False, "error": "資料庫錯誤"}, 500
+
+    card = cards.get(char_name)
+    if not card:
+        if db_pool: cur.close(); db_pool.putconn(conn)
+        return {"ok": False, "error": "尚未擁有該角色"}, 400
+
+    current_lvl = card.get("level", 1)
+    
+    # 判斷權限與範圍
+    if target_level < 1 or target_level > 60:
+        if db_pool: cur.close(); db_pool.putconn(conn)
+        return {"ok": False, "error": "無效的等級範圍"}, 400
+
+    if not tester:
+        if current_lvl >= 60:
+            if db_pool: cur.close(); db_pool.putconn(conn)
+            return {"ok": False, "error": "已達最高等級"}, 400
+        if target_level <= current_lvl:
+            if db_pool: cur.close(); db_pool.putconn(conn)
+            return {"ok": False, "error": "無效的升級目標"}, 400
+
+    # 計算消耗 EXP
+    cost_exp = 0
+    if not tester and target_level > current_lvl:
+        for lv in range(current_lvl, target_level):
+            cost_exp += lv * 20
+
+    if not tester and current_exp < cost_exp:
+        if db_pool: cur.close(); db_pool.putconn(conn)
+        return {"ok": False, "error": f"經驗不足，需要 {cost_exp} EXP"}, 400
+
+    # 更新數據
+    new_exp = current_exp - cost_exp if not tester else current_exp
+    card["level"] = target_level
+
+    if not db_pool:
+        pd["cards"] = cards
+        if not tester:
+            pd["stats"]["exp"] = new_exp
+    else:
+        try:
+            if not tester:
+                stats["exp"] = new_exp
+            cur.execute("UPDATE player_data SET stats = %s, cards = %s WHERE user_id = %s", (Json(stats), Json(cards), user_id))
+            conn.commit()
+            cur.close()
+            db_pool.putconn(conn)
+        except Exception as e:
+            return {"ok": False, "error": "更新失敗"}, 500
+
+    return {"ok": True, "level": target_level, "exp": new_exp, "cost_exp": cost_exp}, 200
+
+
+# 修改 get_battle_party_info 讓前端拿到 level
+def get_battle_party_info(user_id):
+    owned = _load_owned_cards(user_id)
+    result = []
+    for name, card in owned.items():
+        if name not in GAME_CHARACTERS: continue
+        info = GAME_CHARACTERS[name]
+        result.append({
+            "name": name, "rarity": info["rarity"], "role": info["role"],
+            "mind": info["mind"], "awaken": card.get("awaken", 0), "shards": card.get("shards", 0),
+            "level": card.get("level", 1) # ← 新增
+        })
+    order = {"SSR": 3, "SR": 2, "R": 1}
+    result.sort(key=lambda x: (-order.get(x["rarity"], 0), -x["level"], -x["awaken"], x["name"]))
+    return {"ok": True, "characters": result}, 200
+
+# =========================================================
+# 測試員專屬 API
+# =========================================================
+def toggle_stage_unlock(user_id, stage_id, action):
+    if not is_tester(user_id):
+        return {"ok": False, "error": "權限不足"}, 403
+    
+    pd = get_player_data(user_id)
+    stats = pd.get("stats", {})
+    cleared = stats.get("cleared_stages", [])
+
+    if action == "unlock":
+        if stage_id not in cleared: cleared.append(stage_id)
+    elif action == "lock":
+        if stage_id in cleared: cleared.remove(stage_id)
+
+    if not db_pool:
+        memory_db.player_data[user_id]["stats"] = stats
+    else:
+        try:
+            conn = db_pool.getconn()
+            cur = conn.cursor()
+            cur.execute("SELECT stats FROM player_data WHERE user_id = %s FOR UPDATE", (user_id,))
+            db_stats = cur.fetchone()[0] or {}
+            db_stats["cleared_stages"] = cleared
+            cur.execute("UPDATE player_data SET stats = %s WHERE user_id = %s", (Json(db_stats), user_id))
+            conn.commit()
+            cur.close()
+            db_pool.putconn(conn)
+        except Exception as e:
+            return {"ok": False, "error": "資料庫錯誤"}, 500
+            
+    return {"ok": True, "cleared_stages": cleared}, 200
+
+
+def set_awaken_level(user_id, char_name, target_lvl):
+    if not is_tester(user_id):
+        return {"ok": False, "error": "權限不足"}, 403
+
+    if char_name not in GAME_CHARACTERS:
+        return {"ok": False, "error": "角色不存在"}, 404
+        
+    target_lvl = int(target_lvl)
+    if target_lvl < 0 or target_lvl > 6:
+        return {"ok": False, "error": "覺醒等級必須在 0-6 之間"}, 400
+
+    if not db_pool:
+        pd = memory_db.player_data.get(user_id)
+        if not pd or char_name not in pd["cards"]:
+            return {"ok": False, "error": "角色不存在"}, 404
+        pd["cards"][char_name]["awaken"] = target_lvl
+    else:
+        try:
+            conn = db_pool.getconn()
+            cur = conn.cursor()
+            cur.execute("SELECT cards FROM player_data WHERE user_id = %s FOR UPDATE", (user_id,))
+            cards = cur.fetchone()[0]
+            if char_name not in cards:
+                cur.close(); db_pool.putconn(conn)
+                return {"ok": False, "error": "尚未擁有"}, 400
+            
+            cards[char_name]["awaken"] = target_lvl
+            cur.execute("UPDATE player_data SET cards = %s WHERE user_id = %s", (Json(cards), user_id))
+            conn.commit()
+            cur.close()
+            db_pool.putconn(conn)
+        except Exception as e:
+            return {"ok": False, "error": "資料庫錯誤"}, 500
+            
+    return {"ok": True, "awaken": target_lvl}, 200

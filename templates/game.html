@@ -24,6 +24,10 @@
                     <span class="coin-icon"></span>
                     <span id="userCoins">0</span>
                 </div>
+                <div class="user-coins" style="border-color: #00e5ff; color: #00e5ff;">
+                    <span style="font-weight: bold;">EXP</span>
+                    <span id="userExp">0</span>
+                </div>
                 <div class="user-info">
                     <span id="userName">玩家</span>
                     <button id="logoutBtn" class="btn-logout">登出</button>
@@ -133,6 +137,39 @@
             <div class="modal-actions">
                 <button id="closeWishlistBtn" class="btn-secondary">取消</button>
                 <button id="saveWishlistBtn" class="btn-primary">儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 升級彈窗 -->
+    <div id="upgradeModal" class="modal-overlay">
+        <div class="modal-content" style="width: 450px; text-align: center;">
+            <h2 id="upgradeName" style="color: var(--gold-light); margin-bottom: 10px;">角色升級</h2>
+            
+            <div style="color: #aaa; margin-bottom: 15px;">
+                當前等級：<span id="upgradeCurrentLvl" style="color: #fff; font-size: 20px; font-weight: bold;">1</span> / 60
+            </div>
+
+            <!-- 滑動條 -->
+            <div style="margin-bottom: 15px; padding: 0 10px;">
+                <input type="range" id="upgradeSlider" min="1" max="60" value="1" style="width: 100%; cursor: pointer; accent-color: var(--gold-main);">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #888; margin-top: 5px;">
+                    <span>1</span>
+                    <span>目標等級：<span id="targetLvlDisplay" style="color: var(--gold-main); font-weight: bold; font-size: 16px;">1</span></span>
+                    <span>60</span>
+                </div>
+            </div>
+
+            <div id="upgradeCostInfo" style="font-size: 14px; color: #fff; margin-bottom: 20px; min-height: 20px;">
+                需要消耗：<span style="color: #00e5ff; font-weight: bold;">0</span> EXP
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <button id="toAwakenBtn" class="btn-secondary" style="width: 100%; border-color: var(--gold-main); color: var(--gold-main);">✨ 前往覺醒</button>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button id="closeUpgradeBtn" class="btn-secondary" style="flex: 1;">取消</button>
+                <button id="doUpgradeBtn" class="btn-primary" style="flex: 2;">確認升級</button>
             </div>
         </div>
     </div>
