@@ -201,9 +201,8 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchWithTimeout('/api/auth/logout', { method: 'POST' }).then(() => window.location.reload());
     });
 
-    // 4. 頁籤切換 (改為大廳按鈕與返回按鈕)
     // 尋找所有大廳的按鈕
-    const lobbyBtns = document.querySelectorAll('.lobby-btn');
+    const lobbyBtns = document.querySelectorAll('.lobby-card-btn'); // 確認這裡是 lobby-card-btn
     const backBtns = document.querySelectorAll('.btn-back-lobby');
 
     lobbyBtns.forEach(btn => {

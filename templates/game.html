@@ -48,14 +48,13 @@
             </div>
         </header>
 
+        <!-- 🌟 核心：必须要有 main 包裹，确保所有视图在同一层级 -->
         <main class="game-main">
+            
             <!-- ========================================== -->
-            <!-- 🌟 主頁大廳 (Lobby) - 星空魔法陣版 -->
+            <!-- 🌟 主頁大廳 (Lobby) -->
             <!-- ========================================== -->
             <div id="lobbyView" class="view-panel active">
-                <div class="lobby-bg"></div>
-                <div class="lobby-dark-overlay"></div>
-                
                 <!-- 頂部裝飾標題 -->
                 <div class="lobby-header-title">
                     <span class="lobby-title-line"></span>
@@ -63,80 +62,132 @@
                     <span class="lobby-title-line"></span>
                 </div>
 
-                <!-- 懸浮按鈕群 -->
+                <!-- 左側懸浮魔法石板導航 -->
                 <div class="lobby-menu">
-                    <!-- 第一排 (3個) -->
-                    <div class="lobby-row">
-                        <button class="lobby-card-btn" data-target="battle">
-                            <div class="card-glass-bg"></div>
-                            <div class="btn-icon-wrap">⚔️</div>
-                            <div class="btn-text-wrap">
-                                <span class="btn-title">異界裂縫</span>
-                                <span class="btn-sub">BATTLE</span>
-                            </div>
-                        </button>
-                        
-                        <button class="lobby-card-btn" data-target="weekly">
-                            <div class="card-glass-bg"></div>
-                            <div class="btn-icon-wrap">🌀</div>
-                            <div class="btn-text-wrap">
-                                <span class="btn-title">週常深淵</span>
-                                <span class="btn-sub">ABYSS</span>
-                            </div>
-                        </button>
-                        
-                        <button class="lobby-card-btn" data-target="gacha">
-                            <div class="card-glass-bg"></div>
-                            <div class="btn-icon-wrap">✨</div>
-                            <div class="btn-text-wrap">
-                                <span class="btn-title">幻境卡池</span>
-                                <span class="btn-sub">GACHA</span>
-                            </div>
-                        </button>
-                    </div>
+                    <!-- 異界裂縫 -->
+                    <button class="lobby-card-btn" data-target="battle">
+                        <div class="card-bg"></div>
+                        <div class="card-glow"></div>
+                        <div class="btn-icon-wrap">
+                            <!-- 雙劍（精緻版） -->
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14.5 17.5L3 6V3h3l11.5 11.5" fill="rgba(255,224,138,0.1)"/>
+                                <path d="M13 19l6-6"/>
+                                <path d="M16 16l4 4"/>
+                                <path d="M19 21l2-2"/>
+                                <path d="M9.5 6.5L21 18v3h-3L6.5 9.5" fill="rgba(255,224,138,0.1)"/>
+                                <path d="M11 5l-6 6"/>
+                                <path d="M8 8L4 4"/>
+                                <path d="M5 3L3 5"/>
+                                <!-- 劍格寶石 -->
+                                <circle cx="5.5" cy="18.5" r="1.5" fill="currentColor"/>
+                                <circle cx="18.5" cy="5.5" r="1.5" fill="currentColor"/>
+                            </svg>
+                        </div>
+                        <div class="btn-text-wrap">
+                            <span class="btn-title">異界裂縫</span>
+                            <span class="btn-sub">BATTLE ZONE</span>
+                        </div>
+                    </button>
+                    
+                    <!-- 週常深淵 -->
+                    <button class="lobby-card-btn" data-target="weekly">
+                        <div class="card-bg"></div>
+                        <div class="card-glow"></div>
+                        <div class="btn-icon-wrap">
+                            <!-- 深淵之眼（精緻版） -->
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10" stroke-dasharray="4 2"/>
+                                <circle cx="12" cy="12" r="6" fill="rgba(255,224,138,0.1)"/>
+                                <path d="M12 6C8.686 6 6 8.686 6 12s2.686 6 6 6 6-2.686 6-6-2.686-6-6-6z" stroke-width="0.5"/>
+                                <circle cx="12" cy="12" r="2" fill="currentColor"/>
+                                <path d="M12 2v2M12 20v2M2 12h2M20 12h2"/>
+                            </svg>
+                        </div>
+                        <div class="btn-text-wrap">
+                            <span class="btn-title">週常深淵</span>
+                            <span class="btn-sub">ABYSS TRIAL</span>
+                        </div>
+                    </button>
+                    
+                    <!-- 幻境卡池 -->
+                    <button class="lobby-card-btn" data-target="gacha">
+                        <div class="card-bg"></div>
+                        <div class="card-glow"></div>
+                        <div class="btn-icon-wrap">
+                            <!-- 星光魔法（精緻版） -->
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round">
+                                <!-- 主星芒 -->
+                                <path d="M12 2l2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5z" fill="rgba(255,224,138,0.15)"/>
+                                <!-- 十字星芒 -->
+                                <path d="M12 6v12M6 12h12"/>
+                                <!-- 邊緣裝飾 -->
+                                <circle cx="12" cy="12" r="10" stroke-width="0.5"/>
+                            </svg>
+                        </div>
+                        <div class="btn-text-wrap">
+                            <span class="btn-title">幻境卡池</span>
+                            <span class="btn-sub">GACHA SUMMON</span>
+                        </div>
+                    </button>
 
-                    <!-- 第二排 (2個) -->
-                    <div class="lobby-row">
-                        <button class="lobby-card-btn" data-target="roster">
-                            <div class="card-glass-bg"></div>
-                            <div class="btn-icon-wrap">🎴</div>
-                            <div class="btn-text-wrap">
-                                <span class="btn-title">我的角色</span>
-                                <span class="btn-sub">ROSTER</span>
-                            </div>
-                        </button>
+                    <!-- 我的角色 -->
+                    <button class="lobby-card-btn" data-target="roster">
+                        <div class="card-bg"></div>
+                        <div class="card-glow"></div>
+                        <div class="btn-icon-wrap">
+                            <!-- 塔羅卡牌（精緻版） -->
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round">
+                                <rect x="6" y="3" width="12" height="18" rx="2" fill="rgba(255,224,138,0.1)"/>
+                                <!-- 內部卡牌符文 -->
+                                <path d="M12 7l2 4-2 4-2-4 2-4z" stroke-width="0.8"/>
+                                <path d="M9 17h6" stroke-width="0.8"/>
+                                <path d="M8 3v18M16 3v18" stroke-width="0.5" stroke-dasharray="1 2"/>
+                            </svg>
+                        </div>
+                        <div class="btn-text-wrap">
+                            <span class="btn-title">我的角色</span>
+                            <span class="btn-sub">MY ROSTER</span>
+                        </div>
+                    </button>
 
-                        <button class="lobby-card-btn" data-target="daily">
-                            <div class="card-glass-bg"></div>
-                            <div class="btn-icon-wrap">📅</div>
-                            <div class="btn-text-wrap">
-                                <span class="btn-title">每日任務</span>
-                                <span class="btn-sub">MISSION</span>
-                            </div>
-                        </button>
-                    </div>
+                    <!-- 每日任務 -->
+                    <button class="lobby-card-btn" data-target="daily">
+                        <div class="card-bg"></div>
+                        <div class="card-glow"></div>
+                        <div class="btn-icon-wrap">
+                            <!-- 任務卷軸（精緻版） -->
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="rgba(255,224,138,0.05)"/>
+                                <path d="M3 9h18"/>
+                                <path d="M7 13h4M7 17h7"/>
+                                <path d="M16 4v5" stroke-dasharray="2 2"/>
+                                <!-- 勾選標記 -->
+                                <path d="M16 14l2 2 3-3" stroke-width="1.5"/>
+                            </svg>
+                        </div>
+                        <div class="btn-text-wrap">
+                            <span class="btn-title">每日任務</span>
+                            <span class="btn-sub">DAILY MISSION</span>
+                        </div>
+                    </button>
+                </div>
                 </div>
             </div>
 
             <!-- ========================================== -->
             <!-- 以下為各個子功能視圖 -->
             <!-- ========================================== -->
-
+            
             <!-- 視圖 1：抽卡 -->
             <div id="gachaView" class="view-panel">
                 <button class="btn-back-lobby">◀ 返回大廳</button>
-                <div class="gacha-panel">
+                <div class="gacha-panel"> <!-- 原有代码... -->
                     <div class="gacha-title">常駐幻境卡池</div>
                     <div class="pity-info">距離 SSR 保底：<span id="pityCount" class="highlight">0</span> / 80</div>
                     <div class="gacha-buttons">
-                        <button class="btn-draw" id="draw1Btn">
-                            <span class="draw-name">單次邂逅</span>
-                            <span class="draw-cost">160 柚幣</span>
-                        </button>
-                        <button class="btn-draw ten" id="draw10Btn">
-                            <span class="draw-name">十連邂逅</span>
-                            <span class="draw-cost">1,600 柚幣</span>
-                        </button>
+                        <button class="btn-draw" id="draw1Btn"><span class="draw-name">單次邂逅</span><span class="draw-cost">160 柚幣</span></button>
+                        <button class="btn-draw ten" id="draw10Btn"><span class="draw-name">十連邂逅</span><span class="draw-cost">1,600 柚幣</span></button>
                     </div>
                     <button class="btn-wishlist" id="openWishlistBtn">⭐ 設定心願單</button>
                 </div>
@@ -154,7 +205,6 @@
             <!-- 視圖 3：戰鬥 -->
             <div id="battleView" class="view-panel">
                 <button class="btn-back-lobby" id="btnBackFromBattle">◀ 返回大廳</button>
-                
                 <div id="battleContainer" class="battle-container" style="display:none;">
                     <div class="enemy-area" id="enemyArea"></div>
                     <div class="mid-area">
