@@ -3,10 +3,8 @@ import os
 import datetime
 from dotenv import load_dotenv
 load_dotenv()
-import datetime
 from flask import Flask, jsonify, render_template, request, session
 
-# ★ 補上 backend.core 的導入
 from backend.core import (
     apply_security_headers, list_all_characters, list_all_guides,
     list_games, list_game_characters, list_game_guides, get_meta,
@@ -19,7 +17,9 @@ from backend.auth import (
 from backend.game_core import (
     get_pool_info, update_wishlist, draw_cards, get_awaken_info, do_awaken,
     start_battle, battle_action, battle_end_turn, claim_battle_reward,
-    get_battle_party_info, get_battle_progress, upgrade_character, set_awaken_level, toggle_stage_unlock
+    get_battle_party_info, get_battle_progress, upgrade_character, set_awaken_level,
+    toggle_stage_unlock, update_daily_task, get_daily_status, claim_daily_reward,
+    get_weekly_status, claim_weekly_reward,
 )
 
 app = Flask(__name__)
@@ -33,37 +33,18 @@ app.permanent_session_lifetime = datetime.timedelta(days=365)
 def _security_headers(response):
     return apply_security_headers(response)
 
-@app.route('/api/upgrade', methods=['POST'])
-@require_login
-def api_upgrade():
-    data = request.json or {}
-    char_name = data.get('name')
-    target_level = data.get('target_level', 2)
-    res, status = upgrade_character(session['user_id'], char_name, target_level)
-    return jsonify(res), status
-
-@app.route('/api/tester/stage', methods=['POST'])
-@require_login
-def api_tester_stage():
-    data = request.json or {}
-    res, status = toggle_stage_unlock(session['user_id'], data.get('stage_id'), data.get('action'))
-    return jsonify(res), status
-
-@app.route('/api/tester/awaken', methods=['POST'])
-@require_login
-def api_tester_awaken():
-    data = request.json or {}
-    res, status = set_awaken_level(session['user_id'], data.get('name'), data.get('target_lvl'))
-    return jsonify(res), status
-
+# =========================================================
 # 頁面路由
+# =========================================================
 @app.route('/')
 def index(): return render_template('index.html')
 
 @app.route('/game')
 def game_page(): return render_template('game.html')
 
+# =========================================================
 # Auth
+# =========================================================
 @app.route('/api/auth/register', methods=['POST'])
 def api_register():
     data = request.json or {}
@@ -97,7 +78,51 @@ def api_me():
         return jsonify({"logged_in": False}), 401
     return jsonify({"logged_in": True, "user_id": user_id, "username": session.get('username'), "player": player_data})
 
+# =========================================================
+# 每日任務
+# =========================================================
+@app.route('/api/daily', methods=['GET'])
+@require_login
+def api_daily(): return jsonify(get_daily_status(session['user_id'])[0])
+
+@app.route('/api/daily/claim', methods=['POST'])
+@require_login
+def api_daily_claim():
+    res, status = claim_daily_reward(session['user_id'], (request.json or {}).get('tier'))
+    return jsonify(res), status
+
+@app.route('/api/daily/view-roster', methods=['POST'])
+@require_login
+def api_daily_view_roster():
+    update_daily_task(session['user_id'], "view_roster")
+    return jsonify({"ok": True})
+
+@app.route('/api/daily/change-party', methods=['POST'])
+@require_login
+def api_daily_change_party():
+    update_daily_task(session['user_id'], "change_party")
+    return jsonify({"ok": True})
+
+# =========================================================
+# 週常
+# =========================================================
+@app.route('/api/weekly', methods=['GET'])
+@require_login
+def api_weekly():
+    return jsonify(get_weekly_status(session['user_id'])[0])
+
+@app.route('/api/weekly/claim', methods=['POST'])
+@require_login
+def api_weekly_claim():
+    data = request.json or {}
+    res, status = claim_weekly_reward(
+        session['user_id'], data.get('stage_id'), data.get('grade')
+    )
+    return jsonify(res), status
+
+# =========================================================
 # 抽卡與覺醒
+# =========================================================
 @app.route('/api/gacha/pool', methods=['GET'])
 @require_login
 def api_gacha_pool(): return jsonify(get_pool_info(session['user_id'])[0])
@@ -122,7 +147,16 @@ def api_awaken_info(character): return jsonify(get_awaken_info(session['user_id'
 @require_login
 def api_awaken_do(character): return jsonify(do_awaken(session['user_id'], character)[0])
 
+@app.route('/api/upgrade', methods=['POST'])
+@require_login
+def api_upgrade():
+    data = request.json or {}
+    res, status = upgrade_character(session['user_id'], data.get('name'), data.get('target_level'))
+    return jsonify(res), status
+
+# =========================================================
 # 戰鬥 API
+# =========================================================
 @app.route('/api/battle/party', methods=['GET'])
 @require_login
 def api_battle_party(): return jsonify(get_battle_party_info(session['user_id'])[0])
@@ -143,6 +177,16 @@ def api_battle_start_new():
 def api_battle_action():
     data = request.json or {}
     res, status = battle_action(session['user_id'], data.get('card_index', 0), data.get('target_index'))
+
+    if res.get("ok") and "events" in res:
+        has_crit = any(ev.get("daily_crit") for ev in res["events"])
+        has_ult = any(ev.get("daily_ult") for ev in res["events"])
+        sp_spent = sum(ev.get("daily_sp", 0) for ev in res["events"])
+
+        if has_crit: update_daily_task(session['user_id'], "use_counter")
+        if has_ult: update_daily_task(session['user_id'], "use_ultimate")
+        if sp_spent > 0: update_daily_task(session['user_id'], "spend_sp", sp_spent)
+
     return jsonify(res), status
 
 @app.route('/api/battle/end-turn', methods=['POST'])
@@ -157,7 +201,26 @@ def api_battle_claim_reward():
     res, status = claim_battle_reward(session['user_id'])
     return jsonify(res), status
 
+# =========================================================
+# 測試員 API
+# =========================================================
+@app.route('/api/tester/stage', methods=['POST'])
+@require_login
+def api_tester_stage():
+    data = request.json or {}
+    res, status = toggle_stage_unlock(session['user_id'], data.get('stage_id'), data.get('action'))
+    return jsonify(res), status
+
+@app.route('/api/tester/awaken', methods=['POST'])
+@require_login
+def api_tester_awaken():
+    data = request.json or {}
+    res, status = set_awaken_level(session['user_id'], data.get('name'), data.get('target_lvl'))
+    return jsonify(res), status
+
+# =========================================================
 # 攻略站原有 API
+# =========================================================
 @app.route('/api/characters')
 def api_all_characters(): return jsonify(list_all_characters())
 
@@ -199,4 +262,5 @@ def health(): return jsonify(get_health_info())
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    # 加入 threaded=True 支援多線程處理，避免排隊卡頓
+    app.run(host='0.0.0.0', port=port, threaded=True)

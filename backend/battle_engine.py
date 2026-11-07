@@ -2,7 +2,7 @@
 import random
 import copy
 import re
-from .game_data import GAME_CHARACTERS, MIND_COUNTER
+from backend.game_data import GAME_CHARACTERS, MIND_COUNTER
 
 _battle_states = {}
 _SP_GAIN_RE = re.compile(r'回\s*(\d+)\s*SP', re.IGNORECASE)
@@ -12,14 +12,17 @@ def _extract_sp_gain(desc):
     m = _SP_GAIN_RE.search(desc)
     return int(m.group(1)) if m else 0
 
+def get_state(user_id):
+    state = _battle_states.get(user_id)
+    if not state:
+        return None, "戰鬥不存在"
+    return _serialize(state), None
+
 def _infer_target(desc):
     if not desc: return "single"
     if any(k in desc for k in ("全", "群", "全體", "全隊")): return "aoe"
     return "single"
 
-# =========================================================
-# 建隊 / 建敵
-# =========================================================
 def _build_party(owned_cards, party_names=None):
     if party_names:
         names = [n for n in party_names[:3] if n in owned_cards and n in GAME_CHARACTERS]
@@ -33,34 +36,24 @@ def _build_party(owned_cards, party_names=None):
         awaken_lvl = card_data.get("awaken", 0)
         level = card_data.get("level", 1)
         
-        # 1. 覺醒乘數 (+10% / 級)
         awaken_multiplier = 1.0 + (awaken_lvl * 0.10)
-        
-        # 2. 等級乘數 (+2% / 級，從 1 級算起)
-        # 例如 1級 = 100%，60級 = 100% + 59*2% = 218%
         level_multiplier = 1.0 + ((level - 1) * 0.02)
-        
-        # 最終技能乘數
         total_multiplier = awaken_multiplier * level_multiplier
-        
-        # 生命值成長：基礎 1000 + (等級-1)*20
         max_hp = 1000 + ((level - 1) * 20)
 
         skills_data = copy.deepcopy(info["skills"])
         for k in ("normal", "skill", "ultimate"):
             sd = skills_data[k]
             sd["value"] = int(sd["value"] * total_multiplier)
-            if "target" not in sd:
-                sd["target"] = _infer_target(sd.get("desc", ""))
+            if "target" not in sd: sd["target"] = _infer_target(sd.get("desc", ""))
             sd["sp_gain"] = _extract_sp_gain(sd.get("desc", ""))
 
         party.append({
             "name": name, "mind": info["mind"], "rarity": info["rarity"],
-            "role": info["role"], "awaken": awaken_lvl, "level": level, # 傳入等級
-            "skills": skills_data,
-            "hp": max_hp, "max_hp": max_hp, 
-            "ep": 0, "max_ep": 100,
-            "shield": 0, "is_taunting": False, "has_saved": False, "has_killed": False
+            "role": info["role"], "awaken": awaken_lvl, "level": level,
+            "skills": skills_data, "hp": max_hp, "max_hp": max_hp, 
+            "ep": 0, "max_ep": 100, "shield": 0, 
+            "is_taunting": False, "has_saved": False, "has_killed": False
         })
     return party
 
@@ -72,9 +65,6 @@ def _build_enemies(stage_wave_enemies):
         "code": e.get("code", "game"), "index": e.get("index", 1),
     } for i, e in enumerate(stage_wave_enemies)]
 
-# =========================================================
-# 抽牌
-# =========================================================
 def _draw_hand(state, count=5):
     hand = []
     alive = [p for p in state["party"] if p["hp"] > 0]
@@ -105,9 +95,6 @@ def _draw_hand(state, count=5):
 def _is_counter(my_mind, enemy_mind):
     return MIND_COUNTER.get(my_mind) == enemy_mind
 
-# =========================================================
-# 建立戰鬥
-# =========================================================
 def create_battle(user_id, stage_id, stage_config, owned_cards, party_names=None):
     party = _build_party(owned_cards, party_names)
     if not party: return None, "你沒有有效的出戰角色！"
@@ -125,9 +112,6 @@ def create_battle(user_id, stage_id, stage_config, owned_cards, party_names=None
     _battle_states[user_id] = state
     return state, None
 
-# =========================================================
-# 出牌結算
-# =========================================================
 def play_card(user_id, card_index, target_index=None):
     state = _battle_states.get(user_id)
     if not state: return None, "戰鬥不存在"
@@ -147,42 +131,52 @@ def play_card(user_id, card_index, target_index=None):
     owner = state["party"][card["owner_index"]]
     if owner["hp"] <= 0: return None, "該角色已倒下"
 
-    events = []
-    state["sp"] -= card["cost"]
-
-    if card["card_type"] == "ultimate": owner["ep"] = 0
-    else: owner["ep"] = min(owner["max_ep"], owner["ep"] + 30)
-
-    # ---------- 傷害 ----------
+    # ===== 先驗證傷害卡目標（避免白白消耗資源）=====
     if card["action_type"] == "damage":
         if card["target"] == "single":
             if target_index is None or target_index < 0 or target_index >= len(state["enemies"]):
                 return None, "請選擇目標"
             if state["enemies"][target_index]["hp"] <= 0:
                 return None, "目標已倒下"
+        else:
+            if not any(e["hp"] > 0 for e in state["enemies"]):
+                return None, "沒有存活敵人"
+
+    # ===== 驗證通過，扣除資源 =====
+    events = []
+    state["sp"] -= card["cost"]
+
+    if card["cost"] > 0: 
+        events.append({"type": "log", "msg": f"消耗 {card['cost']} SP", "daily_sp": card["cost"]})
+
+    if card["card_type"] == "ultimate":
+        owner["ep"] = 0
+        events.append({"type": "log", "msg": f"{owner['name']} 施放必殺技！", "daily_ult": True})
+    else:
+        owner["ep"] = min(owner["max_ep"], owner["ep"] + 30)
+
+    if card["action_type"] == "damage":
+        if card["target"] == "single":
             targets = [target_index]
         else:
             targets = [i for i, e in enumerate(state["enemies"]) if e["hp"] > 0]
-            if not targets: return None, "沒有存活敵人"
 
         for idx in targets:
             t = state["enemies"][idx]
             if t["hp"] <= 0: continue
-            
             dmg = card["value"]
-            
+
             if owner["name"] == "白雪乃愛" and card["card_type"] == "ultimate":
                 if len(targets) == 1 and owner["awaken"] >= 6:
                     dmg *= 2
-                    events.append({"type": "log", "msg": "天使的洗禮·單體特攻！"})
 
             crit = _is_counter(card["mind"], t["mind"])
-            if crit: dmg = int(dmg * 1.5)
+            if crit:
+                dmg = int(dmg * 1.5)
+                events.append({"type": "log", "daily_crit": True})
 
             if owner["name"] == "白雪乃愛" and owner["awaken"] >= 2:
-                if t["mind"] in ("戏", "羞"):
-                    dmg = int(dmg * 1.3)
-                    events.append({"type": "log", "msg": "屬性克制增傷！"})
+                if t["mind"] in ("戏", "羞"): dmg = int(dmg * 1.3)
 
             if t["shield"] > 0:
                 absorbed = min(t["shield"], dmg)
@@ -203,9 +197,7 @@ def play_card(user_id, card_index, target_index=None):
                 owner["hp"] = min(owner["max_hp"], owner["hp"] + int(owner["max_hp"] * 0.3))
                 owner["has_killed"] = True
                 events.append({"type": "heal", "target": card["owner_index"], "value": int(owner["max_hp"] * 0.3)})
-                events.append({"type": "log", "msg": "擊殺回復！"})
 
-    # ---------- 治療 / 護盾 / 被動 ----------
     elif card["action_type"] == "heal":
         if card["target"] == "aoe" or card["card_type"] == "ultimate":
             for i, p in enumerate(state["party"]):
@@ -236,21 +228,16 @@ def play_card(user_id, card_index, target_index=None):
 
     if owner["name"] == "朝武芳乃" and card["card_type"] == "skill" and owner["awaken"] >= 2:
         owner["is_taunting"] = True
-        events.append({"type": "log", "msg": "芳乃進入守護狀態 (嘲諷)！"})
 
     if card.get("sp_gain"):
         before = state["sp"]
         state["sp"] = min(state["max_sp"], state["sp"] + card["sp_gain"])
-        if state["sp"] > before:
-            events.append({"type": "sp_gain", "value": state["sp"] - before})
+        if state["sp"] > before: events.append({"type": "sp_gain", "value": state["sp"] - before})
 
     state["hand"].pop(card_index)
     _check_wave_or_over(state, events)
     return {"state": _serialize(state), "events": events}, None
 
-# =========================================================
-# 結束回合
-# =========================================================
 def end_turn(user_id):
     state = _battle_states.get(user_id)
     if not state or state["battle_over"]: return None, "無法結束回合"
@@ -261,7 +248,6 @@ def end_turn(user_id):
 
     for i, enemy in enumerate(state["enemies"]):
         if enemy["hp"] <= 0: continue
-
         if enemy["is_stunned"]:
             enemy["is_stunned"] = False
             enemy["toughness"] = enemy["max_toughness"]
@@ -270,13 +256,12 @@ def end_turn(user_id):
 
         alive_party = [(j, p) for j, p in enumerate(state["party"]) if p["hp"] > 0]
         if not alive_party: break
-        
+
         taunters = [(j, p) for j, p in alive_party if p.get("is_taunting")]
         j, target = taunters[0] if taunters else random.choice(alive_party)
 
         dmg = 150
-        if target["name"] == "朝武芳乃" and target["awaken"] >= 2:
-            dmg = int(dmg * 0.85)
+        if target["name"] == "朝武芳乃" and target["awaken"] >= 2: dmg = int(dmg * 0.85)
 
         if target["shield"] > 0:
             absorbed = min(target["shield"], dmg)
@@ -287,16 +272,16 @@ def end_turn(user_id):
             target["hp"] = max(0, target["hp"] - dmg)
             events.append({"type": "enemy_attack", "enemy": i, "target": j, "value": dmg})
 
-            if target["hp"] <= 0 and target["awaken"] >= 6 and not target.get("has_saved"):
-                target["hp"] = int(target["max_hp"] * 0.5)
-                target["has_saved"] = True
-                events.append({"type": "log", "msg": f"{target['name']} 觸發免死金牌！"})
-            elif target["hp"] <= 0 and target["name"] != "朝武芳乃":
-                fangnai = next((p for p in state["party"] if p["name"] == "朝武芳乃" and p["hp"] > 0 and p["awaken"] >= 4), None)
+            # 芳乃 4 覺：隊友受致命傷害時，芳乃插入替擋
+            if target["hp"] <= 0 and target["name"] != "朝武芳乃":
+                fangnai = next(
+                    (p for p in state["party"]
+                     if p["name"] == "朝武芳乃" and p["hp"] > 0 and p["awaken"] >= 4),
+                    None,
+                )
                 if fangnai:
                     fangnai["hp"] = max(1, fangnai["hp"] - dmg)
                     target["hp"] = 1
-                    events.append({"type": "log", "msg": "朝武芳乃替隊友承受了致命傷害！"})
 
         target["ep"] = min(target["max_ep"], target["ep"] + 20)
 
@@ -309,26 +294,23 @@ def end_turn(user_id):
 
     return {"state": _serialize(state), "events": events}, None
 
-# =========================================================
-# 判定：是進入下一波，還是戰鬥結束？
-# =========================================================
 def _check_wave_or_over(state, events):
-    # 檢查我方是否全滅
     if all(p["hp"] <= 0 for p in state["party"]):
         state["battle_over"] = True
         state["victory"] = False
         return
 
-    # 檢查當前波次敵人是否全滅
     if all(e["hp"] <= 0 for e in state["enemies"]):
         if state["current_wave"] < state["total_waves"] - 1:
-            # 進入下一波
             state["current_wave"] += 1
             state["enemies"] = _build_enemies(state["waves_data"][state["current_wave"]])
-            state["sp"] = min(state["max_sp"], state["sp"] + 2) # 進入新波次補償2點SP
+            state["sp"] = min(state["max_sp"], state["sp"] + 2)
             events.append({"type": "log", "msg": f"第 {state['current_wave']} 波敵人出現！"})
+            
+            # 🌟 修復：進入新波次時，自動重新抽滿 5 張手牌！
+            # 否則玩家會拿著打光/打殘的舊手牌面對新敵人
+            state["hand"] = _draw_hand(state, 5)
         else:
-            # 全部波次打完，勝利
             state["battle_over"] = True
             state["victory"] = True
 
@@ -336,18 +318,14 @@ def claim_reward(user_id):
     state = _battle_states.get(user_id)
     if not state or not state["battle_over"] or state["reward_claimed"] or not state["victory"]:
         return None, "無法領取獎勵"
-
     state["reward_claimed"] = True
-    reward = state["reward_coins"]
+    result = {
+        "reward": state["reward_coins"],
+        "stage_id": state["stage_id"],
+        "turns": state["turn"],
+    }
     del _battle_states[user_id]
-    return {"reward": reward, "stage_id": state["stage_id"]}, None
-
-# =========================================================
-# 獲取當前戰鬥狀態（供未來 API 輪詢使用）
-# =========================================================
-def get_state(user_id):
-    state = _battle_states.get(user_id)
-    return _serialize(state) if state else None
+    return result, None
 
 def _serialize(state):
     return {

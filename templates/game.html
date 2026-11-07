@@ -8,16 +8,29 @@
     <link rel="stylesheet" href="/static/game/styles.css">
 </head>
 <body>
+    <!-- 🌟 標題畫面 -->
+    <div id="titleScreen" class="title-screen">
+        <div class="title-bg"></div>
+        <div class="title-overlay"></div>
+        <div class="title-content">
+            <h2 class="game-subtitle">YUZUSOFT CROSSOVER</h2>
+            <h1 class="game-main-title">幻境交錯</h1>
+            <div class="title-buttons">
+                <button id="startGameBtn" class="btn-title primary">
+                    <span class="btn-icon">▶</span> 進 入 幻 境
+                </button>
+            </div>
+            <div class="title-footer">
+                <p>© Yuzusoft. 非官方攻略站 & 卡牌遊戲</p>
+            </div>
+        </div>
+    </div>
+
     <div id="gameContainer" class="game-container" style="display: none;">
         <header class="game-header">
             <div class="header-left">
                 <a href="/" class="btn-back">📖 返回攻略站</a>
                 <span class="game-logo">柚子社 · 幻境交錯</span>
-                <div class="nav-tabs">
-                    <button class="nav-tab" data-view="battle">⚔️ 異界裂縫</button>
-                    <button class="nav-tab active" data-view="gacha">✨ 幻境卡池</button>
-                    <button class="nav-tab" data-view="roster">🎴 我的角色</button>
-                </div>
             </div>
             <div class="header-right">
                 <div class="user-coins">
@@ -36,8 +49,82 @@
         </header>
 
         <main class="game-main">
+            <!-- ========================================== -->
+            <!-- 🌟 主頁大廳 (Lobby) - 星空魔法陣版 -->
+            <!-- ========================================== -->
+            <div id="lobbyView" class="view-panel active">
+                <div class="lobby-bg"></div>
+                <div class="lobby-dark-overlay"></div>
+                
+                <!-- 頂部裝飾標題 -->
+                <div class="lobby-header-title">
+                    <span class="lobby-title-line"></span>
+                    <h2>幻 境 樞 紐</h2>
+                    <span class="lobby-title-line"></span>
+                </div>
+
+                <!-- 懸浮按鈕群 -->
+                <div class="lobby-menu">
+                    <!-- 第一排 (3個) -->
+                    <div class="lobby-row">
+                        <button class="lobby-card-btn" data-target="battle">
+                            <div class="card-glass-bg"></div>
+                            <div class="btn-icon-wrap">⚔️</div>
+                            <div class="btn-text-wrap">
+                                <span class="btn-title">異界裂縫</span>
+                                <span class="btn-sub">BATTLE</span>
+                            </div>
+                        </button>
+                        
+                        <button class="lobby-card-btn" data-target="weekly">
+                            <div class="card-glass-bg"></div>
+                            <div class="btn-icon-wrap">🌀</div>
+                            <div class="btn-text-wrap">
+                                <span class="btn-title">週常深淵</span>
+                                <span class="btn-sub">ABYSS</span>
+                            </div>
+                        </button>
+                        
+                        <button class="lobby-card-btn" data-target="gacha">
+                            <div class="card-glass-bg"></div>
+                            <div class="btn-icon-wrap">✨</div>
+                            <div class="btn-text-wrap">
+                                <span class="btn-title">幻境卡池</span>
+                                <span class="btn-sub">GACHA</span>
+                            </div>
+                        </button>
+                    </div>
+
+                    <!-- 第二排 (2個) -->
+                    <div class="lobby-row">
+                        <button class="lobby-card-btn" data-target="roster">
+                            <div class="card-glass-bg"></div>
+                            <div class="btn-icon-wrap">🎴</div>
+                            <div class="btn-text-wrap">
+                                <span class="btn-title">我的角色</span>
+                                <span class="btn-sub">ROSTER</span>
+                            </div>
+                        </button>
+
+                        <button class="lobby-card-btn" data-target="daily">
+                            <div class="card-glass-bg"></div>
+                            <div class="btn-icon-wrap">📅</div>
+                            <div class="btn-text-wrap">
+                                <span class="btn-title">每日任務</span>
+                                <span class="btn-sub">MISSION</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- 以下為各個子功能視圖 -->
+            <!-- ========================================== -->
+
             <!-- 視圖 1：抽卡 -->
-            <div id="gachaView" class="view-panel active">
+            <div id="gachaView" class="view-panel">
+                <button class="btn-back-lobby">◀ 返回大廳</button>
                 <div class="gacha-panel">
                     <div class="gacha-title">常駐幻境卡池</div>
                     <div class="pity-info">距離 SSR 保底：<span id="pityCount" class="highlight">0</span> / 80</div>
@@ -57,6 +144,7 @@
 
             <!-- 視圖 2：角色圖鑑 -->
             <div id="rosterView" class="view-panel">
+                <button class="btn-back-lobby">◀ 返回大廳</button>
                 <div class="roster-panel">
                     <div class="gacha-title">我的角色</div>
                     <div id="rosterGrid" class="roster-grid"></div>
@@ -65,6 +153,8 @@
 
             <!-- 視圖 3：戰鬥 -->
             <div id="battleView" class="view-panel">
+                <button class="btn-back-lobby" id="btnBackFromBattle">◀ 返回大廳</button>
+                
                 <div id="battleContainer" class="battle-container" style="display:none;">
                     <div class="enemy-area" id="enemyArea"></div>
                     <div class="mid-area">
@@ -77,20 +167,17 @@
                     <div class="hand-area" id="handArea"></div>
                 </div>
                 
-                <!-- 選擇關卡入口 -->
-                <div id="stageSelect" style="text-align:center; padding: 40px; width: 100%; max-width: 900px; margin: 0 auto;">
+                <div id="stageSelect" style="text-align:center; padding: 20px; width: 100%; max-width: 900px; margin: 0 auto;">
                     <h2 style="color:var(--gold-light); margin-bottom:20px; letter-spacing:0.1em;">異界裂縫</h2>
-                    
                     <div class="stage-game-tabs">
                         <button class="stage-tab active" data-game="senren">千戀＊萬花</button>
                         <button class="stage-tab" data-game="tenshi">天使紛擾</button>
                         <button class="stage-tab" data-game="cafe">星光咖啡館</button>
                         <button class="stage-tab" data-game="sabbat">魔女的夜宴</button>
                     </div>
-
                     <div class="stage-list" id="stageList"></div>
                     
-                    <div class="party-select-panel" style="margin-top: 30px;">
+                    <div class="party-select-panel" style="margin-top: 20px;">
                         <h3>選擇出戰隊伍（最多 3 名）</h3>
                         <div id="partySelectGrid" class="party-select-grid"></div>
                         <div class="party-select-footer">
@@ -100,11 +187,53 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 視圖 4：每日任務 -->
+            <div id="dailyView" class="view-panel">
+                <button class="btn-back-lobby">◀ 返回大廳</button>
+                <div class="roster-panel" style="width: 800px;">
+                    <div class="gacha-title">每日任務</div>
+                    <div class="daily-progress-container">
+                        <div class="daily-bar-bg"><div id="dailyBarFill" class="daily-bar-fill"></div></div>
+                        <div class="daily-tiers">
+                            <div class="tier" data-tier="20" style="left: 20%"><div class="tier-dot"></div><span>20點</span></div>
+                            <div class="tier" data-tier="40" style="left: 40%"><div class="tier-dot"></div><span>40點</span></div>
+                            <div class="tier" data-tier="60" style="left: 60%"><div class="tier-dot"></div><span>60點</span></div>
+                            <div class="tier" data-tier="80" style="left: 80%"><div class="tier-dot"></div><span>80點</span></div>
+                            <div class="tier" data-tier="100" style="left: 100%"><div class="tier-dot"></div><span>100點</span></div>
+                        </div>
+                        <div style="text-align: right; margin-top: 10px; color: var(--gold-light); font-weight: bold;">
+                            當前活躍：<span id="dailyPointsText">0</span> / 100
+                        </div>
+                    </div>
+                    <div id="dailyTaskList" class="daily-task-list"></div>
+                </div>
+            </div>
+
+            <!-- 視圖 5：週常深淵 -->
+            <div id="weeklyView" class="view-panel">
+                <button class="btn-back-lobby">◀ 返回大廳</button>
+                <div class="roster-panel" style="width: 950px; max-height: 88vh; overflow-y: auto;">
+                    <div class="gacha-title">週常深淵</div>
+                    <p style="text-align:center; color:var(--text-muted); font-size:13px; margin-bottom:20px;">
+                        每週一 00:00 重置 · 依通關回合數評分 · 每檔 170 柚幣
+                    </p>
+                    <div id="weeklyStageList" class="weekly-stage-list"></div>
+                    <div class="party-select-panel" style="margin-top: 20px;">
+                        <h3>選擇出戰隊伍（最多 3 名）</h3>
+                        <div id="weeklyPartyGrid" class="party-select-grid"></div>
+                        <div class="party-select-footer">
+                            <span>已選 <span class="count" id="weeklyPartyCount">0</span> / 3</span>
+                            <button class="btn-primary" id="weeklyEnterBtn" disabled>請先選擇關卡</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
-    <!-- 登入遮罩 (保持不變) -->
-    <div id="loginOverlay" class="login-overlay">
+    <!-- 登入遮罩 -->
+    <div id="loginOverlay" class="login-overlay" style="display: none;">
         <div class="login-box">
             <div class="login-header"><h1>YUZUSOFT</h1><p>幻境交錯 · 登入</p></div>
             <div class="login-tabs">
@@ -145,12 +274,9 @@
     <div id="upgradeModal" class="modal-overlay">
         <div class="modal-content" style="width: 450px; text-align: center;">
             <h2 id="upgradeName" style="color: var(--gold-light); margin-bottom: 10px;">角色升級</h2>
-            
             <div style="color: #aaa; margin-bottom: 15px;">
                 當前等級：<span id="upgradeCurrentLvl" style="color: #fff; font-size: 20px; font-weight: bold;">1</span> / 60
             </div>
-
-            <!-- 滑動條 -->
             <div style="margin-bottom: 15px; padding: 0 10px;">
                 <input type="range" id="upgradeSlider" min="1" max="60" value="1" style="width: 100%; cursor: pointer; accent-color: var(--gold-main);">
                 <div style="display: flex; justify-content: space-between; font-size: 12px; color: #888; margin-top: 5px;">
@@ -159,10 +285,7 @@
                     <span>60</span>
                 </div>
             </div>
-
-            <div id="upgradeCostInfo" style="font-size: 14px; color: #fff; margin-bottom: 20px; min-height: 20px;">
-                需要消耗：<span style="color: #00e5ff; font-weight: bold;">0</span> EXP
-            </div>
+            <div id="upgradeCostInfo" style="font-size: 14px; color: #fff; margin-bottom: 20px; min-height: 20px;"></div>
             
             <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                 <button id="toAwakenBtn" class="btn-secondary" style="width: 100%; border-color: var(--gold-main); color: var(--gold-main);">✨ 前往覺醒</button>
@@ -200,7 +323,7 @@
         </div>
     </div>
 
-    <!-- 劇情彈窗 (新增) -->
+    <!-- 劇情彈窗 -->
     <div id="storyModal" class="modal-overlay" style="z-index: 10005;">
         <div class="modal-content" style="width: 600px; background: #000; border: 1px solid var(--gold-main); color: #fff; text-align: left;">
             <h3 style="color: var(--gold-light); margin-bottom: 15px;">劇情簡介</h3>

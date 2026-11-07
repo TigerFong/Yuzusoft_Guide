@@ -851,6 +851,13 @@ body {
     height: 100%;
     background: linear-gradient(90deg, #8b0000, #ff2a2a);
     box-shadow: 0 0 8px #ff2a2a;
+    transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); /* 🌟 平滑掉血 */
+}
+
+.mini-bar.hp > div { 
+    height: 100%; 
+    background: #00ff00; 
+    transition: width 0.4s ease-out; /* 🌟 平滑掉血 */
 }
 
 .toughness-bar {
@@ -913,7 +920,6 @@ body {
     border-radius: 2px;
     overflow: hidden;
 }
-.mini-bar.hp > div { height: 100%; background: #00ff00; }
 .mini-bar.ep > div { height: 100%; background: #00ccff; }
 
 .battle-controls {
@@ -1008,8 +1014,12 @@ body {
     border-radius: 4px;
     z-index: 2;
 }
-.mind-rin { background: #e03818; color: #fff; }
-.mind-yo { background: #ffd700; color: #000; }
+.mind-rin  { background: #e03818; color: #fff; }
+.mind-xi   { background: #c084fc; color: #fff; }
+.mind-xiu  { background: #ff69b4; color: #fff; }
+.mind-jing { background: #4a90d9; color: #fff; }
+.mind-yang { background: #ffd700; color: #000; }
+.mind-he   { background: #4ade80; color: #000; }
 
 .card-thumb {
     width: 100%;
@@ -1345,4 +1355,754 @@ body {
     position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
     color: var(--gold-main); font-size: 18px; font-weight: bold;
     text-shadow: 0 0 10px var(--gold-main); z-index: 10;
+}
+
+/* =========================================================
+   每日任務
+   ========================================================= */
+.daily-progress-container {
+    margin-bottom: 24px;
+    padding: 10px 20px 0;
+}
+
+.daily-bar-bg {
+    position: relative;
+    width: 100%;
+    height: 12px;
+    background: #1a0a0a;
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.daily-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--red-deep), var(--gold-main));
+    box-shadow: 0 0 12px rgba(212, 175, 55, 0.6);
+    transition: width 0.5s ease;
+}
+
+.daily-tiers {
+    position: relative;
+    height: 40px;
+    margin-top: 8px;
+}
+
+.tier {
+    position: absolute;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: default;
+    opacity: 0.45;
+    transition: all 0.3s;
+}
+
+.tier-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #2a1010;
+    border: 2px solid rgba(212, 175, 55, 0.4);
+    transition: all 0.3s;
+}
+
+.tier span {
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.tier.claimable {
+    opacity: 1;
+    cursor: pointer;
+}
+
+.tier.claimable .tier-dot {
+    background: var(--gold-main);
+    border-color: var(--gold-light);
+    box-shadow: 0 0 12px var(--gold-main);
+    animation: tierPulse 1.2s ease-in-out infinite alternate;
+}
+
+.tier.claimable span { color: var(--gold-light); font-weight: 700; }
+
+.tier.claimed {
+    opacity: 0.9;
+    cursor: default;
+}
+
+.tier.claimed .tier-dot {
+    background: #4ade80;
+    border-color: #4ade80;
+    box-shadow: 0 0 10px rgba(74, 222, 128, 0.6);
+}
+
+.tier.claimed span { color: #4ade80; }
+
+@keyframes tierPulse {
+    from { box-shadow: 0 0 8px var(--gold-main); }
+    to   { box-shadow: 0 0 20px var(--gold-light); }
+}
+
+.daily-task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 45vh;
+    overflow-y: auto;
+    padding: 4px;
+}
+
+.daily-task-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(212, 175, 55, 0.15);
+    border-radius: 8px;
+    padding: 12px 18px;
+    transition: all 0.3s;
+}
+
+.daily-task-item.completed {
+    border-color: rgba(74, 222, 128, 0.4);
+    background: rgba(74, 222, 128, 0.05);
+}
+
+.task-desc {
+    font-size: 14px;
+    color: var(--text-main);
+}
+
+.task-reward {
+    color: var(--gold-light);
+    font-size: 13px;
+    font-weight: 700;
+    margin-right: 12px;
+}
+
+.task-status {
+    font-size: 13px;
+    color: var(--text-muted);
+    min-width: 60px;
+    text-align: right;
+}
+
+.daily-task-item.completed .task-status {
+    color: #4ade80;
+    font-weight: 700;
+}
+
+/* =========================================================
+   週常深淵
+   ========================================================= */
+.weekly-stage-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.weekly-stage-item {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    border-radius: 12px;
+    padding: 16px 20px;
+    transition: all 0.3s;
+}
+
+.weekly-stage-item.selected {
+    border-color: var(--gold-main);
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.3), inset 0 0 15px rgba(212, 175, 55, 0.1);
+}
+
+.weekly-stage-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.weekly-stage-name {
+    color: var(--gold-light);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+}
+
+.weekly-stage-meta {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.btn-weekly-challenge {
+    padding: 8px 24px;
+    font-size: 14px;
+}
+
+.weekly-grades {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.weekly-grade {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    transition: all 0.3s;
+}
+
+.weekly-grade.reached {
+    border-color: rgba(212, 175, 55, 0.4);
+    background: rgba(212, 175, 55, 0.06);
+}
+
+.weekly-grade.claimed {
+    opacity: 0.6;
+    border-color: rgba(74, 222, 128, 0.4);
+    background: rgba(74, 222, 128, 0.05);
+}
+
+.weekly-grade-label {
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--gold-light);
+    text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+}
+
+.weekly-grade.reached .weekly-grade-label {
+    color: #ffd700;
+    text-shadow: 0 0 15px rgba(255, 215, 0, 0.8);
+}
+
+.weekly-grade-turn {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.weekly-grade-reward {
+    font-size: 12px;
+    color: var(--gold-main);
+    font-weight: 700;
+}
+
+.btn-weekly-claim {
+    margin-top: 6px;
+    padding: 4px 14px;
+    font-size: 12px;
+    border-radius: 6px;
+    border: 1px solid var(--gold-dark);
+    background: transparent;
+    color: var(--gold-main);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-weekly-claim:hover:not(:disabled) {
+    background: rgba(212, 175, 55, 0.15);
+    border-color: var(--gold-light);
+    color: var(--gold-light);
+}
+
+.btn-weekly-claim:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    border-color: #555;
+    color: #888;
+}
+
+@keyframes shake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    50% { transform: translateX(5px); }
+    75% { transform: translateX(-5px); }
+    100% { transform: translateX(0); }
+}
+
+/* 卡牌打出時的飛出動畫 */
+.battle-card.playing {
+    animation: cardPlay 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    pointer-events: none;
+}
+
+@keyframes cardPlay {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-150px) scale(0.5); opacity: 0; filter: blur(4px); }
+}
+
+/* =========================================================
+   標題畫面 (Title Screen)
+   ========================================================= */
+.title-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #050510;
+    overflow: hidden;
+    transition: opacity 0.8s ease, visibility 0.8s;
+}
+
+.title-screen.hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.title-bg {
+    position: absolute;
+    inset: -20px;
+    /* 確保這張圖存在 static/picture/title_bg.png */
+    background-image: url('/static/picture/title_bg.png'); 
+    background-size: cover;
+    background-position: center;
+    animation: slowPan 40s infinite alternate linear;
+    z-index: 1;
+}
+
+@keyframes slowPan {
+    0% { transform: scale(1) translate(0, 0); }
+    100% { transform: scale(1.05) translate(-1%, 1%); }
+}
+
+.title-overlay {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(10,15,35,0.4) 0%, rgba(5,5,16,0.8) 100%);
+    z-index: 2;
+}
+
+.title-content {
+    position: relative;
+    z-index: 3;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 800px;
+    padding: 40px;
+    transform: translateY(-5vh);
+}
+
+.game-subtitle {
+    font-size: 16px;
+    color: #ffe08a;
+    letter-spacing: 0.6em;
+    margin-bottom: 12px;
+    text-shadow: 0 0 15px rgba(255, 224, 138, 0.6);
+    font-weight: 300;
+}
+
+.game-main-title {
+    font-size: 96px;
+    font-weight: 900;
+    background: linear-gradient(to bottom, #ffffff 0%, #ffe08a 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 30px rgba(255, 224, 138, 0.4), 0 0 60px rgba(100, 150, 255, 0.3);
+    margin-bottom: 50px;
+    letter-spacing: 0.15em;
+    font-family: 'Microsoft JhengHei', sans-serif;
+}
+
+.title-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 300px;
+    animation: fadeInButtons 1.2s ease-out 0.5s forwards;
+    opacity: 0;
+}
+
+@keyframes fadeInButtons {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.btn-title {
+    width: 100%;
+    padding: 16px 20px;
+    background: rgba(10, 20, 45, 0.5);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 224, 138, 0.3);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-title::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%; width: 50%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transform: skewX(-20deg);
+    transition: all 0.5s;
+}
+
+.btn-title:hover::before { left: 200%; }
+
+.btn-title:hover {
+    background: rgba(255, 224, 138, 0.15);
+    border-color: #ffe08a;
+    box-shadow: 0 0 25px rgba(255, 224, 138, 0.4);
+    transform: translateY(-3px) scale(1.02);
+    text-shadow: 0 0 10px rgba(255, 224, 138, 0.8);
+}
+
+.btn-title.primary {
+    background: linear-gradient(135deg, rgba(255, 224, 138, 0.15), rgba(100, 150, 255, 0.15));
+    border-color: #ffe08a;
+    box-shadow: 0 0 15px rgba(255, 224, 138, 0.2) inset;
+}
+
+.btn-icon { font-size: 14px; color: #ffe08a; }
+
+.title-footer {
+    position: absolute;
+    bottom: -15vh;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+}
+
+/* =========================================================
+   手機端自適應 (RWD) - 小螢幕優化
+   ========================================================= */
+@media (max-width: 768px) {
+    /* 標題畫面適配 */
+    .game-main-title { font-size: 56px; margin-bottom: 30px; }
+    .game-subtitle { font-size: 12px; }
+    .title-buttons { width: 85%; max-width: 300px; }
+    .title-footer { bottom: -10vh; font-size: 10px; }
+
+    /* 遊戲大廳頭部適配 */
+    .game-header {
+        flex-direction: column;
+        padding: 10px;
+        gap: 10px;
+    }
+    .header-left { flex-direction: column; gap: 10px; width: 100%; }
+    .nav-tabs { 
+        margin-left: 0; 
+        width: 100%; 
+        overflow-x: auto; 
+        justify-content: flex-start;
+        padding-bottom: 5px;
+    }
+    .nav-tab { flex-shrink: 0; padding: 6px 12px; font-size: 13px; }
+    .header-right { width: 100%; justify-content: space-between; }
+
+    /* 遊戲主容器與面板 */
+    .game-main { padding: 10px; }
+    .gacha-panel, .roster-panel, .party-select-panel, .modal-content { 
+        width: 100% !important; 
+        padding: 15px !important; 
+        border-radius: 12px;
+    }
+    
+    /* 抽卡按鈕適配 */
+    .gacha-buttons { flex-direction: column; gap: 15px; }
+    .btn-draw, .btn-draw.ten { width: 100%; height: 60px; }
+
+    /* 圖鑑網格適配（手機一排 3 個） */
+    .roster-grid, .party-select-grid { 
+        grid-template-columns: repeat(3, 1fr); 
+        gap: 8px;
+    }
+    .roster-card, .party-select-item { height: 120px; }
+    .roster-name, .party-select-name { font-size: 11px; }
+
+    /* 戰鬥界面適配 */
+    .battle-container { 
+        padding: 10px; 
+        height: 100dvh; 
+        border-radius: 0;
+    }
+    .enemy-area { 
+        gap: 15px; 
+        padding-bottom: 10px;
+        align-items: center;
+    }
+    .enemy-portrait { width: 90px; height: 150px; }
+    .enemy-card.boss .enemy-portrait { width: 120px; height: 180px; }
+    .enemy-info { width: 100px; padding: 4px; }
+    .enemy-name { font-size: 11px; }
+
+    /* 我方狀態列 */
+    .mid-area { padding: 0 5px; flex-direction: column; gap: 10px; align-items: stretch; }
+    .player-party { justify-content: space-between; gap: 5px; }
+    .player-status { padding: 4px 6px; gap: 6px; flex: 1; }
+    .party-thumb { width: 28px; height: 28px; }
+    .party-name { font-size: 11px; }
+    .mini-bar { width: 100%; }
+    .battle-controls { justify-content: space-between; align-items: center; }
+    
+    /* 手牌區域 */
+    .hand-area { 
+        height: auto; 
+        padding: 10px 0; 
+        flex-wrap: wrap; 
+        justify-content: center;
+    }
+    .battle-card { 
+        width: 80px; 
+        height: 130px; 
+        margin: 0 -15px; 
+        padding: 4px; 
+    }
+    .hand-area:hover .battle-card { margin: 0 -10px; }
+    .card-thumb { height: 60px; }
+    .card-title { font-size: 10px; }
+    .card-desc { font-size: 8px; }
+    
+    /* 關卡列表適配 */
+    .stage-game-tabs { flex-wrap: wrap; }
+    .stage-tab { flex: 1 1 40%; font-size: 13px; padding: 6px 10px; }
+}
+/* =========================================================
+   主頁大廳 (Lobby UI) - 星空魔法陣版
+   ========================================================= */
+#lobbyView {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow: hidden;
+}
+
+.lobby-bg {
+    position: absolute;
+    inset: 0;
+    /* 🌟 這裡替換為你的背景圖檔名 */
+    background-image: url('/static/picture/lobby_bg.png'); 
+    background-size: cover;
+    background-position: center;
+    z-index: 1;
+    /* 加入極其緩慢的縮放，讓星空活起來 */
+    animation: bgBreathing 30s infinite alternate ease-in-out;
+}
+
+@keyframes bgBreathing {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.05); }
+}
+
+/* 遮罩：中間透亮，邊緣加深，凸顯中間的魔法陣 */
+.lobby-dark-overlay {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(10, 15, 35, 0) 20%, rgba(5, 5, 15, 0.8) 80%, rgba(2, 2, 8, 1) 100%);
+    z-index: 2;
+}
+
+/* 頂部標題 */
+.lobby-header-title {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 40px;
+    transform: translateY(-20px);
+}
+
+.lobby-header-title h2 {
+    font-size: 34px;
+    color: #ffffff;
+    letter-spacing: 0.4em;
+    text-indent: 0.4em;
+    font-weight: 800;
+    /* 白到金的漸層，加上淡藍色光暈 */
+    background: linear-gradient(to bottom, #ffffff, #ffe08a);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 20px rgba(255, 224, 138, 0.5), 0 0 40px rgba(100, 150, 255, 0.3);
+}
+
+.lobby-title-line {
+    width: 120px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #ffe08a, transparent);
+    box-shadow: 0 0 10px #ffe08a;
+}
+
+/* 按鈕群組 */
+.lobby-menu {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+    max-width: 800px;
+    align-items: center;
+}
+
+.lobby-row {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    width: 100%;
+}
+
+/* 玻璃魔法卡牌按鈕 */
+.lobby-card-btn {
+    position: relative;
+    width: 180px;
+    height: 200px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 玻璃背景層 */
+.lobby-card-btn .card-glass-bg {
+    position: absolute;
+    inset: 0;
+    /* 深藍半透明 + 毛玻璃 */
+    background: rgba(15, 20, 45, 0.5);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 224, 138, 0.3);
+    border-radius: 16px;
+    transition: all 0.4s;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 0 20px rgba(100, 150, 255, 0.1);
+    overflow: hidden;
+}
+
+/* 按鈕內部的星光掃光 */
+.lobby-card-btn .card-glass-bg::before {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%; width: 200%; height: 200%;
+    background: linear-gradient(45deg, transparent 40%, rgba(255, 255, 255, 0.2) 50%, transparent 60%);
+    transform: rotate(45deg);
+    transition: all 0.6s ease-in-out;
+    opacity: 0;
+}
+
+.lobby-card-btn:hover .card-glass-bg::before {
+    opacity: 1;
+    top: 100%; left: 100%;
+}
+
+/* 圖標 */
+.btn-icon-wrap {
+    position: relative;
+    z-index: 2;
+    font-size: 48px;
+    margin-bottom: 16px;
+    filter: drop-shadow(0 0 12px rgba(255, 224, 138, 0.6));
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 文字 */
+.btn-text-wrap {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: 0.1em;
+    text-shadow: 0 0 10px rgba(255, 224, 138, 0.8);
+    transition: color 0.3s;
+}
+
+.btn-sub {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 0.3em;
+    font-family: monospace;
+    transition: color 0.3s;
+}
+
+/* ===== Hover 特效 ===== */
+.lobby-card-btn:hover {
+    transform: translateY(-10px);
+}
+
+.lobby-card-btn:hover .card-glass-bg {
+    background: rgba(25, 35, 70, 0.6);
+    border-color: #ffe08a;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(255, 224, 138, 0.3), inset 0 0 20px rgba(255, 224, 138, 0.2);
+}
+
+.lobby-card-btn:hover .btn-icon-wrap {
+    transform: scale(1.2) translateY(-5px);
+}
+
+.lobby-card-btn:hover .btn-title {
+    color: #ffe08a;
+    text-shadow: 0 0 20px #ffe08a;
+}
+
+.lobby-card-btn:hover .btn-sub {
+    color: #ffb3c6; /* 搭配櫻花粉 */
+}
+
+/* 讓第二排的按鈕稍微錯開，更具美感 */
+.lobby-row:nth-child(2) {
+    transform: translateY(10px);
+}
+
+/* =========================================================
+   手機端 (RWD) 大廳適配
+   ========================================================= */
+@media (max-width: 768px) {
+    .lobby-header-title { margin-bottom: 20px; transform: translateY(-10px); }
+    .lobby-header-title h2 { font-size: 24px; }
+    .lobby-title-line { width: 40px; }
+
+    .lobby-menu { gap: 15px; }
+    .lobby-row { gap: 15px; flex-wrap: wrap; }
+
+    .lobby-card-btn {
+        width: 110px;
+        height: 130px;
+        border-radius: 12px;
+    }
+    .lobby-card-btn .card-glass-bg {
+        border-radius: 12px;
+    }
+    .btn-icon-wrap { font-size: 32px; margin-bottom: 8px; }
+    .btn-title { font-size: 14px; }
+    .btn-sub { display: none; }
+    .lobby-row:nth-child(2) { transform: translateY(0); }
 }
