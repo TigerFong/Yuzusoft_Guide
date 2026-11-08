@@ -1781,3 +1781,221 @@ button { font-family: inherit; }
     .flip-card { width: 90px; height: 135px; }
     .flip-card-back img { height: 90px; }
 }
+/* =========================================================
+   戰鬥動作與打擊感升級
+   ========================================================= */
+
+/* 1. 玩家攻擊前衝 */
+.player-status.attacking {
+    animation: lungeRight 0.3s ease-in-out;
+    z-index: 100;
+}
+@keyframes lungeRight {
+    0% { transform: translateX(0); }
+    50% { transform: translateX(50px) scale(1.1); }
+    100% { transform: translateX(0); }
+}
+
+/* 2. 敵人攻擊前衝 */
+.enemy-card.attacking {
+    animation: lungeLeft 0.3s ease-in-out;
+    z-index: 100;
+}
+@keyframes lungeLeft {
+    0% { transform: translateX(0); }
+    50% { transform: translateX(-50px) scale(1.1); }
+    100% { transform: translateX(0); }
+}
+
+/* 3. 受擊震動與紅光 */
+.enemy-card.hit {
+    animation: hitShake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+}
+.player-status.hit {
+    animation: hitShake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+}
+@keyframes hitShake {
+    10%, 90% { transform: translate3d(-2px, 0, 0); }
+    20%, 80% { transform: translate3d(4px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+    40%, 60% { transform: translate3d(8px, 0, 0); filter: brightness(1.5) sepia(1) hue-rotate(-50deg) saturate(5); }
+}
+
+/* 4. 全螢幕打擊特效層 */
+#battleFxLayer {
+    position: fixed; inset: 0; z-index: 9999;
+    pointer-events: none; overflow: hidden; display: none;
+}
+.slash-effect {
+    position: absolute;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,230,150,0.8) 20%, transparent 70%);
+    transform: translate(-50%, -50%) scale(0);
+    animation: slashBurst 0.4s ease-out forwards;
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+@keyframes slashBurst {
+    0% { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(2.5) rotate(90deg); opacity: 0; }
+}
+
+/* 5. 戰鬥過場橫幅 (敵方回合) */
+.battle-banner {
+    position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
+    width: 100vw; height: 80px;
+    background: linear-gradient(90deg, transparent, rgba(185, 28, 60, 0.9) 20%, rgba(185, 28, 60, 0.9) 80%, transparent);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 28px; font-weight: 900; letter-spacing: 0.5em;
+    text-shadow: 0 0 10px #ff5e6c, 0 0 20px #ff0000;
+    z-index: 99999; pointer-events: none;
+    box-shadow: 0 0 40px rgba(185, 28, 60, 0.8);
+    animation: bannerSlide 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+@keyframes bannerSlide {
+    0% { opacity: 0; transform: translate(-50%, -50%) scaleX(0); }
+    15% { opacity: 1; transform: translate(-50%, -50%) scaleX(1); }
+    85% { opacity: 1; transform: translate(-50%, -50%) scaleX(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scaleX(2); }
+}
+/* =========================================================
+   進階技能與打擊特效
+   ========================================================= */
+#battleFxLayer { position: fixed; inset: 0; z-index: 9999; pointer-events: none; overflow: hidden; display: none; }
+#battleOverlayFx { position: fixed; inset: 0; z-index: 9998; pointer-events: none; display: none; }
+
+/* 1. 普攻: 金色交叉斬擊 */
+.fx-normal {
+    position: absolute; width: 120px; height: 120px;
+    background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M20,20 L80,80 M20,80 L80,20" stroke="%23ffe9a8" stroke-width="4" stroke-linecap="round"/></svg>') center no-repeat;
+    transform: translate(-50%, -50%) scale(0);
+    animation: slashAnim 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes slashAnim {
+    0% { transform: translate(-50%, -50%) scale(0) rotate(-45deg); opacity: 1; }
+    50% { transform: translate(-50%, -50%) scale(1.5) rotate(0deg); opacity: 1; filter: drop-shadow(0 0 15px #ffe9a8); }
+    100% { transform: translate(-50%, -50%) scale(2) rotate(45deg); opacity: 0; }
+}
+
+/* 2. 戰技: 紫色魔法爆裂 */
+.fx-skill {
+    position: absolute; width: 150px; height: 150px;
+    background: radial-gradient(circle, rgba(138,122,255,1) 0%, rgba(138,122,255,0.5) 30%, transparent 70%);
+    border-radius: 50%; transform: translate(-50%, -50%) scale(0);
+    animation: magicBurst 0.5s ease-out forwards;
+}
+@keyframes magicBurst {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+    50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; box-shadow: 0 0 50px #8a7aff; }
+    100% { transform: translate(-50%, -50%) scale(2); opacity: 0; box-shadow: 0 0 100px #8a7aff; }
+}
+
+/* 3. 必殺技: 全螢幕黑屏+大字 */
+.ultimate-bg {
+    position: absolute; inset: 0; background: #000;
+    opacity: 0; animation: ultBgAnim 1.2s ease forwards;
+}
+.ultimate-text {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-family: var(--font-display); font-size: 6vw; font-weight: 900; color: #fff;
+    text-shadow: 0 0 20px #ff5e6c, 0 0 50px #e8c874;
+    white-space: nowrap;
+    opacity: 0; animation: ultTextAnim 1.2s ease forwards;
+}
+@keyframes ultBgAnim {
+    0% { opacity: 0; } 20% { opacity: 0.85; } 80% { opacity: 0.85; } 100% { opacity: 0; }
+}
+@keyframes ultTextAnim {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    30% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    70% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
+}
+
+/* 4. 治療: 綠色上升光點 */
+.fx-heal {
+    position: absolute; width: 100px; height: 100px;
+    background: radial-gradient(circle, rgba(94,232,160,0.6) 0%, transparent 70%);
+    border-radius: 50%; transform: translate(-50%, -50%) scale(0);
+    animation: healAnim 0.8s ease-out forwards;
+}
+@keyframes healAnim {
+    0% { transform: translate(-50%, 50%) scale(0.5); opacity: 1; }
+    100% { transform: translate(-50%, -100%) scale(1.5); opacity: 0; }
+}
+
+/* 5. 護盾: 藍色六角形 */
+.fx-shield {
+    position: absolute; width: 120px; height: 120px;
+    background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><polygon points="50 5, 95 25, 95 75, 50 95, 5 75, 5 25" fill="none" stroke="%236ee7f0" stroke-width="3" /></svg>') center no-repeat;
+    transform: translate(-50%, -50%) scale(0);
+    animation: shieldAnim 0.6s ease-out forwards;
+}
+@keyframes shieldAnim {
+    0% { transform: translate(-50%, -50%) scale(0) rotate(0); opacity: 1; }
+    50% { transform: translate(-50%, -50%) scale(1.2) rotate(180deg); opacity: 1; filter: drop-shadow(0 0 15px #6ee7f0); }
+    100% { transform: translate(-50%, -50%) scale(1) rotate(360deg); opacity: 0; }
+}
+
+/* 6. 敵方攻擊: 紅色衝擊波 */
+.fx-enemy-hit {
+    position: absolute; width: 80px; height: 80px;
+    background: radial-gradient(circle, #ff5e6c 0%, transparent 70%);
+    border-radius: 50%; transform: translate(-50%, -50%) scale(0);
+    animation: enemyHitAnim 0.4s ease-out forwards;
+}
+@keyframes enemyHitAnim {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+    50% { transform: translate(-50%, -50%) scale(1.5); opacity: 0.8; }
+    100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+}
+
+/* 7. 動作動畫 */
+.player-status.attacking { animation: lungeRight 0.3s ease-in-out; z-index: 100; }
+@keyframes lungeRight {
+    0% { transform: translateX(0); }
+    50% { transform: translateX(50px) scale(1.1); }
+    100% { transform: translateX(0); }
+}
+.enemy-card.attacking { animation: lungeLeft 0.3s ease-in-out; z-index: 100; }
+@keyframes lungeLeft {
+    0% { transform: translateX(0); }
+    50% { transform: translateX(-50px) scale(1.1); }
+    100% { transform: translateX(0); }
+}
+.enemy-card.hit { animation: hitShake 0.4s both; }
+.player-status.hit { animation: hitShake 0.4s both; }
+@keyframes hitShake {
+    10%, 90% { transform: translate3d(-2px, 0, 0); }
+    20%, 80% { transform: translate3d(4px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+    40%, 60% { transform: translate3d(8px, 0, 0); filter: brightness(1.5) sepia(1) hue-rotate(-50deg) saturate(5); }
+}
+/* 卡牌詳情 Tooltip */
+.card-tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: linear-gradient(160deg, rgba(22,28,56,.98), rgba(9,12,26,.98));
+    border: 1px solid var(--gold-main);
+    border-radius: 10px;
+    padding: 14px;
+    width: 220px;
+    z-index: 10000;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.2s, transform 0.2s;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.9), inset 0 0 20px rgba(232,200,116,0.1);
+    display: flex; flex-direction: column; gap: 8px;
+}
+.card-tooltip.show { opacity: 1; transform: translateY(0); }
+.card-tooltip .tt-title { font-size: 14px; font-weight: 800; color: var(--gold-bright); }
+.card-tooltip .tt-type { font-size: 11px; color: var(--cyan-accent); }
+.card-tooltip .tt-desc { font-size: 13px; color: #fff; line-height: 1.5; }
+.card-tooltip .tt-meta { font-size: 12px; color: var(--text-sub); border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px; margin-top: 4px; }
+/* 抽牌飛入動畫 */
+@keyframes drawCardIn {
+    0% { opacity: 0; transform: translateY(80px) scale(0.6) rotate(15deg); }
+    100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
+}
+.battle-card.draw-anim {
+    animation: drawCardIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}

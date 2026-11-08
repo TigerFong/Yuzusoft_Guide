@@ -102,6 +102,12 @@ def _alive_enemies(state):
 # ============================================================
 # 加成 / 減傷 集中計算
 # ============================================================
+def _get_crit_rate(state, owner, card):
+    # 基礎暴擊率（克制為 100%，否則為 0，但這裡我們加入裝備/技能的暴擊率）
+    base_rate = 1.0 if _is_counter(card["mind"], target_mind) else 0.0
+    # 這裡簡化處理，假設只有數值加成
+    return 0 
+
 def _calc_damage_bonus(state, owner, target, card):
     """攻擊者的覺醒傷害加成（加法累計）"""
     name = owner["name"]
@@ -143,12 +149,15 @@ def _calc_damage_bonus(state, owner, target, card):
     return bonus
 
 
-def _get_crit_multiplier(state):
+def _get_crit_multiplier(state, owner=None):
     mult = 1.5
     if _party_has(state, "四季夏目", 4):
-        mult += 0.20  # 暴击伤害 +20%
+        mult += 0.20
     if _party_has(state, "仮屋和奏", 4):
-        mult += 0.10  # [等价映射] 暴击率 +10% → 克制伤害 +10%
+        mult += 0.10
+    # 🌟 新增：吃角色的暴擊傷害 Buff
+    if owner:
+        mult += _buff_sum(owner, "crit_dmg_up")
     return mult
 
 
@@ -203,7 +212,11 @@ def _build_party(owned_cards, party_names=None):
         skills_data = copy.deepcopy(info["skills"])
         for k in ("normal", "skill", "ultimate"):
             sd = skills_data[k]
-            sd["value"] = int(sd["value"] * total_multiplier)
+            if sd["type"] == "buff":
+                # 🌟 Buff 卡數值單獨處理：只加成覺醒（1/3/5覺 +10%）
+                sd["value"] = int(sd["value"] * awaken_multiplier)
+            else:
+                sd["value"] = int(sd["value"] * total_multiplier)
             sd["desc"] = _replace_first_number(sd.get("desc", ""), sd["value"])
             if "target" not in sd:
                 sd["target"] = _infer_target(sd.get("desc", ""))
@@ -309,7 +322,7 @@ def _process_single_hit(state, owner, target, target_idx, base_dmg, card, events
 
     crit = _is_counter(card["mind"], target["mind"])
     if crit:
-        dmg = int(dmg * _get_crit_multiplier(state))
+        dmg = int(dmg * _get_crit_multiplier(state, owner))
         events.append({"type": "log", "daily_crit": True})
 
     if (owner["name"] == "白雪乃愛" and owner["awaken"] >= 6
@@ -373,6 +386,82 @@ def _process_single_hit(state, owner, target, target_idx, base_dmg, card, events
 # ============================================================
 # 治療 / 護盾 結算
 # ============================================================
+def _process_buff(state, owner, card, target_index, events):
+    owner_name = owner["name"]
+    owner_awaken = owner["awaken"]
+    
+    # 判斷是全體還是單體
+    if card["target"] == "aoe" or card["card_type"] == "ultimate":
+        target_list = [i for i, p in enumerate(state["party"]) if p["hp"] > 0]
+    else:
+        i = target_index if (target_index is not None and 0 <= target_index < len(state["party"])) else state["party"].index(owner)
+        target_list = [i] if state["party"][i]["hp"] > 0 else []
+
+    for i in target_list:
+        p = state["party"][i]
+        
+        # 解析卡片描述，決定加什麼 Buff
+        desc = card["desc"]
+        
+        if "攻擊力" in desc:
+            val = card["value"] / 100.0  # 🌟 轉回浮點數
+            if owner_name == "叢雨" and owner_awaken >= 3: val += 0.05
+            if owner_name == "蕾娜·列支敦瑙爾" and owner_awaken >= 3: val += 0.05
+            _add_buff(p, "atk_up", val, 2)
+            
+        if "暴擊傷害" in desc:
+            val = card["value"] / 100.0
+            if owner_name == "明月栞那" and owner_awaken >= 3: val += 0.05
+            _add_buff(p, "crit_dmg_up", val, 2)
+            
+        if "暴擊率" in desc:
+            val = card["value"] / 100.0
+            if owner_name == "戶隱憧子" and owner_awaken >= 3: val += 0.05
+            _add_buff(p, "crit_rate_up", val, 2)
+
+        if "減傷" in desc:
+            _add_buff(p, "dmg_reduce", 0.10, 2)
+
+    # 處理回血 (描述中有恢復)
+    if "恢復" in card["desc"] and card["card_type"] == "ultimate":
+        heal_val = 200 if "200" in card["desc"] else 150
+        for i in target_list:
+            p = state["party"][i]
+            actual = min(heal_val, p["max_hp"] - p["hp"])
+            if actual > 0:
+                p["hp"] += actual
+                events.append({"type": "heal", "target": i, "value": actual})
+
+    # 處理回 SP (從描述中解析)
+    if "回 1 SP" in card["desc"]:
+        state["sp"] = min(state["max_sp"], state["sp"] + 1)
+        events.append({"type": "sp_gain", "value": 1})
+    elif "回 2 SP" in card["desc"]:
+        state["sp"] = min(state["max_sp"], state["sp"] + 2)
+        events.append({"type": "sp_gain", "value": 2})
+
+    # 特殊處理：憧子的必殺技會眩暈敵人
+    if owner_name == "戶隱憧子" and card["card_type"] == "ultimate":
+        for idx, t in enumerate(state["enemies"]):
+            if t["hp"] > 0:
+                t["is_stunned"] = True
+                events.append({"type": "stun", "target": idx, "msg": "混亂"})
+
+    # 處理覺醒被動：栞那的必殺技全隊充能
+    if owner_name == "明月栞那" and card["card_type"] == "ultimate":
+        for i in target_list:
+            p = state["party"][i]
+            p["ep"] = min(p["max_ep"], p["ep"] + 100)
+            
+    # 處理覺醒被動：憧子的減益
+    if owner_name == "戶隱憧子" and owner_awaken >= 2 and random.random() < 0.20:
+        for t in state["enemies"]:
+            if t["hp"] > 0:
+                _add_debuff(t, "atk_down", 0.15, 2)
+        events.append({"type": "log", "msg": "憧子額外干擾了敵人！"})
+
+    events.append({"type": "log", "msg": f"{owner_name} 施放了輔助技能！"})
+
 def _process_heal(state, owner, card, target_index, events):
     owner_name = owner["name"]
     owner_awaken = owner["awaken"]
@@ -703,6 +792,8 @@ def play_card(user_id, card_index, target_index=None):
         _process_heal(state, owner, card, target_index, events)
     elif card["action_type"] == "shield":
         _process_shield(state, owner, card, target_index, events)
+    elif card["action_type"] == "buff":
+        _process_buff(state, owner, card, target_index, events)
 
     _on_owner_played(state, events, owner, card, target_index)
 
@@ -946,10 +1037,17 @@ def _check_wave_or_over(state, events):
 
     if all(e["hp"] <= 0 for e in state["enemies"]):
         if state["current_wave"] < state["total_waves"] - 1:
+            # 🌟 加入波次清除事件
+            events.append({"type": "wave_clear", "wave": state["current_wave"] + 1})
+            
             state["current_wave"] += 1
             state["enemies"] = _build_enemies(state["waves_data"][state["current_wave"]])
             state["sp"] = min(state["max_sp"], state["sp"] + 2)
             events.append({"type": "log", "msg": f"第 {state['current_wave']} 波敵人出現！"})
+            
+            # 🌟 保留玩家狀態，重置出牌標記，重新抽牌
+            for p in state["party"]:
+                p["acted_this_turn"] = False 
             state["hand"] = _draw_hand(state, 5)
         else:
             state["battle_over"] = True

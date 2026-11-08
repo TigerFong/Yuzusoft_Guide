@@ -12,6 +12,8 @@ let selectedCardIndex = null;
 let isBusy = false;
 let selectedParty = [];
 let currentPartyData = []; // 緩存角色列表
+let isFinishingBattle = false;
+let shouldAnimateHand = false;
 
 // --- 關卡選擇狀態 ---
 let currentSelectedStageId = null;
@@ -587,7 +589,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startActualBattle() {
-        selectedCardIndex = null; isBusy = false;
+        selectedCardIndex = null; isBusy = false; shouldAnimateHand = true;
         
         document.getElementById('battleStep1')?.classList.remove('active');
         document.getElementById('battleStep2')?.classList.remove('active');
@@ -628,7 +630,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const card = currentBattleState.hand[selectedCardIndex];
         if (!card) return false;
         if (card.target === 'aoe') return false;
-        return card.action_type !== 'damage';
+        return card.action_type !== 'damage'; // damage, buff, heal, shield 單體時都需要選人
     }
 
     function renderEnemies() {
@@ -661,6 +663,59 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (card.action_type !== 'damage') return showAlert("這張卡不是傷害卡，請點擊我方角色作為目標。");
                 doPlayCard(selectedCardIndex, idx);
             });
+
+            // 🌟 滑鼠懸浮顯示 Tooltip
+            el.addEventListener('mouseenter', (e) => {
+                const tooltip = document.getElementById('cardTooltip');
+                const rect = el.getBoundingClientRect();
+                
+                let typeText = card.action_type === 'damage' ? '傷害' : (card.action_type === 'heal' ? '治療' : '護盾');
+                if (card.card_type === 'ultimate') typeText = '必殺技';
+                else if (card.card_type === 'skill') typeText = '戰技';
+
+                tooltip.innerHTML = `
+                    <div class="tt-title">${card.title}</div>
+                    <div class="tt-type">${typeText} · 消耗 ${card.cost} SP</div>
+                    <div class="tt-desc">${card.desc}</div>
+                    <div class="tt-meta">心相：${card.mind} · 目標：${card.target === 'aoe' ? '全體' : '單體'}</div>
+                `;
+                
+                // 定位在卡牌上方
+                tooltip.style.left = `${rect.left + rect.width / 2 - 110}px`;
+                tooltip.style.top = `${rect.top - 160}px`;
+                tooltip.classList.add('show');
+            });
+
+            el.addEventListener('mouseleave', () => {
+                document.getElementById('cardTooltip').classList.remove('show');
+            });
+            
+            // 手機端長按顯示
+            let touchTimer;
+            el.addEventListener('touchstart', (e) => {
+                touchTimer = setTimeout(() => {
+                    const tooltip = document.getElementById('cardTooltip');
+                    const rect = el.getBoundingClientRect();
+                    let typeText = card.action_type === 'damage' ? '傷害' : (card.action_type === 'heal' ? '治療' : '護盾');
+                    if (card.card_type === 'ultimate') typeText = '必殺技';
+                    else if (card.card_type === 'skill') typeText = '戰技';
+
+                    tooltip.innerHTML = `
+                        <div class="tt-title">${card.title}</div>
+                        <div class="tt-type">${typeText} · 消耗 ${card.cost} SP</div>
+                        <div class="tt-desc">${card.desc}</div>
+                        <div class="tt-meta">心相：${card.mind} · 目標：${card.target === 'aoe' ? '全體' : '單體'}</div>
+                    `;
+                    tooltip.style.left = `${rect.left + rect.width / 2 - 110}px`;
+                    tooltip.style.top = `${rect.top - 160}px`;
+                    tooltip.classList.add('show');
+                }, 300);
+            }, { passive: true });
+
+            el.addEventListener('touchend', () => {
+                clearTimeout(touchTimer);
+                setTimeout(() => document.getElementById('cardTooltip').classList.remove('show'), 1500);
+            });
             area.appendChild(el);
         });
     }
@@ -677,6 +732,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetable = needsAlly && !dead;
             el.className = `player-status ${dead ? 'dead' : ''} ${targetable ? 'targetable' : ''}`;
             el.dataset.partyIndex = index;
+            // 讀取目前角色身上的 Buff
+            let buffHtml = '';
+            if (p.buffs && p.buffs.length > 0) {
+                const hasAtk = p.buffs.some(b => b.key === 'atk_up');
+                const hasDef = p.buffs.some(b => b.key === 'dmg_reduce');
+                const hasCrit = p.buffs.some(b => b.key === 'crit_dmg_up' || b.key === 'crit_rate_up');
+                buffHtml = `<div style="display:flex; gap:4px; margin-top:2px; font-size:10px;">
+                    ${hasAtk ? '<span style="color:#ffd700; text-shadow:0 0 5px #ffd700;">⚔️攻</span>' : ''}
+                    ${hasDef ? '<span style="color:#00e5ff; text-shadow:0 0 5px #00e5ff;">🛡️防</span>' : ''}
+                    ${hasCrit ? '<span style="color:#ff5e6c; text-shadow:0 0 5px #ff5e6c;">💥爆</span>' : ''}
+                </div>`;
+            }
             el.innerHTML = `
                 <img src="/static/picture/thumb-${info.code}-${info.index}.png" class="party-thumb">
                 <div class="party-info">
@@ -684,6 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="mini-bar hp"><div style="width: ${(p.hp / p.max_hp) * 100}%;"></div></div>
                     <div class="mini-bar ep"><div style="width: ${(p.ep / p.max_ep) * 100}%;"></div></div>
                     ${p.shield > 0 ? `<div style="font-size:10px; color:#00e5ff;">🛡️ ${p.shield}</div>` : ''}
+                    ${buffHtml}
                 </div>
             `;
             el.addEventListener('click', () => {
@@ -704,16 +772,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const area = document.getElementById('handArea');
         if (!area || !currentBattleState) return;
         area.innerHTML = '';
+        
+        // 判斷是否要播放飛入動畫
+        const playAnim = shouldAnimateHand;
+
         currentBattleState.hand.forEach((card, idx) => {
             const info = allCharacters[card.name] || { code: 'game', index: 1 };
             const el = document.createElement('div');
-            el.className = `battle-card ${selectedCardIndex === idx ? 'selected' : ''} ${card.card_type === 'ultimate' ? 'ultimate' : ''}`;
+            
+            // 根據狀態決定是否加上 draw-anim
+            el.className = `battle-card ${playAnim ? 'draw-anim' : ''} ${selectedCardIndex === idx ? 'selected' : ''} ${card.card_type === 'ultimate' ? 'ultimate' : ''}`;
+            
+            // 只有播動畫時才加上延遲，否則直接顯示
+            if (playAnim) {
+                el.style.animationDelay = `${idx * 0.08}s`;
+            }
+
             const mindClass = ({凛:'rin', 戏:'xi', 羞:'xiu', 静:'jing', 阳:'yang', 和:'he'})[card.mind] || 'rin';
             el.innerHTML = `
                 <div class="card-cost">${card.cost}</div><div class="card-mind mind-${mindClass}">${card.mind}</div>
                 <div class="card-thumb" style="background-image: url('/static/picture/thumb-${info.code}-${info.index}.png');"></div>
                 <div class="card-title">${card.name} - ${card.title}</div><div class="card-desc">${card.desc}</div>
             `;
+            
             el.addEventListener('click', () => {
                 if (isBusy || !currentBattleState || currentBattleState.battle_over) return;
                 if (card.cost > currentBattleState.sp) { SFX.deny(); return showAlert("SP 不足！"); }
@@ -723,8 +804,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderHand(); 
                 renderPlayerParty(); 
             });
+            
             area.appendChild(el);
         });
+        
+        // 🌟 核心：渲染完畢後，立刻把動畫狀態關閉，避免後續的更新重複觸發
+        shouldAnimateHand = false;
     }
 
     function updateSPUI() {
@@ -735,71 +820,91 @@ document.addEventListener('DOMContentLoaded', () => {
     // 🌟 核心：樂觀 UI 秒出傷
     async function doPlayCard(cardIndex, targetIndex) {
         if (isBusy || !currentBattleState) return;
-        
         const card = currentBattleState.hand[cardIndex];
         if (!card) return;
 
         const rollbackState = JSON.parse(JSON.stringify(currentBattleState));
         isBusy = true;
 
-        // 音效：必殺 or 普通出牌
-        if (card.card_type === 'ultimate') SFX.ultimate();
-        else SFX.cardPlay();
-
-        // 1. 前端秒反饋：飛牌、預判扣 SP、秒出傷數字
         const cardEls = document.querySelectorAll('.battle-card');
         if(cardEls[cardIndex]) cardEls[cardIndex].classList.add('playing');
 
+        const ownerEl = document.querySelector(`.player-status[data-party-index="${card.owner_index}"]`);
+
+        // 1. 技能演出區分
+        if (card.card_type === 'ultimate') {
+            SFX.ultimate();
+            await playUltimateCinematic(card.title);
+        } else if (card.card_type === 'skill') {
+            SFX.cardPlay();
+            if (ownerEl) {
+                ownerEl.style.filter = "brightness(1.5) drop-shadow(0 0 20px #8a7aff)";
+                setTimeout(() => ownerEl.style.filter = "", 500);
+            }
+        } else {
+            SFX.cardPlay();
+            if (ownerEl) {
+                ownerEl.classList.add('attacking');
+                setTimeout(() => ownerEl.classList.remove('attacking'), 300);
+            }
+        }
+
+        // 2. 數據預判與特效
         if (card.action_type === 'damage') {
             const counterMap = {"凛":"戏", "戏":"羞", "羞":"静", "静":"阳", "阳":"和", "和":"凛"};
-            if (card.target === 'single' && targetIndex !== null) {
-                const enemy = currentBattleState.enemies[targetIndex];
+            
+            const doDamage = (idx, enemy) => {
                 const isCrit = (counterMap[card.mind] === enemy.mind);
                 let dmg = card.value;
                 if (isCrit) dmg = Math.floor(dmg * 1.5);
                 
-                // 預判扣血與數字
-                showDamageNumber(targetIndex, dmg, isCrit);
-                const el = document.querySelector(`.enemy-card[data-enemy-id="${targetIndex}"] .hp-fill`);
-                if (el) {
-                    const ratio = Math.max(0, (enemy.hp - dmg) / enemy.max_hp);
-                    el.style.width = `${ratio * 100}%`;
-                }
+                setTimeout(() => {
+                    showDamageNumber(idx, dmg, isCrit);
+                    const enemyEl = document.querySelector(`.enemy-card[data-enemy-id="${idx}"]`);
+                    if (enemyEl) {
+                        enemyEl.classList.add('hit');
+                        setTimeout(() => enemyEl.classList.remove('hit'), 400);
+                        playSkillFx('damage', enemyEl, card.card_type);
+                    }
+                    const el = document.querySelector(`.enemy-card[data-enemy-id="${idx}"] .hp-fill`);
+                    if (el) el.style.width = `${Math.max(0, (enemy.hp - dmg) / enemy.max_hp) * 100}%`;
+                }, card.card_type === 'ultimate' ? 0 : 150);
+            };
+
+            if (card.target === 'single' && targetIndex !== null) {
+                doDamage(targetIndex, currentBattleState.enemies[targetIndex]);
             } else if (card.target === 'aoe') {
                 currentBattleState.enemies.forEach((enemy, idx) => {
-                    if (enemy.hp > 0) {
-                        const isCrit = (counterMap[card.mind] === enemy.mind);
-                        let dmg = card.value;
-                        if (isCrit) dmg = Math.floor(dmg * 1.5);
-                        showDamageNumber(idx, dmg, isCrit);
-                        const el = document.querySelector(`.enemy-card[data-enemy-id="${idx}"] .hp-fill`);
-                        if (el) {
-                            const ratio = Math.max(0, (enemy.hp - dmg) / enemy.max_hp);
-                            el.style.width = `${ratio * 100}%`;
+                    if (enemy.hp > 0) doDamage(idx, enemy);
+                });
+            }
+        } else if (card.action_type === 'heal' || card.action_type === 'shield' || card.action_type === 'buff') {
+            const targets = targetIndex !== null ? [targetIndex] : currentBattleState.party.map((p, i) => p.hp > 0 ? i : -1).filter(i => i !== -1);
+            
+            setTimeout(() => {
+                targets.forEach(idx => {
+                    const pEl = document.querySelector(`.player-status[data-party-index="${idx}"]`);
+                    if (pEl) {
+                        // Buff 卡使用綠色/金色光環特效
+                        if (card.action_type === 'buff') {
+                            playSkillFx('heal', pEl); 
+                            SFX.upgrade(); // 輔助音效
+                        } else {
+                            playSkillFx(card.action_type, pEl);
                         }
                     }
+                    if (card.action_type === 'heal') showHealFloat(idx, card.value);
+                    else if (card.action_type === 'shield') showShieldFloat(idx, card.value);
+                    // Buff 不加飄字，透過狀態顯示
                 });
-            }
-        } else if (card.action_type === 'heal' || card.action_type === 'shield') {
-            if (targetIndex !== null) {
-                if(card.action_type === 'heal') showHealFloat(targetIndex, card.value);
-                else showShieldFloat(targetIndex, card.value);
-            } else {
-                currentBattleState.party.forEach((p, idx) => {
-                    if(p.hp > 0) {
-                        if(card.action_type === 'heal') showHealFloat(idx, card.value);
-                        else showShieldFloat(idx, card.value);
-                    }
-                });
-            }
+            }, 150);
         }
-        
-        // 預扣 SP、隱藏該卡
+
         currentBattleState.sp -= card.cost;
         updateSPUI();
         selectedCardIndex = null;
 
-        // 2. 背景發送請求
+        // 3. 發送請求
         try {
             const res = await fetchWithTimeout('/api/battle/action', {
                 method: 'POST',
@@ -810,33 +915,49 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (!data.ok) { 
                 showAlert(data.error); 
-                currentBattleState = rollbackState; // 失敗回滾
+                currentBattleState = rollbackState; 
                 renderBattle(); 
+                isBusy = false;
+                const btn = document.getElementById('endTurnBtn'); if (btn) btn.disabled = false;
                 return; 
             }
             
-            // 3. 後端權威數據歸來，靜默校準畫面
-            currentBattleState = data.state;
-            renderBattle(); 
-            
-            const filteredEvents = data.events.filter(ev =>
-                ev.type !== 'damage' && ev.type !== 'heal' && ev.type !== 'shield'
-            );
-            playEvents(filteredEvents);
-            
-            if (currentBattleState.battle_over) {
-                setTimeout(() => finishBattle(currentBattleState.victory), 700);
-            }
+            // 延遲刷新畫面，確保動畫播完
+            setTimeout(() => {
+                currentBattleState = data.state;
+                renderBattle(); 
+                const hasWaveClear = data.events.some(ev => ev.type === 'wave_clear');
+                
+                if (hasWaveClear) {
+                    shouldAnimateHand = true;
+                    // 播放波次清除特效
+                    const banner = document.createElement('div');
+                    banner.className = 'battle-banner';
+                    banner.style.background = 'linear-gradient(90deg, transparent, rgba(232, 200, 116, 0.9) 20%, rgba(232, 200, 116, 0.9) 80%, transparent)';
+                    banner.style.color = '#000';
+                    banner.style.textShadow = 'none';
+                    banner.style.boxShadow = '0 0 40px rgba(232, 200, 116, 0.8)';
+                    banner.textContent = "波次清除！";
+                    document.body.appendChild(banner);
+                    setTimeout(() => banner.remove(), 1200);
+                }
+
+                const filteredEvents = data.events.filter(ev => ev.type !== 'damage' && ev.type !== 'heal' && ev.type !== 'shield' && ev.type !== 'wave_clear');
+                playEvents(filteredEvents);
+                if (currentBattleState.battle_over) setTimeout(() => finishBattle(currentBattleState.victory), 700);
+                
+                isBusy = false; 
+                if (currentBattleState && !currentBattleState.battle_over) {
+                    const btn = document.getElementById('endTurnBtn'); if (btn) btn.disabled = false;
+                }
+            }, card.card_type === 'ultimate' ? 500 : 300);
+
         } catch (e) { 
             showAlert('出牌失敗：' + e.message); 
             currentBattleState = rollbackState; 
             renderBattle();
-        } finally { 
-            isBusy = false; 
-            if (currentBattleState && !currentBattleState.battle_over) {
-                const btn = document.getElementById('endTurnBtn');
-                if (btn) btn.disabled = false;
-            }
+            isBusy = false;
+            const btn = document.getElementById('endTurnBtn'); if (btn) btn.disabled = false;
         }
     }
 
@@ -857,11 +978,83 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderBattle();
                 return; 
             }
+            
             selectedCardIndex = null; 
+            
+            // 1. 播放敵方回合橫幅
+            await showBattleBanner("敵方回合", 1000);
+            
+            const enemyAttacks = data.events.filter(ev => ev.type === 'enemy_attack');
+
+            // 2. 依序演出每一個敵人的攻擊
+            if (enemyAttacks.length > 0) {
+                for (let i = 0; i < enemyAttacks.length; i++) {
+                    const ev = enemyAttacks[i];
+                    const enemyEl = document.querySelector(`.enemy-card[data-enemy-id="${ev.enemy}"]`);
+                    
+                    if (enemyEl) {
+                        // 敵人前衝
+                        enemyEl.classList.add('attacking');
+                        setTimeout(() => enemyEl.classList.remove('attacking'), 300);
+                        
+                        // 給敵人一個紅光特效
+                        enemyEl.style.filter = "brightness(1.5) sepia(1) hue-rotate(-50deg) saturate(5)";
+                        setTimeout(() => enemyEl.style.filter = "", 400);
+                    }
+
+                    // 等待 250ms 讓敵人衝過來
+                    await new Promise(r => setTimeout(r, 250)); 
+
+                    // 玩家受擊
+                    const targetEl = document.querySelector(`.player-status[data-party-index="${ev.target}"]`);
+                    if (targetEl) {
+                        targetEl.classList.add('hit');
+                        setTimeout(() => targetEl.classList.remove('hit'), 400);
+                        
+                        // 播放全螢幕紅色衝擊特效
+                        const layer = document.getElementById('battleFxLayer');
+                        layer.style.display = 'block';
+                        const rect = targetEl.getBoundingClientRect();
+                        const fx = document.createElement('div');
+                        fx.className = 'fx-enemy-hit';
+                        fx.style.left = `${rect.left + rect.width/2}px`;
+                        fx.style.top = `${rect.top + rect.height/2}px`;
+                        layer.appendChild(fx);
+                        setTimeout(() => fx.remove(), 400);
+                    }
+                    
+                    // 飄字並手動扣血條
+                    showPlayerDamage(ev.target, ev.value);
+                    if (targetEl && rollbackState.party[ev.target]) {
+                        const miniBar = targetEl.querySelector('.mini-bar.hp > div');
+                        if (miniBar) {
+                            const newHp = Math.max(0, rollbackState.party[ev.target].hp - ev.value);
+                            miniBar.style.width = `${(newHp / rollbackState.party[ev.target].max_hp) * 100}%`;
+                            rollbackState.party[ev.target].hp = newHp; 
+                        }
+                    }
+
+                    // 攻擊間隔：等待 600ms 再打下一個，讓玩家看清楚
+                    await new Promise(r => setTimeout(r, 600)); 
+                }
+            } else {
+                // 如果沒有攻擊事件（例如敵人全被眩暈），稍微停頓一下
+                await new Promise(r => setTimeout(r, 500));
+            }
+
+            // 3. 全部演出完畢，更新為後端最終狀態
+            await new Promise(r => setTimeout(r, 400));
+            shouldAnimateHand = true; // 🌟 結束回合抽新牌，播動畫
             currentBattleState = data.state;
             renderBattle(); 
-            playEvents(data.events);
-            if (currentBattleState.battle_over) setTimeout(() => finishBattle(currentBattleState.victory), 700);
+            
+            // 播放其他輔助事件
+            const otherEvents = data.events.filter(ev => ev.type !== 'enemy_attack');
+            playEvents(otherEvents);
+            
+            if (currentBattleState.battle_over) {
+                setTimeout(() => finishBattle(currentBattleState.victory), 700);
+            }
         } catch (e) { 
             showAlert('結束回合失敗：' + e.message); 
             currentBattleState = rollbackState; 
@@ -869,10 +1062,91 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally { 
             isBusy = false; 
             if (currentBattleState && !currentBattleState.battle_over) {
-                const btn = document.getElementById('endTurnBtn');
                 if (btn) { btn.textContent = "結束回合"; btn.disabled = false; }
             }
         }
+    }
+
+    // 🌟 全螢幕打擊特效
+    function playHitFx(x, y) {
+        const layer = document.getElementById('battleFxLayer');
+        if (!layer) return;
+        layer.style.display = 'block';
+        const fx = document.createElement('div');
+        fx.className = 'slash-effect';
+        fx.style.left = `${x}px`;
+        fx.style.top = `${y}px`;
+        // 隨機旋轉一下斬擊角度
+        fx.style.transform = `translate(-50%, -50%) scale(0) rotate(${Math.random() * 360}deg)`;
+        layer.appendChild(fx);
+        setTimeout(() => fx.remove(), 400);
+    }
+
+    // 🌟 播放過場橫幅（會阻塞代碼執行，返回 Promise）
+    function showBattleBanner(text, duration = 1200) {
+        return new Promise(resolve => {
+            const banner = document.createElement('div');
+            banner.className = 'battle-banner';
+            banner.textContent = text;
+            document.body.appendChild(banner);
+            setTimeout(() => {
+                banner.remove();
+                resolve();
+            }, duration);
+        });
+    }
+
+    // 播放技能特效
+    function playSkillFx(type, el, cardType = 'normal') {
+        if (!el) return;
+        const layer = document.getElementById('battleFxLayer');
+        layer.style.display = 'block';
+        const rect = el.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+
+        let fxClass = '';
+        if (type === 'damage') {
+            fxClass = cardType === 'skill' ? 'fx-skill' : 'fx-normal';
+        } else if (type === 'heal') fxClass = 'fx-heal';
+        else if (type === 'shield') fxClass = 'fx-shield';
+        else if (type === 'enemy_hit') fxClass = 'fx-enemy-hit';
+
+        if (!fxClass) return;
+        const fx = document.createElement('div'); 
+        fx.className = fxClass;
+        fx.style.left = `${x}px`; fx.style.top = `${y}px`;
+        layer.appendChild(fx); 
+        setTimeout(() => fx.remove(), 800);
+    }
+
+    // 必殺技全螢幕演出
+    function playUltimateCinematic(cardTitle) {
+        return new Promise(resolve => {
+            const layer = document.getElementById('battleOverlayFx');
+            layer.style.display = 'block';
+            layer.innerHTML = `<div class="ultimate-bg"></div><div class="ultimate-text">${cardTitle}</div>`;
+            
+            document.body.style.animation = 'hitShake 0.5s';
+            setTimeout(() => document.body.style.animation = '', 500);
+
+            setTimeout(() => {
+                layer.style.display = 'none';
+                layer.innerHTML = '';
+                resolve();
+            }, 1200);
+        });
+    }
+
+    // 戰鬥過場橫幅
+    function showBattleBanner(text, duration = 1200) {
+        return new Promise(resolve => {
+            const banner = document.createElement('div');
+            banner.className = 'battle-banner';
+            banner.textContent = text;
+            document.body.appendChild(banner);
+            setTimeout(() => { banner.remove(); resolve(); }, duration);
+        });
     }
 
     // 其他輔助動畫函數 (保留原本)
@@ -959,23 +1233,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 戰鬥結算
     async function finishBattle(victory) {
-        // 音效
+        if (isFinishingBattle) return;
+        isFinishingBattle = true;
+
         if (victory) SFX.victory();
         else SFX.defeat();
 
-        // 失敗：直接回歸到選關頁（週常或普通）
         if (!victory) {
             await showAlert("戰鬥失敗，全員陣亡...");
             document.getElementById('battleContainer').style.display = 'none';
+            
             if (currentBattleIsWeekly) {
+                // 修復：失敗也回週常列表並刷新
                 document.getElementById('weeklyStep2')?.classList.remove('active');
                 document.getElementById('weeklyStep1')?.classList.add('active');
                 loadWeeklyPanel();
             } else {
                 document.getElementById('battleStep1').classList.add('active');
             }
+            
             currentBattleState = null;
             currentBattleIsWeekly = false;
+            isFinishingBattle = false;
             return;
         }
 
@@ -990,7 +1269,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     await showAlert(`首通獎勵！獲得 ${data.reward} 柚幣與 ${data.exp_gain} EXP！`);
                     if (!clearedStages.includes(currentSelectedStageId)) clearedStages.push(currentSelectedStageId);
 
-                    // 🌟 新手引導：打完教學關卡後引導抽卡
                     if (currentSelectedStageId === 'senren-1' && tutorialStep === 1) {
                         tutorialStep = 99;
                         delete playerData.cards["朝武芳乃"];
@@ -1021,6 +1299,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         );
                         currentBattleState = null;
                         currentBattleIsWeekly = false;
+                        isFinishingBattle = false;
                         return;
                     }
                 } else {
@@ -1030,13 +1309,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 fetchWithTimeout('/api/auth/me').then(r => r.json()).then(d => {
                     if (d.logged_in) { updateCoinsUI(d.player.coins); updateExpUI(d.player.stats?.exp || 0); }
                 });
-
-                if (!data.is_weekly) {
-                    const activeTab = document.querySelector('.stage-tab.active');
-                    if (activeTab) renderStageList(activeTab.dataset.game);
-                } else {
-                    loadWeeklyPanel();
-                }
             } else {
                 await showAlert(data.error);
             }
@@ -1045,15 +1317,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         document.getElementById('battleContainer').style.display = 'none';
-        // 週常打完 → 回週常列表；普通關卡打完 → 回選關頁
+        
+        // 🌟 核心修復：結算後強制切回正確的視圖並刷新
         if (currentBattleIsWeekly) {
             document.getElementById('weeklyStep2')?.classList.remove('active');
             document.getElementById('weeklyStep1')?.classList.add('active');
+            // 確保視圖面板切換到週常
+            document.querySelectorAll('.view-panel').forEach(p => {
+                p.classList.remove('active');
+                p.style.display = 'none';
+            });
+            const wView = document.getElementById('weeklyView');
+            if (wView) { wView.classList.add('active'); wView.style.display = 'flex'; }
+            loadWeeklyPanel(); // 重新拉取解鎖狀態
         } else {
             document.getElementById('battleStep1').classList.add('active');
+            const activeTab = document.querySelector('.stage-tab.active');
+            if (activeTab) renderStageList(activeTab.dataset.game);
         }
+        
         currentBattleState = null;
         currentBattleIsWeekly = false;
+        isFinishingBattle = false;
     }
 
     // =========================================================
@@ -1183,6 +1468,44 @@ document.addEventListener('DOMContentLoaded', () => {
     toAwakenBtn?.addEventListener('click', () => {
         upgradeModal.classList.remove('show');
         if (currentUpgradeChar) openAwakenModal(currentUpgradeChar);
+    });
+
+    document.getElementById('viewSkillsBtn')?.addEventListener('click', async () => {
+        if (!currentUpgradeChar) return;
+        try {
+            const res = await fetchWithTimeout(`/api/character/${encodeURIComponent(currentUpgradeChar)}/skills`);
+            const data = await res.json();
+            if (!data.ok) return showAlert(data.error);
+
+            const list = document.getElementById('skillsList');
+            list.innerHTML = '';
+            
+            const skillMap = { normal: '普攻', skill: '戰技', ultimate: '必殺技' };
+            const typeMap = { damage: '傷害', heal: '治療', shield: '護盾' };
+
+            Object.entries(data.skills).forEach(([key, skill]) => {
+                const div = document.createElement('div');
+                div.style.cssText = 'background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; border: 1px solid rgba(232,200,116,0.2);';
+                div.innerHTML = `
+                    <div style="font-weight: bold; color: var(--gold-bright); font-size: 15px; margin-bottom: 4px;">
+                        ${skill.name} <span style="font-size: 12px; color: var(--cyan-accent); margin-left: 8px;">${skillMap[key]}</span>
+                    </div>
+                    <div style="font-size: 13px; color: #fff; line-height: 1.5;">${skill.desc}</div>
+                    <div style="font-size: 12px; color: var(--text-sub); margin-top: 6px;">
+                        消耗 ${skill.cost} SP · ${typeMap[skill.type] || skill.type}
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+
+            document.getElementById('skillsModal').classList.add('show');
+        } catch (e) {
+            showAlert('讀取技能失敗: ' + e.message);
+        }
+    });
+
+    document.getElementById('closeSkillsBtn')?.addEventListener('click', () => {
+        document.getElementById('skillsModal').classList.remove('show');
     });
 
     closeAwakenBtn?.addEventListener('click', () => awakenModal.classList.remove('show'));
@@ -1621,7 +1944,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const prevStage = weeklyData.stages[index - 1];
                 if (!prevStage.best_grade) isLocked = true;
             }
-            if (isTester) isLocked = false;
 
             const div = document.createElement('div');
             div.className = `weekly-stage-item ${isLocked ? 'locked' : ''}`;

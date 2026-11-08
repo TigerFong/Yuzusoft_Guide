@@ -217,15 +217,15 @@ WEEKLY_STAGES = {
         "story": "星隕迴廊的裂縫再次開啟。第一層的守護者已就位，牠們正在等待敢於踏入的挑戰者。",
         "waves": [
             [
-                {"name": "星隕·影衛", "hp": 2000, "mind": "陽", "code": "senren", "index": 3},
-                {"name": "星隕·影衛", "hp": 2000, "mind": "戲", "code": "senren", "index": 2},
+                {"name": "星隕·影衛", "hp": 1200, "mind": "陽", "code": "senren", "index": 3},
+                {"name": "星隕·影衛", "hp": 1200, "mind": "戲", "code": "senren", "index": 2},
             ],
             [
-                {"name": "星隕·咒靈", "hp": 3000, "mind": "靜", "code": "sabbat", "index": 3},
-                {"name": "星隕·咒靈", "hp": 3000, "mind": "和", "code": "sabbat", "index": 4},
+                {"name": "星隕·咒靈", "hp": 1800, "mind": "靜", "code": "sabbat", "index": 3},
+                {"name": "星隕·咒靈", "hp": 1800, "mind": "和", "code": "sabbat", "index": 4},
             ],
             [
-                {"name": "星隕守門者", "hp": 8000, "mind": "羞", "code": "tenshi", "index": 4},
+                {"name": "星隕守門者", "hp": 5000, "mind": "羞", "code": "tenshi", "index": 4},
             ],
         ],
         "grades": {"S": 6, "A": 10},
@@ -236,16 +236,16 @@ WEEKLY_STAGES = {
         "story": "第二層的星光更加濃郁。這裡的敵人擁有更強的心相抗性，光靠莽撞無法取勝。",
         "waves": [
             [
-                {"name": "星隕·噬魂者", "hp": 2500, "mind": "凜", "code": "cafe", "index": 3},
-                {"name": "星隕·噬魂者", "hp": 2500, "mind": "戲", "code": "cafe", "index": 4},
-                {"name": "星隕·噬魂者", "hp": 2500, "mind": "靜", "code": "cafe", "index": 2},
+                {"name": "星隕·噬魂者", "hp": 1500, "mind": "凜", "code": "cafe", "index": 3},
+                {"name": "星隕·噬魂者", "hp": 1500, "mind": "戲", "code": "cafe", "index": 4},
+                {"name": "星隕·噬魂者", "hp": 1500, "mind": "靜", "code": "cafe", "index": 2},
             ],
             [
-                {"name": "星隕·魔女殘影", "hp": 5000, "mind": "羞", "code": "sabbat", "index": 1},
-                {"name": "星隕·魔女殘影", "hp": 5000, "mind": "陽", "code": "sabbat", "index": 2},
+                {"name": "星隕·魔女殘影", "hp": 3000, "mind": "羞", "code": "sabbat", "index": 1},
+                {"name": "星隕·魔女殘影", "hp": 3000, "mind": "陽", "code": "sabbat", "index": 2},
             ],
             [
-                {"name": "星隕支配者", "hp": 12000, "mind": "靜", "code": "tenshi", "index": 1},
+                {"name": "星隕支配者", "hp": 8000, "mind": "靜", "code": "tenshi", "index": 1},
             ],
         ],
         "grades": {"S": 8, "A": 13},
@@ -457,13 +457,25 @@ def start_battle(user_id, stage_id, party_names=None):
     stats = pd.get("stats") or {}
     cleared = stats.get("cleared_stages") or []
 
-    if not is_weekly and not tester:
-        game_prefix = stage_id.split("-")[0]
-        stage_num = int(stage_id.split("-")[1])
-        if stage_num > 1:
-            prev_stage = f"{game_prefix}-{stage_num - 1}"
-            if prev_stage not in cleared:
-                return {"ok": False, "error": "請先通關前置關卡！"}, 403
+    if not tester:
+        if is_weekly:
+            # 檢查週常前置
+            weekly_stages_list = list(WEEKLY_STAGES.keys())
+            current_idx = weekly_stages_list.index(stage_id)
+            if current_idx > 0:
+                prev_stage_id = weekly_stages_list[current_idx - 1]
+                weekly_data = stats.get("weekly", {}).get(_get_week_key(), {})
+                prev_rec = weekly_data.get(prev_stage_id, {})
+                if not prev_rec.get("best_grade"):
+                    return {"ok": False, "error": "請先通關前一層迴廊！"}, 403
+        else:
+            # 檢查普通關卡前置
+            game_prefix = stage_id.split("-")[0]
+            stage_num = int(stage_id.split("-")[1])
+            if stage_num > 1:
+                prev_stage = f"{game_prefix}-{stage_num - 1}"
+                if prev_stage not in cleared:
+                    return {"ok": False, "error": "請先通關前置關卡！"}, 403
 
     if party_names is not None:
         valid = [n for n in party_names if n in owned and n in GAME_CHARACTERS]
@@ -1115,3 +1127,9 @@ def claim_battle_reward(user_id):
         "ok": True, "reward": actual_reward, "exp_gain": exp_gain,
         "stage_id": stage_id, "is_first_clear": is_first_clear,
     }, 200
+
+def get_character_skills(char_name):
+    if char_name not in GAME_CHARACTERS:
+        return {"ok": False, "error": "角色不存在"}, 404
+    info = GAME_CHARACTERS[char_name]
+    return {"ok": True, "skills": info["skills"], "mind": info["mind"], "role": info["role"]}, 200

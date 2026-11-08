@@ -19,7 +19,7 @@ from backend.game_core import (
     start_battle, battle_action, battle_end_turn, claim_battle_reward,
     get_battle_party_info, get_battle_progress, upgrade_character, set_awaken_level,
     toggle_stage_unlock, update_daily_task, get_daily_status, claim_daily_reward,
-    get_weekly_status, claim_weekly_reward,
+    get_weekly_status, claim_weekly_reward,get_character_skills,
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from backend.db import db_pool, memory_db
@@ -242,6 +242,10 @@ def api_awaken_do(character): return jsonify(do_awaken(session['user_id'], chara
 def api_upgrade():
     data = request.json or {}
     res, status = upgrade_character(session['user_id'], data.get('name'), data.get('target_level'))
+    return jsonify(res), status
+@app.route('/api/character/<path:character>/skills', methods=['GET'])
+def api_character_skills(character):
+    res, status = get_character_skills(character)
     return jsonify(res), status
 
 # =========================================================

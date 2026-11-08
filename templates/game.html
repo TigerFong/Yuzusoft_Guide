@@ -38,6 +38,13 @@
         <p>為了獲得最佳的幻境體驗，請旋轉您的設備以橫屏模式遊玩。</p>
     </div>
 
+    <!-- 戰鬥打擊特效層 -->
+    <div id="battleFxLayer"></div>
+    <!-- 必殺技全螢幕特效層 -->
+    <div id="battleOverlayFx"></div>
+    <!-- 卡牌技能詳情提示 -->
+    <div id="cardTooltip" class="card-tooltip"></div>
+
     <div id="gameContainer" class="game-container" style="display: none;">
         <header class="game-header">
             <div class="header-left">
@@ -372,6 +379,7 @@
             
             <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                 <button id="toAwakenBtn" class="btn-secondary" style="width: 100%; border-color: var(--gold-main); color: var(--gold-main);">✨ 前往覺醒</button>
+                <button id="viewSkillsBtn" class="btn-secondary" style="margin-top: 10px;">查看技能詳情</button>
             </div>
             <div style="display: flex; gap: 10px;">
                 <button id="closeUpgradeBtn" class="btn-secondary" style="flex: 1;">取消</button>
@@ -403,6 +411,14 @@
                 <button id="closeAwakenBtn" class="btn-secondary">關閉</button>
                 <button id="doAwakenBtn" class="btn-primary">進行覺醒</button>
             </div>
+        </div>
+    </div>
+
+    <div id="skillsModal" class="modal-overlay">
+        <div class="modal-content" style="width: 500px; max-width: 90vw;">
+            <h3 style="color: var(--gold-bright); text-align: center; margin-bottom: 20px;">技能詳情</h3>
+            <div id="skillsList" style="display: flex; flex-direction: column; gap: 12px;"></div>
+            <button id="closeSkillsBtn" class="btn-secondary" style="margin-top: 20px; width: 100%;">關閉</button>
         </div>
     </div>
 
