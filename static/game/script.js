@@ -11,6 +11,7 @@ let currentBattleState = null;
 let selectedCardIndex = null;
 let isBusy = false;
 let selectedParty = [];
+let currentPartyData = []; // 緩存角色列表
 
 // --- 關卡選擇狀態 ---
 let currentSelectedStageId = null;
@@ -98,7 +99,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const rosterView = document.getElementById('rosterView');
     const battleView = document.getElementById('battleView');
     const dailyView = document.getElementById('dailyView');
-    const navTabs = document.querySelectorAll('.nav-tab');
     const rosterGrid = document.getElementById('rosterGrid');
     const awakenModal = document.getElementById('awakenModal');
     const closeAwakenBtn = document.getElementById('closeAwakenBtn');
@@ -119,12 +119,63 @@ document.addEventListener('DOMContentLoaded', () => {
     const dailyTaskList = document.getElementById('dailyTaskList');
     const startGameBtn = document.getElementById('startGameBtn');
     const titleScreen = document.getElementById('titleScreen');
+
+    // 通用確認彈窗 DOM
+    const customConfirmModal = document.getElementById('customConfirmModal');
+    const confirmTitle = document.getElementById('confirmTitle');
+    const confirmMessage = document.getElementById('confirmMessage');
+    const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+    const confirmOkBtn = document.getElementById('confirmOkBtn');
+    
+    // 新手引導 DOM
+    const tutorialModal = document.getElementById('tutorialModal');
+    const tutorialTitle = document.getElementById('tutorialTitle');
+    const tutorialText = document.getElementById('tutorialText');
+    const tutorialNextBtn = document.getElementById('tutorialNextBtn');
+    const tutorialSkipBtn = document.getElementById('tutorialSkipBtn');
     
     let currentUpgradeChar = null;
     let sessionValid = false;
     let sessionData = null;
 
-    // 1. 背景偷偷檢查登入狀態
+    // =========================================================
+    // 自定義彈窗系統
+    // =========================================================
+    function showAlert(message, title = '提示') {
+        return new Promise((resolve) => {
+            confirmTitle.textContent = title;
+            confirmMessage.innerHTML = message;
+            confirmCancelBtn.style.display = 'none'; // 隱藏取消按鈕
+            customConfirmModal.classList.add('show');
+
+            confirmOkBtn.onclick = () => {
+                customConfirmModal.classList.remove('show');
+                confirmCancelBtn.style.display = 'block'; // 恢復供 Confirm 使用
+                resolve(true);
+            };
+        });
+    }
+
+    function showConfirm(message, title = '提示') {
+        return new Promise((resolve) => {
+            confirmTitle.textContent = title;
+            confirmMessage.innerHTML = message;
+            confirmCancelBtn.style.display = 'block';
+            customConfirmModal.classList.add('show');
+
+            confirmOkBtn.onclick = () => {
+                customConfirmModal.classList.remove('show');
+                resolve(true);
+            };
+
+            confirmCancelBtn.onclick = () => {
+                customConfirmModal.classList.remove('show');
+                resolve(false);
+            };
+        });
+    }
+
+    // 1. 背景檢查登入
     fetchWithTimeout('/api/auth/me')
         .then(res => res.json().then(data => ({ status: res.status, data })))
         .then(({ status, data }) => {
@@ -201,30 +252,36 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchWithTimeout('/api/auth/logout', { method: 'POST' }).then(() => window.location.reload());
     });
 
-    // 尋找所有大廳的按鈕
-    const lobbyBtns = document.querySelectorAll('.lobby-card-btn'); // 確認這裡是 lobby-card-btn
+    // 4. 大廳切換邏輯
+    const lobbyBtns = document.querySelectorAll('.lobby-card-btn'); 
     const backBtns = document.querySelectorAll('.btn-back-lobby');
 
     lobbyBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             const targetView = btn.dataset.target;
             
-            // 隱藏所有視圖
-            document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.view-panel').forEach(p => {
+                p.classList.remove('active');
+                p.style.display = 'none';
+            });
             
-            // 顯示目標視圖
             const targetEl = document.getElementById(`${targetView}View`);
-            if (targetEl) targetEl.classList.add('active');
+            if (targetEl) {
+                targetEl.classList.add('active');
+                targetEl.style.display = 'flex';
+            }
 
-            // 根據進入的視圖加載對應數據
             if (targetView === 'battle') {
-                document.getElementById('stageSelect').style.display = 'block';
+                document.getElementById('battleStep1').classList.add('active');
+                document.getElementById('battleStep2').classList.remove('active');
                 document.getElementById('battleContainer').style.display = 'none';
-                loadPartySelection();
+                loadPartySelection(true); 
+            } else if (targetView === 'weekly') {
+                document.getElementById('weeklyStep1').classList.add('active');
+                document.getElementById('weeklyStep2').classList.remove('active');
+                loadWeeklyPanel();
             } else if (targetView === 'daily') {
                 loadDailyTasks();
-            } else if (targetView === 'weekly') {
-                loadWeeklyPanel();
             } else if (targetView === 'roster') {
                 renderRoster();
                 fetchWithTimeout('/api/daily/view-roster', { method: 'POST' }).catch(()=>{});
@@ -232,26 +289,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 返回大廳按鈕
     backBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            // 如果正在戰鬥中，可能需要確認是否離開
+        btn.addEventListener('click', async () => {
             if (currentBattleState && !currentBattleState.battle_over) {
-                if (!confirm('戰鬥尚未結束，確定要返回大廳嗎？')) return;
-                currentBattleState = null; // 強制結束
+                const isConfirmed = await showConfirm('戰鬥尚未結束，確定要返回大廳嗎？');
+                if (!isConfirmed) return;
+                currentBattleState = null; 
             }
 
-            // 隱藏所有視圖
-            document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
-            // 顯示大廳
-            document.getElementById('lobbyView').classList.add('active');
+            document.querySelectorAll('.view-panel').forEach(p => {
+                p.classList.remove('active');
+                p.style.display = 'none'; 
+            });
+            
+            const lobby = document.getElementById('lobbyView');
+            lobby.classList.add('active');
+            lobby.style.display = 'flex'; 
         });
+    });
+
+    document.getElementById('btnBackToStageSelect')?.addEventListener('click', () => {
+        document.getElementById('battleStep2').classList.remove('active');
+        document.getElementById('battleStep1').classList.add('active');
+    });
+    document.getElementById('btnBackToWeeklySelect')?.addEventListener('click', () => {
+        document.getElementById('weeklyStep2').classList.remove('active');
+        document.getElementById('weeklyStep1').classList.add('active');
     });
 
     draw1Btn.addEventListener('click', () => handleDraw(1));
     draw10Btn.addEventListener('click', () => handleDraw(10));
 
-    // 5. 初始化遊戲與顯示登入
+    // 5. 初始化
     async function initGame(data) {
         playerData = data.player;
         isTester = (data.username === 'tester');
@@ -264,12 +333,12 @@ document.addEventListener('DOMContentLoaded', () => {
         loginOverlay.style.display = 'none';
         gameContainer.style.display = 'flex';
         
-        // 🌟 登入後預設顯示大廳
         document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
         document.getElementById('lobbyView').classList.add('active');
 
         if (Object.keys(allCharacters).length === 0) await fetchAllCharacters();
         updateDrawButtons();
+        checkTutorial();
     }
 
     function showLogin() {
@@ -321,166 +390,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { console.error('載入角色失敗', e); }
     }
 
-    function renderWishlistGrid() {
-        wishlistGrid.innerHTML = '';
-        const ssrNames = Object.keys(allCharacters).filter(name => allCharacters[name].rarity === 'SSR');
-        ssrNames.forEach(name => {
-            const info = allCharacters[name];
-            const isSel = currentWishlist.includes(name);
-            const div = document.createElement('div');
-            div.className = `wish-item ${isSel ? 'selected' : ''}`;
-            div.dataset.name = name;
-            div.innerHTML = `<img src="/static/picture/thumb-${info.code}-${info.index}.png" alt="${name}"><span>${name}</span>`;
-            div.addEventListener('click', () => {
-                if (div.classList.contains('selected')) div.classList.remove('selected');
-                else {
-                    if (wishlistGrid.querySelectorAll('.wish-item.selected').length >= 1) return alert('心願單只能選擇 1 個角色！');
-                    div.classList.add('selected');
-                }
-            });
-            wishlistGrid.appendChild(div);
-        });
-    }
-
-    async function handleDraw(count) {
-        if (playerData.coins < 160 * count) return;
-        draw1Btn.disabled = true; draw10Btn.disabled = true;
-        try {
-            const res = await fetchWithTimeout('/api/gacha/draw', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ count })
-            });
-            const data = await res.json();
-            if (!data.ok) return alert(data.error);
-            updateCoinsUI(data.coins);
-            pityCount.textContent = data.pity;
-            const meRes = await fetchWithTimeout('/api/auth/me');
-            const meData = await meRes.json();
-            if (meData.logged_in) {
-                playerData = meData.player;
-                updateCoinsUI(playerData.coins);
-            }
-            showGachaResults(data.results);
-        } catch (e) { alert('抽卡失敗：' + e.message); } finally { updateDrawButtons(); }
-    }
-
-    function showGachaResults(results) {
-        const container = document.getElementById('gachaCards');
-        const modal = document.getElementById('gachaResultModal');
-        container.innerHTML = '';
-        modal.classList.add('show');
-        results.forEach((card, idx) => {
-            const info = allCharacters[card.name] || { code: 'game', index: 1 };
-            const div = document.createElement('div');
-            div.className = `card-item ${card.rarity}`;
-            div.style.animationDelay = `${idx * 0.15}s`;
-            let tagHtml = `<div class="card-tag">+${card.shards} 碎片</div>`;
-            if (card.is_new) tagHtml = `<div class="card-tag new">NEW 解鎖</div>`;
-            else if (card.refund > 0) tagHtml = `<div class="card-tag" style="color: #ffd700; font-weight: bold;">滿覺 返還+${card.refund}幣</div>`;
-            div.innerHTML = `
-                <img src="/static/picture/char-${info.code}-${info.index}.png" data-fallback="/static/picture/thumb-${info.code}-${info.index}.png">
-                <div class="card-info"><div class="card-name">${card.name}</div>${tagHtml}</div>
-            `;
-            container.appendChild(div);
-        });
-    }
-
-    function renderRoster() {
-        if (!playerData || !playerData.cards) return;
-        rosterGrid.innerHTML = '';
-        const ownedChars = Object.keys(playerData.cards);
-        if (ownedChars.length === 0) {
-            rosterGrid.innerHTML = '<p style="color:#aaa; grid-column:1/-1; text-align:center;">還沒有任何角色，去抽卡吧！</p>';
-            return;
-        }
-        ownedChars.sort((a,b) => {
-            const aData = playerData.cards[a];
-            const bData = playerData.cards[b];
-            if (aData.awaken !== bData.awaken) return bData.awaken - aData.awaken;
-            const w = {'SSR':3, 'SR':2, 'R':1};
-            return w[allCharacters[b]?.rarity || 'R'] - w[allCharacters[a]?.rarity || 'R'];
-        });
-        ownedChars.forEach(name => {
-            const card = playerData.cards[name];
-            const info = allCharacters[name] || { code: 'game', index: 1 };
-            const rarity = info.rarity || 'R';
-            const div = document.createElement('div');
-            div.className = `roster-card ${rarity}`;
-            div.innerHTML = `
-                <img src="/static/picture/char-${info.code}-${info.index}.png" data-fallback="/static/picture/thumb-${info.code}-${info.index}.png">
-                <div class="roster-info">
-                    <div class="roster-name">${name}</div>
-                    <div class="roster-awaken">Lv.${card.level || 1} · 覺醒 ${card.awaken} / 6</div>
-                </div>
-            `;
-            div.addEventListener('click', () => openUpgradeModal(name));
-            rosterGrid.appendChild(div);
-        });
-    }
-
-    async function openAwakenModal(charName) {
-        currentAwakenChar = charName;
-        try {
-            const res = await fetchWithTimeout(`/api/awaken/${encodeURIComponent(charName)}`);
-            const data = await res.json();
-            if (!data.ok) return alert(data.error);
-            const info = allCharacters[charName];
-            document.getElementById('awakenImg').src = `/static/picture/char-${info.code}-${info.index}.png`;
-            document.getElementById('awakenName').textContent = data.name;
-            document.getElementById('awakenRarity').textContent = data.rarity;
-            document.getElementById('awakenShards').textContent = data.shards;
-
-            data.effects.forEach((desc, idx) => {
-                const el = awakenLvlEls[idx];
-                if(!el) return;
-                el.onclick = null; el.style.border = 'none'; el.style.cursor = 'default';
-                
-                if (isTester) {
-                    el.style.cursor = 'pointer'; el.style.border = '1px dashed rgba(212, 175, 55, 0.5)';
-                    el.title = '點擊切換至此覺醒等級';
-                    el.onclick = async () => {
-                        const targetLvl = (idx + 1 === data.awaken) ? idx : (idx + 1);
-                        const req = await fetchWithTimeout('/api/tester/awaken', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ name: charName, target_lvl: targetLvl })
-                        });
-                        const reqData = await req.json();
-                        if (reqData.ok) {
-                            playerData.cards[charName].awaken = reqData.awaken;
-                            await openAwakenModal(charName);
-                            renderRoster();
-                        }
-                    };
-                }
-
-                el.querySelector('.lvl-desc').textContent = desc;
-                if (idx < data.awaken) {
-                    el.classList.add('active');
-                    el.querySelector('.lvl-title').innerHTML = `覺醒 ${['I','II','III','IV','V','VI'][idx]} <span class="lvl-cost" style="color:var(--gold-main)">已解鎖</span>`;
-                } else {
-                    el.classList.remove('active');
-                    el.querySelector('.lvl-title').innerHTML = `覺醒 ${['I','II','III','IV','V','VI'][idx]} <span class="lvl-cost">消耗 1 碎片</span>`;
-                }
-            });
-
-            if (isTester) {
-                doAwakenBtn.textContent = '✨ 測試員無需碎片，請直接點擊上方等級框切換';
-                doAwakenBtn.disabled = true; doAwakenBtn.style.opacity = '0.8';
-                doAwakenBtn.style.borderColor = 'transparent'; doAwakenBtn.style.backgroundColor = 'transparent';
-            } else {
-                doAwakenBtn.style.opacity = '1'; doAwakenBtn.style.borderColor = 'var(--red-deep)'; doAwakenBtn.style.backgroundColor = '';
-                if (data.awaken >= 6) { doAwakenBtn.textContent = '已滿級'; doAwakenBtn.disabled = true; }
-                else if (data.shards >= 1) { doAwakenBtn.textContent = `消耗 1 碎片覺醒`; doAwakenBtn.disabled = false; }
-                else { doAwakenBtn.textContent = `碎片不足 (需 1)`; doAwakenBtn.disabled = true; }
-            }
-            awakenModal.classList.add('show');
-        } catch (e) { alert('載入覺醒資訊失敗: ' + e.message); }
-    }
-
     // =========================================================
-    // 出戰隊伍與關卡選擇
+    // 關卡與戰鬥準備
     // =========================================================
     document.querySelectorAll('.stage-tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -502,9 +413,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const isCleared = clearedStages.includes(stage.id);
             const div = document.createElement('div');
-            div.className = `stage-item ${currentSelectedStageId === stage.id ? 'selected' : ''} ${isLocked ? 'locked' : ''}`;
+            div.className = `stage-item ${isLocked ? 'locked' : ''}`;
             
-            let testerBtn = isTester ? `<button class="btn-tester-toggle" data-id="${stage.id}" data-cleared="${isCleared}" style="background:transparent; border:1px solid #ffd700; color:#ffd700; padding:2px 8px; border-radius:4px; cursor:pointer; z-index:10;">${isCleared ? '🔒 鎖定' : '🔓 解鎖'}</button>` : '';
+            let testerBtn = isTester ? `<button class="btn-tester-toggle" data-id="${stage.id}" data-cleared="${isCleared}" style="background:transparent; border:1px solid #ffd700; color:#ffd700; padding:2px 8px; border-radius:4px; cursor:pointer;">${isCleared ? '🔒 鎖定' : '🔓 解鎖'}</button>` : '';
 
             div.innerHTML = `
                 <div class="stage-name" style="display:flex; justify-content:space-between; align-items:center;">
@@ -513,12 +424,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="stage-reward">${isLocked ? '🔒 需先通關前置' : `獎勵：${stage.reward} 柚幣`}</div>
             `;
             
-            div.addEventListener('click', (e) => {
+            div.addEventListener('click', async (e) => {
                 if (e.target.closest('.btn-tester-toggle')) return;
-                if (isLocked) return alert('請先通關前置關卡！');
+                if (isLocked) return showAlert('請先通關前置關卡！');
+                
                 currentSelectedStageId = stage.id;
-                renderStageList(gameCode);
-                updatePartySelectBtn();
+                document.getElementById('selectedStageNameText').textContent = stage.name;
+                document.getElementById('battleStep1').classList.remove('active');
+                document.getElementById('battleStep2').classList.add('active');
+                
+                renderPartySelection(currentPartyData);
             });
 
             if (isTester) {
@@ -539,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    async function loadPartySelection() {
+    async function loadPartySelection(forceFetch = false) {
         try {
             const progRes = await fetchWithTimeout('/api/battle/progress');
             const progData = await progRes.json();
@@ -549,12 +464,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (activeTab) renderStageList(activeTab.dataset.game);
             }
         } catch(e) {}
-        try {
-            const res = await fetchWithTimeout('/api/battle/party');
-            const data = await res.json();
-            if (!data.ok) return alert(data.error);
-            renderPartySelection(data.characters);
-        } catch (e) { console.error('載入隊伍失敗', e); }
+        
+        if (forceFetch || currentPartyData.length === 0) {
+            try {
+                const res = await fetchWithTimeout('/api/battle/party');
+                const data = await res.json();
+                if (data.ok) {
+                    currentPartyData = data.characters;
+                }
+            } catch (e) { console.error('載入隊伍失敗', e); }
+        }
     }
 
     function renderPartySelection(characters, gridId = 'partySelectGrid') {
@@ -583,7 +502,7 @@ document.addEventListener('DOMContentLoaded', () => {
             div.addEventListener('click', () => {
                 if (selectedParty.includes(c.name)) selectedParty = selectedParty.filter(n => n !== c.name);
                 else {
-                    if (selectedParty.length >= 3) return alert('最多只能選擇 3 名角色！');
+                    if (selectedParty.length >= 3) return showAlert('最多只能選擇 3 名角色！');
                     selectedParty.push(c.name);
                 }
                 renderPartySelection(characters, gridId);
@@ -610,16 +529,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (weeklyBtn) {
             if (selectedParty.length === 0) { weeklyBtn.disabled = true; weeklyBtn.textContent = '請先選擇出戰角色'; }
             else if (!currentWeeklyStageId) { weeklyBtn.disabled = true; weeklyBtn.textContent = '請先選擇關卡'; }
-            else { weeklyBtn.disabled = false; weeklyBtn.textContent = '挑戰週常深淵'; }
+            else { weeklyBtn.disabled = false; weeklyBtn.textContent = '進入迴廊'; }
         }
     }
 
-    // =========================================================
-    // 戰鬥
-    // =========================================================
     async function enterBattle() {
-        if (selectedParty.length === 0) return alert('請先選擇至少 1 名出戰角色！');
-        if (!currentSelectedStageId) return alert('請先選擇一個關卡！');
+        if (selectedParty.length === 0) return showAlert('請先選擇至少 1 名出戰角色！');
+        if (!currentSelectedStageId) return showAlert('請先選擇一個關卡！');
         
         const btn = document.getElementById('enterStageBtn');
         if (btn) { btn.disabled = true; btn.textContent = '連線中...'; }
@@ -633,23 +549,27 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const data = await res.json();
             if (!data.ok) {
-                alert(data.error || "進入戰鬥失敗");
+                showAlert(data.error || "進入戰鬥失敗");
                 if (btn) { btn.disabled = false; btn.textContent = '進入戰鬥'; }
                 return;
             }
+            currentBattleIsWeekly = false;
             currentBattleState = data.state;
             if (data.story) showStoryModal(data.story, startActualBattle);
             else startActualBattle();
         } catch (e) { 
-            alert(`進入戰鬥失敗: ${e.message}`); 
+            showAlert(`進入戰鬥失敗: ${e.message}`); 
             if (btn) { btn.disabled = false; btn.textContent = '進入戰鬥'; }
         }
     }
 
     function startActualBattle() {
         selectedCardIndex = null; isBusy = false;
-        document.getElementById('stageSelect').style.display = 'none';
+        
+        document.getElementById('battleStep1')?.classList.remove('active');
+        document.getElementById('battleStep2')?.classList.remove('active');
         document.getElementById('battleContainer').style.display = 'flex';
+        
         document.querySelector('.enemy-area').innerHTML = ''; 
         renderBattle();
     }
@@ -661,6 +581,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('closeStoryBtn').onclick = () => { modal.classList.remove('show'); callback(); };
     }
 
+    // =========================================================
+    // 戰鬥渲染與操作 (樂觀 UI 優化)
+    // =========================================================
     function renderBattle() {
         if (!currentBattleState) return;
         let waveEl = document.getElementById('waveDisplay');
@@ -709,10 +632,10 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             el.addEventListener('click', () => {
                 if (isBusy || !currentBattleState || currentBattleState.battle_over) return;
-                if (selectedCardIndex === null) return alert("請先點擊下方手牌選擇一張卡牌！");
+                if (selectedCardIndex === null) return showAlert("請先點擊下方手牌選擇一張卡牌！");
                 const card = currentBattleState.hand[selectedCardIndex];
                 if (!card) return;
-                if (card.action_type !== 'damage') return alert("這張卡不是傷害卡，請點擊我方角色作為目標。");
+                if (card.action_type !== 'damage') return showAlert("這張卡不是傷害卡，請點擊我方角色作為目標。");
                 doPlayCard(selectedCardIndex, idx);
             });
             area.appendChild(el);
@@ -745,9 +668,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (selectedCardIndex === null) return;
                 const card = currentBattleState.hand[selectedCardIndex];
                 if (!card) return;
-                if (card.action_type === 'damage') return alert("傷害卡請點擊敵人作為目標。");
+                if (card.action_type === 'damage') return showAlert("傷害卡請點擊敵人作為目標。");
                 if (card.target === 'aoe') return;
-                if (dead) return alert("該角色已倒下！");
+                if (dead) return showAlert("該角色已倒下！");
                 doPlayCard(selectedCardIndex, index);
             });
             area.appendChild(el);
@@ -770,7 +693,7 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             el.addEventListener('click', () => {
                 if (isBusy || !currentBattleState || currentBattleState.battle_over) return;
-                if (card.cost > currentBattleState.sp) return alert("SP 不足！");
+                if (card.cost > currentBattleState.sp) return showAlert("SP 不足！");
                 if (card.target === 'aoe') { doPlayCard(idx, null); return; }
                 selectedCardIndex = (selectedCardIndex === idx) ? null : idx;
                 renderHand(); 
@@ -785,39 +708,36 @@ document.addEventListener('DOMContentLoaded', () => {
         if (spEl && currentBattleState) spEl.textContent = currentBattleState.sp;
     }
 
+    // 🌟 核心：樂觀 UI 秒出傷
     async function doPlayCard(cardIndex, targetIndex) {
         if (isBusy || !currentBattleState) return;
-        isBusy = true;
         
         const card = currentBattleState.hand[cardIndex];
-        if (!card) { isBusy = false; return; }
+        if (!card) return;
 
-        // 備份狀態用於失敗回滾
         const rollbackState = JSON.parse(JSON.stringify(currentBattleState));
+        isBusy = true;
 
-        // ===== 1. 前端極速反饋（秒出傷、卡牌飛出） =====
+        // 1. 前端秒反饋：飛牌、預判扣 SP、秒出傷數字
         const cardEls = document.querySelectorAll('.battle-card');
         if(cardEls[cardIndex]) cardEls[cardIndex].classList.add('playing');
 
         if (card.action_type === 'damage') {
+            const counterMap = {"凛":"戏", "戏":"羞", "羞":"静", "静":"阳", "阳":"和", "和":"凛"};
             if (card.target === 'single' && targetIndex !== null) {
                 const enemy = currentBattleState.enemies[targetIndex];
-                const counterMap = {"凛":"戏", "戏":"羞", "羞":"静", "静":"阳", "阳":"和", "和":"凛"};
                 const isCrit = (counterMap[card.mind] === enemy.mind);
                 let dmg = card.value;
                 if (isCrit) dmg = Math.floor(dmg * 1.5);
                 
-                // 前端飛出傷害數字
+                // 預判扣血與數字
                 showDamageNumber(targetIndex, dmg, isCrit);
-                
-                // 預判扣除血條
                 const el = document.querySelector(`.enemy-card[data-enemy-id="${targetIndex}"] .hp-fill`);
                 if (el) {
                     const ratio = Math.max(0, (enemy.hp - dmg) / enemy.max_hp);
                     el.style.width = `${ratio * 100}%`;
                 }
             } else if (card.target === 'aoe') {
-                const counterMap = {"凛":"戏", "戏":"羞", "羞":"静", "静":"阳", "阳":"和", "和":"凛"};
                 currentBattleState.enemies.forEach((enemy, idx) => {
                     if (enemy.hp > 0) {
                         const isCrit = (counterMap[card.mind] === enemy.mind);
@@ -845,11 +765,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         }
-
+        
+        // 預扣 SP、隱藏該卡
+        currentBattleState.sp -= card.cost;
+        updateSPUI();
         selectedCardIndex = null;
 
+        // 2. 背景發送請求
         try {
-            // ===== 2. 發送請求 =====
             const res = await fetchWithTimeout('/api/battle/action', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -858,18 +781,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             
             if (!data.ok) { 
-                alert(data.error); 
+                showAlert(data.error); 
                 currentBattleState = rollbackState; // 失敗回滾
                 renderBattle(); 
                 return; 
             }
             
-            // ===== 3. 後端真實數據回來，靜默校準畫面 =====
+            // 3. 後端權威數據歸來，靜默校準畫面
             currentBattleState = data.state;
-            renderBattle(); // 用真實結果覆蓋，配合 CSS 的 transition，血條會平滑掉到正確位置
+            renderBattle(); 
             
-            // 🌟 關鍵：過濾掉後端傳來的 damage 事件，防止數字飛兩次！
-            // 這樣你只會看到一開始前端飛出的那一次數字。
+            // 過濾掉傷害事件（避免數字飛兩次），播放其他事件（眩暈、回血等）
             const filteredEvents = data.events.filter(ev => ev.type !== 'damage');
             playEvents(filteredEvents);
             
@@ -877,8 +799,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => finishBattle(currentBattleState.victory), 700);
             }
         } catch (e) { 
-            alert('出牌失敗：' + e.message); 
-            currentBattleState = rollbackState; // 超時回滾
+            showAlert('出牌失敗：' + e.message); 
+            currentBattleState = rollbackState; 
             renderBattle();
         } finally { 
             isBusy = false; 
@@ -895,14 +817,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = document.getElementById('endTurnBtn');
         if (btn) { btn.textContent = "敵方行動中..."; btn.disabled = true; }
         
-        const rollbackState = JSON.parse(JSON.stringify(currentBattleState)); // 🌟 備份
+        const rollbackState = JSON.parse(JSON.stringify(currentBattleState)); 
 
         try {
             const res = await fetchWithTimeout('/api/battle/end-turn', { method: 'POST' });
             const data = await res.json();
             if (!data.ok) { 
-                alert(data.error); 
-                currentBattleState = rollbackState; // 🌟 回滾
+                showAlert(data.error); 
+                currentBattleState = rollbackState; 
                 renderBattle();
                 return; 
             }
@@ -912,8 +834,8 @@ document.addEventListener('DOMContentLoaded', () => {
             playEvents(data.events);
             if (currentBattleState.battle_over) setTimeout(() => finishBattle(currentBattleState.victory), 700);
         } catch (e) { 
-            alert('結束回合失敗：' + e.message); 
-            currentBattleState = rollbackState; // 🌟 回滾
+            showAlert('結束回合失敗：' + e.message); 
+            currentBattleState = rollbackState; 
             renderBattle();
         } finally { 
             isBusy = false; 
@@ -924,42 +846,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // 其他輔助動畫函數 (保留原本)
     function playEvents(events) {
         if (!events || !events.length) return;
         events.forEach(ev => {
-            if (ev.type === 'damage') {
-                showDamageNumber(ev.target, ev.value, ev.is_crit);
-            } else if (ev.type === 'heal') {
-                showHealFloat(ev.target, ev.value);
-            } else if (ev.type === 'shield') {
-                showShieldFloat(ev.target, ev.value);
-            } else if (ev.type === 'sp_gain') {
-                showSPFloat(ev.value);
-            } else if (ev.type === 'enemy_attack') {
-                // 🌟 新增：敵人攻擊我方，顯示紅色震動與數字
-                showPlayerDamage(ev.target, ev.value);
-            } else if (ev.type === 'log') {
-                if (ev.msg) console.log("戰鬥提示:", ev.msg);
-            }
+            if (ev.type === 'damage') showDamageNumber(ev.target, ev.value, ev.is_crit);
+            else if (ev.type === 'heal') showHealFloat(ev.target, ev.value);
+            else if (ev.type === 'shield') showShieldFloat(ev.target, ev.value);
+            else if (ev.type === 'sp_gain') showSPFloat(ev.value);
+            else if (ev.type === 'enemy_attack') showPlayerDamage(ev.target, ev.value);
+            else if (ev.type === 'log') { if (ev.msg) console.log("戰鬥提示:", ev.msg); }
         });
     }
 
-    // 新增這個輔助函數
     function showPlayerDamage(partyIndex, damage) {
         const el = document.querySelector(`.player-status[data-party-index="${partyIndex}"]`);
         if (!el) return;
-        
-        // 震動動畫
         el.style.animation = 'shake 0.3s';
         setTimeout(() => { el.style.animation = ''; }, 300);
-
-        // 紅色飄字
         const floatText = document.createElement('div');
-        floatText.style.cssText = `
-            position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
-            color: #ff4d4d; font-size: 20px; font-weight: 900; text-shadow: 0 0 8px #ff0000;
-            pointer-events: none; animation: floatUp 0.9s ease-out forwards; z-index: 100;
-        `;
+        floatText.style.cssText = `position: absolute; top: -10px; left: 50%; transform: translateX(-50%); color: #ff4d4d; font-size: 20px; font-weight: 900; text-shadow: 0 0 8px #ff0000; pointer-events: none; animation: floatUp 0.9s ease-out forwards; z-index: 100;`;
         floatText.textContent = `-${damage}`;
         el.style.position = 'relative';
         el.appendChild(floatText);
@@ -986,11 +892,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const el = document.querySelector(`.player-status[data-party-index="${partyIndex}"]`);
         if (!el || value <= 0) return;
         const floatText = document.createElement('div');
-        floatText.style.cssText = `
-            position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
-            color: #4ade80; font-size: 18px; font-weight: 900; text-shadow: 0 0 8px #4ade80;
-            pointer-events: none; animation: floatUp 0.9s ease-out forwards;
-        `;
+        floatText.style.cssText = `position: absolute; top: -10px; left: 50%; transform: translateX(-50%); color: #4ade80; font-size: 18px; font-weight: 900; text-shadow: 0 0 8px #4ade80; pointer-events: none; animation: floatUp 0.9s ease-out forwards;`;
         floatText.textContent = `+${value}`;
         el.style.position = 'relative';
         el.appendChild(floatText);
@@ -1001,11 +903,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const el = document.querySelector(`.player-status[data-party-index="${partyIndex}"]`);
         if (!el || value <= 0) return;
         const floatText = document.createElement('div');
-        floatText.style.cssText = `
-            position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
-            color: #00e5ff; font-size: 16px; font-weight: 900; text-shadow: 0 0 8px #00e5ff;
-            pointer-events: none; animation: floatUp 0.9s ease-out forwards;
-        `;
+        floatText.style.cssText = `position: absolute; top: -10px; left: 50%; transform: translateX(-50%); color: #00e5ff; font-size: 16px; font-weight: 900; text-shadow: 0 0 8px #00e5ff; pointer-events: none; animation: floatUp 0.9s ease-out forwards;`;
         floatText.textContent = `🛡️+${value}`;
         el.style.position = 'relative';
         el.appendChild(floatText);
@@ -1019,31 +917,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!wrap) return;
         wrap.style.position = 'relative';
         const floatText = document.createElement('div');
-        floatText.style.cssText = `
-            position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
-            color: #00e5ff; font-size: 16px; font-weight: 900; text-shadow: 0 0 10px #00e5ff;
-            pointer-events: none; animation: floatUp 0.9s ease-out forwards;
-        `;
+        floatText.style.cssText = `position: absolute; top: -20px; left: 50%; transform: translateX(-50%); color: #00e5ff; font-size: 16px; font-weight: 900; text-shadow: 0 0 10px #00e5ff; pointer-events: none; animation: floatUp 0.9s ease-out forwards;`;
         floatText.textContent = `+${value} SP`;
         wrap.appendChild(floatText);
         setTimeout(() => floatText.remove(), 1000);
     }
 
+    // 戰鬥結算
     async function finishBattle(victory) {
         if (!victory) {
-            alert("戰鬥失敗，全員陣亡...");
-            if (currentBattleIsWeekly) {
-                currentBattleIsWeekly = false;
-                document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
-                document.getElementById('weeklyView').classList.add('active');
-                document.querySelectorAll('.nav-tab').forEach(t => {
-                    t.classList.toggle('active', t.dataset.view === 'weekly');
-                });
-                loadWeeklyPanel();
-            } else {
-                document.getElementById('stageSelect').style.display = 'block';
-                document.getElementById('battleContainer').style.display = 'none';
-            }
+            showAlert("戰鬥失敗，全員陣亡...");
+            document.getElementById('battleContainer').style.display = 'none';
+            document.getElementById('battleStep1').classList.add('active');
             currentBattleState = null;
             return;
         }
@@ -1053,12 +938,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (data.ok) {
                 if (data.is_weekly) {
-                    alert(`週常通關！使用 ${data.turns} 回合，評分 ${data.grade}！（最佳 ${data.best_grade} · ${data.best_turns} 回合）獲得 ${data.exp_gain} EXP。`);
+                    showAlert(`週常通關！使用 ${data.turns} 回合，評分 ${data.grade}！（最佳 ${data.best_grade} · ${data.best_turns} 回合）獲得 ${data.exp_gain} EXP。`);
                 } else if (data.is_first_clear) {
-                    alert(`首通獎勵！獲得 ${data.reward} 柚幣與 ${data.exp_gain} EXP！`);
+                    showAlert(`首通獎勵！獲得 ${data.reward} 柚幣與 ${data.exp_gain} EXP！`);
                     if (!clearedStages.includes(currentSelectedStageId)) clearedStages.push(currentSelectedStageId);
+                    
+                    // 🌟 新手引導：打完教學關卡後引導抽卡
+                    if (currentSelectedStageId === 'senren-1' && tutorialStep === 1) {
+                        tutorialStep = 99;
+                        delete playerData.cards["朝武芳乃"];
+                        delete playerData.cards["叢雨"];
+                        delete playerData.cards["常陸茉子"];
+                        
+                        fetchWithTimeout('/api/auth/me').then(r => r.json()).then(d => {
+                            if (d.logged_in) playerData = d.player;
+                        });
+                        
+                        setTimeout(() => {
+                            document.querySelectorAll('.view-panel').forEach(p => {
+                                p.classList.remove('active');
+                                p.style.display = 'none';
+                            });
+                            const lobby = document.getElementById('lobbyView');
+                            lobby.classList.add('active');
+                            lobby.style.display = 'flex';
+                            
+                            showTutorial(
+                                "幻境引路人",
+                                "太棒了！你已經掌握了戰鬥與屬性克制的精髓。但僅靠借用的幻影是無法長久作戰的，去【幻境卡池】邂逅屬於你自己的真正夥伴吧！",
+                                "前往卡池",
+                                () => {
+                                    document.querySelector('.lobby-card-btn[data-target="gacha"]').click();
+                                }
+                            );
+                        }, 800);
+                        currentBattleState = null;
+                        return;
+                    }
                 } else {
-                    alert(`戰鬥勝利！獲得 ${data.exp_gain} EXP。（該關卡已通關過，無額外柚幣）`);
+                    showAlert(`戰鬥勝利！獲得 ${data.exp_gain} EXP。`);
                 }
 
                 fetchWithTimeout('/api/auth/me').then(r => r.json()).then(d => {
@@ -1069,39 +987,59 @@ document.addEventListener('DOMContentLoaded', () => {
                     const activeTab = document.querySelector('.stage-tab.active');
                     if (activeTab) renderStageList(activeTab.dataset.game);
                 }
-            } else { alert(data.error); }
-        } catch (e) { alert("結算失敗： " + e.message); }
+            } else { showAlert(data.error); }
+        } catch (e) { showAlert("結算失敗： " + e.message); }
 
-        if (currentBattleIsWeekly) {
-            currentBattleIsWeekly = false;
-            document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
-            document.getElementById('weeklyView').classList.add('active');
-            document.querySelectorAll('.nav-tab').forEach(t => {
-                t.classList.toggle('active', t.dataset.view === 'weekly');
-            });
-            loadWeeklyPanel();
-        } else {
-            document.getElementById('stageSelect').style.display = 'block';
-            document.getElementById('battleContainer').style.display = 'none';
-        }
+        document.getElementById('battleContainer').style.display = 'none';
+        document.getElementById('battleStep1').classList.add('active');
         currentBattleState = null;
     }
 
     // =========================================================
-    // 升級
+    // 角色圖鑑與升級 (保留)
     // =========================================================
+    function renderRoster() {
+        if (!playerData || !playerData.cards) return;
+        rosterGrid.innerHTML = '';
+        const ownedChars = Object.keys(playerData.cards);
+        if (ownedChars.length === 0) {
+            rosterGrid.innerHTML = '<p style="color:#aaa; grid-column:1/-1; text-align:center;">還沒有任何角色，去抽卡吧！</p>';
+            return;
+        }
+        ownedChars.sort((a,b) => {
+            const aData = playerData.cards[a];
+            const bData = playerData.cards[b];
+            if (aData.awaken !== bData.awaken) return bData.awaken - aData.awaken;
+            const w = {'SSR':3, 'SR':2, 'R':1};
+            return w[allCharacters[b]?.rarity || 'R'] - w[allCharacters[a]?.rarity || 'R'];
+        });
+        ownedChars.forEach(name => {
+            const card = playerData.cards[name];
+            const info = allCharacters[name] || { code: 'game', index: 1 };
+            const rarity = info.rarity || 'R';
+            const div = document.createElement('div');
+            div.className = `roster-card ${rarity}`;
+            div.innerHTML = `
+                <img src="/static/picture/char-${info.code}-${info.index}.png" data-fallback="/static/picture/thumb-${info.code}-${info.index}.png">
+                <div class="roster-info">
+                    <div class="roster-name">${name}</div>
+                    <div class="roster-awaken">Lv.${card.level || 1} · 覺醒 ${card.awaken} / 6</div>
+                </div>
+            `;
+            div.addEventListener('click', () => openUpgradeModal(name));
+            rosterGrid.appendChild(div);
+        });
+    }
+
     function openUpgradeModal(charName) {
         currentUpgradeChar = charName;
         const card = playerData.cards[charName];
         const lvl = card.level || 1;
-        
         document.getElementById('upgradeName').textContent = `${charName} - 升級`;
         document.getElementById('upgradeCurrentLvl').textContent = lvl;
-        
         upgradeSlider.min = 1;
         upgradeSlider.max = 60;
         upgradeSlider.value = lvl;
-        
         updateUpgradeCostUI(lvl, lvl);
         upgradeModal.classList.add('show');
     }
@@ -1175,10 +1113,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('upgradeCurrentLvl').textContent = data.level;
                 updateUpgradeCostUI(data.level, data.level);
                 renderRoster();
-                const activeTab = document.querySelector('.stage-tab.active');
-                if (activeTab) loadPartySelection();
-            } else { alert(data.error); }
-        } catch (e) { alert("操作失敗：" + e.message); } finally { doUpgradeBtn.textContent = '確認變更'; }
+                loadPartySelection(true); 
+            } else { showAlert(data.error); }
+        } catch (e) { showAlert("操作失敗：" + e.message); } finally { doUpgradeBtn.textContent = '確認變更'; }
     });
 
     toAwakenBtn?.addEventListener('click', () => {
@@ -1186,8 +1123,196 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentUpgradeChar) openAwakenModal(currentUpgradeChar);
     });
 
+    closeAwakenBtn?.addEventListener('click', () => awakenModal.classList.remove('show'));
+    
+    doAwakenBtn?.addEventListener('click', async () => {
+        if (!currentAwakenChar) return;
+        doAwakenBtn.disabled = true;
+        doAwakenBtn.textContent = '處理中...';
+        try {
+            const res = await fetchWithTimeout(`/api/awaken/${encodeURIComponent(currentAwakenChar)}`, { method: 'POST' });
+            const data = await res.json();
+            if (!data.ok) showAlert(data.error);
+            else {
+                playerData.cards[currentAwakenChar].awaken = data.awaken;
+                playerData.cards[currentAwakenChar].shards = data.shards;
+                await openAwakenModal(currentAwakenChar);
+                renderRoster();
+            }
+        } catch (e) { showAlert('覺醒失敗: ' + e.message); } finally { doAwakenBtn.disabled = false; }
+    });
+
+    async function openAwakenModal(charName) {
+        currentAwakenChar = charName;
+        try {
+            const res = await fetchWithTimeout(`/api/awaken/${encodeURIComponent(charName)}`);
+            const data = await res.json();
+            if (!data.ok) return showAlert(data.error);
+            const info = allCharacters[charName];
+            document.getElementById('awakenImg').src = `/static/picture/char-${info.code}-${info.index}.png`;
+            document.getElementById('awakenName').textContent = data.name;
+            document.getElementById('awakenRarity').textContent = data.rarity;
+            document.getElementById('awakenShards').textContent = data.shards;
+
+            data.effects.forEach((desc, idx) => {
+                const el = awakenLvlEls[idx];
+                if(!el) return;
+                el.onclick = null; el.style.border = 'none'; el.style.cursor = 'default';
+                
+                if (isTester) {
+                    el.style.cursor = 'pointer'; el.style.border = '1px dashed rgba(212, 175, 55, 0.5)';
+                    el.title = '點擊切換至此覺醒等級';
+                    el.onclick = async () => {
+                        const targetLvl = (idx + 1 === data.awaken) ? idx : (idx + 1);
+                        const req = await fetchWithTimeout('/api/tester/awaken', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: charName, target_lvl: targetLvl })
+                        });
+                        const reqData = await req.json();
+                        if (reqData.ok) {
+                            playerData.cards[charName].awaken = reqData.awaken;
+                            await openAwakenModal(charName);
+                            renderRoster();
+                        }
+                    };
+                }
+
+                el.querySelector('.lvl-desc').textContent = desc;
+                if (idx < data.awaken) {
+                    el.classList.add('active');
+                    el.querySelector('.lvl-title').innerHTML = `覺醒 ${['I','II','III','IV','V','VI'][idx]} <span class="lvl-cost" style="color:var(--gold-main)">已解鎖</span>`;
+                } else {
+                    el.classList.remove('active');
+                    el.querySelector('.lvl-title').innerHTML = `覺醒 ${['I','II','III','IV','V','VI'][idx]} <span class="lvl-cost">消耗 1 碎片</span>`;
+                }
+            });
+
+            if (isTester) {
+                doAwakenBtn.textContent = '✨ 測試員無需碎片，請直接點擊上方等級框切換';
+                doAwakenBtn.disabled = true; doAwakenBtn.style.opacity = '0.8';
+                doAwakenBtn.style.borderColor = 'transparent'; doAwakenBtn.style.backgroundColor = 'transparent';
+            } else {
+                doAwakenBtn.style.opacity = '1'; doAwakenBtn.style.borderColor = 'var(--red-deep)'; doAwakenBtn.style.backgroundColor = '';
+                if (data.awaken >= 6) { doAwakenBtn.textContent = '已滿級'; doAwakenBtn.disabled = true; }
+                else if (data.shards >= 1) { doAwakenBtn.textContent = `消耗 1 碎片覺醒`; doAwakenBtn.disabled = false; }
+                else { doAwakenBtn.textContent = `碎片不足 (需 1)`; doAwakenBtn.disabled = true; }
+            }
+            awakenModal.classList.add('show');
+        } catch (e) { showAlert('載入覺醒資訊失敗: ' + e.message); }
+    }
+
     // =========================================================
-    // 每日任務
+    // 抽卡 (保留)
+    // =========================================================
+    const openWishlistBtn = document.getElementById('openWishlistBtn');
+    const wishlistModal = document.getElementById('wishlistModal');
+    const closeWishlistBtn = document.getElementById('closeWishlistBtn');
+    const saveWishlistBtn = document.getElementById('saveWishlistBtn');
+    const wishlistGrid = document.getElementById('wishlistGrid');
+
+    openWishlistBtn?.addEventListener('click', () => {
+        if (Object.keys(allCharacters).length === 0) return showAlert('正在載入角色數據，請稍候...');
+        renderWishlistGrid();
+        wishlistModal.classList.add('show');
+    });
+
+    closeWishlistBtn?.addEventListener('click', () => wishlistModal.classList.remove('show'));
+
+    saveWishlistBtn?.addEventListener('click', () => {
+        const selected = Array.from(wishlistGrid.querySelectorAll('.wish-item.selected')).map(el => el.dataset.name);
+        if (selected.length > 1) return showAlert('心願單只能選擇 1 個角色！');
+        saveWishlistBtn.disabled = true;
+        saveWishlistBtn.textContent = '儲存中...';
+        fetchWithTimeout('/api/gacha/wishlist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wishlist: selected })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.ok) {
+                currentWishlist = data.wishlist;
+                wishlistModal.classList.remove('show');
+            } else {
+                showAlert(data.error);
+            }
+        })
+        .finally(() => {
+            saveWishlistBtn.disabled = false;
+            saveWishlistBtn.textContent = '儲存';
+        });
+    });
+
+    document.getElementById('closeResultBtn')?.addEventListener('click', () => document.getElementById('gachaResultModal').classList.remove('show'));
+
+    function renderWishlistGrid() {
+        wishlistGrid.innerHTML = '';
+        const ssrNames = Object.keys(allCharacters).filter(name => allCharacters[name].rarity === 'SSR');
+        ssrNames.forEach(name => {
+            const info = allCharacters[name];
+            const isSel = currentWishlist.includes(name);
+            const div = document.createElement('div');
+            div.className = `wish-item ${isSel ? 'selected' : ''}`;
+            div.dataset.name = name;
+            div.innerHTML = `<img src="/static/picture/thumb-${info.code}-${info.index}.png" alt="${name}"><span>${name}</span>`;
+            div.addEventListener('click', () => {
+                if (div.classList.contains('selected')) div.classList.remove('selected');
+                else {
+                    if (wishlistGrid.querySelectorAll('.wish-item.selected').length >= 1) return showAlert('心願單只能選擇 1 個角色！');
+                    div.classList.add('selected');
+                }
+            });
+            wishlistGrid.appendChild(div);
+        });
+    }
+
+    async function handleDraw(count) {
+        if (playerData.coins < 160 * count) return;
+        draw1Btn.disabled = true; draw10Btn.disabled = true;
+        try {
+            const res = await fetchWithTimeout('/api/gacha/draw', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ count })
+            });
+            const data = await res.json();
+            if (!data.ok) return showAlert(data.error);
+            updateCoinsUI(data.coins);
+            pityCount.textContent = data.pity;
+            const meRes = await fetchWithTimeout('/api/auth/me');
+            const meData = await meRes.json();
+            if (meData.logged_in) {
+                playerData = meData.player;
+                updateCoinsUI(playerData.coins);
+            }
+            showGachaResults(data.results);
+        } catch (e) { showAlert('抽卡失敗：' + e.message); } finally { updateDrawButtons(); }
+    }
+
+    function showGachaResults(results) {
+        const container = document.getElementById('gachaCards');
+        const modal = document.getElementById('gachaResultModal');
+        container.innerHTML = '';
+        modal.classList.add('show');
+        results.forEach((card, idx) => {
+            const info = allCharacters[card.name] || { code: 'game', index: 1 };
+            const div = document.createElement('div');
+            div.className = `card-item ${card.rarity}`;
+            div.style.animationDelay = `${idx * 0.15}s`;
+            let tagHtml = `<div class="card-tag">+${card.shards} 碎片</div>`;
+            if (card.is_new) tagHtml = `<div class="card-tag new">NEW 解鎖</div>`;
+            else if (card.refund > 0) tagHtml = `<div class="card-tag" style="color: #ffd700; font-weight: bold;">滿覺 返還+${card.refund}幣</div>`;
+            div.innerHTML = `
+                <img src="/static/picture/char-${info.code}-${info.index}.png" data-fallback="/static/picture/thumb-${info.code}-${info.index}.png">
+                <div class="card-info"><div class="card-name">${card.name}</div>${tagHtml}</div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    // =========================================================
+    // 每日任務 (保留)
     // =========================================================
     async function loadDailyTasks() {
         try {
@@ -1205,17 +1330,25 @@ document.addEventListener('DOMContentLoaded', () => {
         dailyBarFill.style.width = `${points}%`;
         dailyPointsText.textContent = dailyData.points;
 
-        document.querySelectorAll('.tier').forEach(el => {
-            const tier = parseInt(el.dataset.tier);
-            el.classList.remove('claimable', 'claimed');
-            if (dailyData.claimed.includes(tier)) {
-                el.classList.add('claimed');
-            } else if (dailyData.points >= tier) {
-                el.classList.add('claimable');
-                el.onclick = () => claimDailyTier(tier);
-            } else {
-                el.onclick = null;
+        const tiersContainer = document.querySelector('.daily-tiers');
+        const tiers = [20, 40, 60, 80, 100];
+        
+        tiersContainer.innerHTML = '';
+        tiers.forEach(t => {
+            const reached = points >= t;
+            const claimed = dailyData.claimed.includes(t);
+            const div = document.createElement('div');
+            div.className = 'tier';
+            if (claimed) div.classList.add('claimed');
+            else if (reached) div.classList.add('claimable', 'reached');
+            
+            div.innerHTML = `<div class="tier-dot"></div><span>${t}點</span>`;
+            
+            if (reached && !claimed) {
+                div.style.cursor = 'pointer';
+                div.addEventListener('click', () => claimDailyTier(t));
             }
+            tiersContainer.appendChild(div);
         });
 
         dailyTaskList.innerHTML = '';
@@ -1229,6 +1362,9 @@ document.addEventListener('DOMContentLoaded', () => {
             let statusText = isCompleted ? '已達成' : `${progress}/${config.target}`;
             
             div.innerHTML = `
+                <div class="task-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
                 <div class="task-desc">${config.desc}</div>
                 <div>
                     <span class="task-reward">+${config.points} 活躍</span>
@@ -1248,17 +1384,17 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const data = await res.json();
             if (data.ok) {
-                alert(`領取成功！獲得 ${data.reward} 柚幣`);
+                showAlert(`領取成功！獲得 ${data.reward} 柚幣`);
                 loadDailyTasks();
                 fetchWithTimeout('/api/auth/me').then(r => r.json()).then(d => {
                     if (d.logged_in) updateCoinsUI(d.player.coins);
                 });
-            } else { alert(data.error); }
-        } catch (e) { alert("領取失敗：" + e.message); }
+            } else { showAlert(data.error); }
+        } catch (e) { showAlert("領取失敗：" + e.message); }
     }
 
     // =========================================================
-    // 週常深淵
+    // 星隕迴廊 (保留)
     // =========================================================
     async function loadWeeklyPanel() {
         try {
@@ -1267,9 +1403,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!data.ok) return;
             weeklyData = data;
             renderWeeklyStages();
-            const pRes = await fetchWithTimeout('/api/battle/party');
-            const pData = await pRes.json();
-            if (pData.ok) renderPartySelection(pData.characters, 'weeklyPartyGrid');
+            if (currentPartyData.length === 0) {
+                const pRes = await fetchWithTimeout('/api/battle/party');
+                const pData = await pRes.json();
+                if (pData.ok) currentPartyData = pData.characters;
+            }
+            renderPartySelection(currentPartyData, 'weeklyPartyGrid');
         } catch (e) { console.error('載入週常失敗', e); }
     }
 
@@ -1277,9 +1416,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const list = document.getElementById('weeklyStageList');
         if (!list || !weeklyData) return;
         list.innerHTML = '';
-        weeklyData.stages.forEach(stage => {
+        
+        weeklyData.stages.forEach((stage, index) => {
+            let isLocked = false;
+            if (index > 0) {
+                const prevStage = weeklyData.stages[index - 1];
+                if (!prevStage.best_grade) isLocked = true;
+            }
+            if (isTester) isLocked = false;
+
             const div = document.createElement('div');
-            div.className = 'weekly-stage-item';
+            div.className = `weekly-stage-item ${isLocked ? 'locked' : ''}`;
             const best = stage.best_grade;
             const bestInfo = best ? `最佳：${best} · ${stage.best_turns} 回合` : '尚未通關';
             const rule = stage.grades_rule;
@@ -1289,7 +1436,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const reached = best && ({'B':1,'A':2,'S':3})[best] >= ({'B':1,'A':2,'S':3})[g];
                 const claimed = (stage.claimed || []).includes(g);
                 const btnLabel = claimed ? '已領取' : (reached ? '領取' : '未達成');
-                const btnDisabled = claimed || !reached;
+                const btnDisabled = claimed || !reached || isLocked;
                 gradesHtml += `
                     <div class="weekly-grade ${reached ? 'reached' : ''} ${claimed ? 'claimed' : ''}">
                         <span class="weekly-grade-label">${g}</span>
@@ -1300,13 +1447,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             });
 
+            let challengeBtnText = isLocked ? '🔒 未解鎖' : '挑戰';
+            
             div.innerHTML = `
                 <div class="weekly-stage-header">
                     <div>
-                        <div class="weekly-stage-name">${stage.name}</div>
+                        <div class="weekly-stage-name">${stage.name} ${isLocked ? '🔒' : ''}</div>
                         <div class="weekly-stage-meta">${bestInfo}</div>
                     </div>
-                    <button class="btn-primary btn-weekly-challenge" data-stage="${stage.stage_id}">挑戰</button>
+                    <button class="btn-primary btn-weekly-challenge" data-stage="${stage.stage_id}" ${isLocked ? 'disabled' : ''}>${challengeBtnText}</button>
                 </div>
                 <div class="weekly-grades">${gradesHtml}</div>
             `;
@@ -1315,10 +1464,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         list.querySelectorAll('.btn-weekly-challenge').forEach(btn => {
             btn.addEventListener('click', () => {
+                if (btn.disabled) return;
                 currentWeeklyStageId = btn.dataset.stage;
-                updatePartySelectBtn();
-                document.querySelectorAll('.weekly-stage-item').forEach(it => it.classList.remove('selected'));
-                btn.closest('.weekly-stage-item').classList.add('selected');
+                const stageObj = weeklyData.stages.find(s => s.stage_id === currentWeeklyStageId);
+                document.getElementById('weeklyStageNameText').textContent = stageObj ? stageObj.name : currentWeeklyStageId;
+                document.getElementById('weeklyStep1').classList.remove('active');
+                document.getElementById('weeklyStep2').classList.add('active');
+                renderPartySelection(currentPartyData, 'weeklyPartyGrid');
             });
         });
 
@@ -1335,36 +1487,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     const data = await res.json();
                     if (data.ok) {
-                        alert(`領取成功！獲得 ${data.reward} 柚幣`);
+                        showAlert(`領取成功！獲得 ${data.reward} 柚幣`);
                         fetchWithTimeout('/api/auth/me').then(r => r.json()).then(d => {
                             if (d.logged_in) updateCoinsUI(d.player.coins);
                         });
                         loadWeeklyPanel();
                     } else {
-                        alert(data.error || '領取失敗');
+                        showAlert(data.error || '領取失敗');
                         btn.disabled = false;
                     }
-                } catch (e) { alert('領取失敗：' + e.message); btn.disabled = false; }
+                } catch (e) { showAlert('領取失敗：' + e.message); btn.disabled = false; }
             });
         });
     }
 
     document.getElementById('weeklyEnterBtn')?.addEventListener('click', async () => {
-        if (selectedParty.length === 0) return alert('請先選擇至少 1 名出戰角色！');
-        if (!currentWeeklyStageId) return alert('請先選擇一個週常關卡！');
+        if (selectedParty.length === 0) return showAlert('請先選擇至少 1 名出戰角色！');
+        if (!currentWeeklyStageId) return showAlert('請先選擇一個關卡！');
         
         const btn = document.getElementById('weeklyEnterBtn');
         if (btn) { btn.disabled = true; btn.textContent = '連線中...'; }
 
         currentBattleIsWeekly = true;
         currentSelectedStageId = currentWeeklyStageId;
-
-        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-        document.querySelector('.nav-tab[data-view="battle"]').classList.add('active');
-        document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
-        document.getElementById('battleView').classList.add('active');
-        document.getElementById('stageSelect').style.display = 'none';
-        document.getElementById('battleContainer').style.display = 'flex';
 
         try {
             const res = await fetchWithTimeout('/api/battle/start', {
@@ -1374,22 +1519,146 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const data = await res.json();
             if (!data.ok) {
-                alert(data.error || "進入戰鬥失敗");
+                showAlert(data.error || "進入戰鬥失敗");
                 currentBattleIsWeekly = false;
-                document.getElementById('battleView').classList.remove('active');
-                document.getElementById('weeklyView').classList.add('active');
-                if (btn) { btn.disabled = false; btn.textContent = '挑戰週常深淵'; }
+                if (btn) { btn.disabled = false; btn.textContent = '進入迴廊'; }
                 return;
             }
+
+            document.querySelectorAll('.view-panel').forEach(p => {
+                p.classList.remove('active');
+                p.style.display = 'none';
+            });
+            
+            const battleView = document.getElementById('battleView');
+            battleView.classList.add('active');
+            battleView.style.display = 'flex';
+            document.getElementById('battleStep1')?.classList.remove('active');
+            document.getElementById('battleStep2')?.classList.remove('active');
+            
             currentBattleState = data.state;
             if (data.story) showStoryModal(data.story, startActualBattle);
             else startActualBattle();
+            
         } catch (e) {
-            alert(`進入戰鬥失敗: ${e.message}`);
+            showAlert(`進入戰鬥失敗: ${e.message}`);
             currentBattleIsWeekly = false;
-            if (btn) { btn.disabled = false; btn.textContent = '挑戰週常深淵'; }
+            if (btn) { btn.disabled = false; btn.textContent = '進入迴廊'; }
         }
     });
+
+    // =========================================================
+    // 新手引導系統
+    // =========================================================
+    let tutorialStep = 0;
+
+    function checkTutorial() {
+        const hasCleared = playerData?.stats?.cleared_stages?.length > 0;
+        if (hasCleared) { tutorialStep = 99; return; }
+        const hasCards = Object.keys(playerData?.cards || {}).length > 0;
+        if (hasCards) { tutorialStep = 99; return; }
+
+        tutorialStep = 0;
+        playerData.cards["朝武芳乃"] = { awaken: 0, level: 10 };
+        playerData.cards["叢雨"] = { awaken: 0, level: 10 };
+        playerData.cards["常陸茉子"] = { awaken: 0, level: 10 };
+        
+        showTutorial(
+            "幻境引路人",
+            "歡迎來到幻境樞紐。深淵的裂縫正在蔓延，需要你這樣的力量來平息混亂。不過在此之前，先讓幾位前輩來測試一下你的潛力吧！",
+            "接受試煉",
+            () => {
+                showTutorial(
+                    "幻境引路人",
+                    "【戰鬥基礎】戰鬥中，打出卡牌需要消耗 <b style='color:#00e5ff'>SP（能量）</b>。每回合結束時，SP 會自動恢復 3 點。",
+                    "下一頁",
+                    () => {
+                        showTutorial(
+                            "幻境引路人",
+                            "【屬性克制】每個角色和敵人都有『心相』。記住這個口訣：<b style='color:#ffd700'>凜→戲→羞→靜→陽→和→凜</b>。用克制的心相攻擊，傷害會大幅提升！",
+                            "開始實戰",
+                            () => {
+                                hideTutorial();
+                                startTutorialBattle();
+                            }
+                        );
+                    }
+                );
+            }
+        );
+    }
+
+    function showTutorial(title, text, btnText, onNext) {
+        tutorialTitle.textContent = title;
+        tutorialText.innerHTML = text;
+        tutorialNextBtn.textContent = btnText;
+        tutorialModal.classList.add('show');
+        tutorialNextBtn.onclick = null;
+        tutorialNextBtn.onclick = () => {
+            hideTutorial();
+            if (onNext) onNext();
+        };
+    }
+
+    function hideTutorial() {
+        tutorialModal.classList.remove('show');
+    }
+
+    tutorialSkipBtn?.addEventListener('click', async () => {
+        const isConfirmed = await showConfirm('確定要跳過新手引導嗎？這會幫助你快速上手。', '跳過引導');
+        if (isConfirmed) {
+            hideTutorial();
+            tutorialStep = 99;
+            if (playerData && playerData.cards) {
+                delete playerData.cards["朝武芳乃"];
+                delete playerData.cards["叢雨"];
+                delete playerData.cards["常陸茉子"];
+            }
+        }
+    });
+
+    async function startTutorialBattle() {
+        currentSelectedStageId = "senren-1";
+        selectedParty = ["朝武芳乃", "叢雨", "常陸茉子"];
+        tutorialStep = 1;
+        
+        document.querySelectorAll('.view-panel').forEach(p => {
+            p.classList.remove('active');
+            p.style.display = 'none';
+        });
+        const battleView = document.getElementById('battleView');
+        battleView.classList.add('active');
+        battleView.style.display = 'flex';
+        document.getElementById('battleStep1')?.classList.remove('active');
+        document.getElementById('battleStep2')?.classList.remove('active');
+        
+        try {
+            const res = await fetchWithTimeout('/api/battle/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ stage_id: currentSelectedStageId, party: selectedParty })
+            });
+            const data = await res.json();
+            
+            if (!data.ok) {
+                showAlert(data.error || "進入戰鬥失敗");
+                battleView.classList.remove('active');
+                document.getElementById('lobbyView').classList.add('active');
+                return;
+            }
+            
+            currentBattleIsWeekly = false;
+            currentBattleState = data.state;
+            
+            if (data.story) showStoryModal(data.story, startActualBattle);
+            else startActualBattle();
+            
+        } catch (e) { 
+            showAlert(`進入戰鬥失敗: ${e.message}`); 
+            battleView.classList.remove('active');
+            document.getElementById('lobbyView').classList.add('active');
+        }
+    }
 
     // 綁定按鈕
     document.getElementById('endTurnBtn')?.addEventListener('click', doEndTurn);

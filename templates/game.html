@@ -48,14 +48,14 @@
             </div>
         </header>
 
-        <!-- 🌟 核心：必须要有 main 包裹，确保所有视图在同一层级 -->
         <main class="game-main">
-            
             <!-- ========================================== -->
             <!-- 🌟 主頁大廳 (Lobby) -->
             <!-- ========================================== -->
             <div id="lobbyView" class="view-panel active">
-                <!-- 頂部裝飾標題 -->
+                <div class="lobby-bg"></div>
+                <div class="lobby-dark-overlay"></div>
+                
                 <div class="lobby-header-title">
                     <span class="lobby-title-line"></span>
                     <h2>幻 境 樞 紐</h2>
@@ -64,25 +64,12 @@
 
                 <!-- 左側懸浮魔法石板導航 -->
                 <div class="lobby-menu">
-                    <!-- 異界裂縫 -->
+                    <!-- 按鈕 1 -->
                     <button class="lobby-card-btn" data-target="battle">
                         <div class="card-bg"></div>
                         <div class="card-glow"></div>
                         <div class="btn-icon-wrap">
-                            <!-- 雙劍（精緻版） -->
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M14.5 17.5L3 6V3h3l11.5 11.5" fill="rgba(255,224,138,0.1)"/>
-                                <path d="M13 19l6-6"/>
-                                <path d="M16 16l4 4"/>
-                                <path d="M19 21l2-2"/>
-                                <path d="M9.5 6.5L21 18v3h-3L6.5 9.5" fill="rgba(255,224,138,0.1)"/>
-                                <path d="M11 5l-6 6"/>
-                                <path d="M8 8L4 4"/>
-                                <path d="M5 3L3 5"/>
-                                <!-- 劍格寶石 -->
-                                <circle cx="5.5" cy="18.5" r="1.5" fill="currentColor"/>
-                                <circle cx="18.5" cy="5.5" r="1.5" fill="currentColor"/>
-                            </svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.5 17.5L3 6V3h3l11.5 11.5" fill="rgba(255,224,138,0.1)"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/><path d="M9.5 6.5L21 18v3h-3L6.5 9.5" fill="rgba(255,224,138,0.1)"/><path d="M11 5l-6 6"/><path d="M8 8L4 4"/><path d="M5 3L3 5"/></svg>
                         </div>
                         <div class="btn-text-wrap">
                             <span class="btn-title">異界裂縫</span>
@@ -90,40 +77,25 @@
                         </div>
                     </button>
                     
-                    <!-- 週常深淵 -->
+                    <!-- 按鈕 2 -->
                     <button class="lobby-card-btn" data-target="weekly">
                         <div class="card-bg"></div>
                         <div class="card-glow"></div>
                         <div class="btn-icon-wrap">
-                            <!-- 深淵之眼（精緻版） -->
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="10" stroke-dasharray="4 2"/>
-                                <circle cx="12" cy="12" r="6" fill="rgba(255,224,138,0.1)"/>
-                                <path d="M12 6C8.686 6 6 8.686 6 12s2.686 6 6 6 6-2.686 6-6-2.686-6-6-6z" stroke-width="0.5"/>
-                                <circle cx="12" cy="12" r="2" fill="currentColor"/>
-                                <path d="M12 2v2M12 20v2M2 12h2M20 12h2"/>
-                            </svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10" stroke-dasharray="4 2"/><circle cx="12" cy="12" r="6" fill="rgba(255,224,138,0.1)"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
                         </div>
                         <div class="btn-text-wrap">
-                            <span class="btn-title">週常深淵</span>
-                            <span class="btn-sub">ABYSS TRIAL</span>
+                            <span class="btn-title">星隕迴廊</span>
+                            <span class="btn-sub">STARFALL TRIAL</span>
                         </div>
                     </button>
                     
-                    <!-- 幻境卡池 -->
+                    <!-- 按鈕 3 -->
                     <button class="lobby-card-btn" data-target="gacha">
                         <div class="card-bg"></div>
                         <div class="card-glow"></div>
                         <div class="btn-icon-wrap">
-                            <!-- 星光魔法（精緻版） -->
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round">
-                                <!-- 主星芒 -->
-                                <path d="M12 2l2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5z" fill="rgba(255,224,138,0.15)"/>
-                                <!-- 十字星芒 -->
-                                <path d="M12 6v12M6 12h12"/>
-                                <!-- 邊緣裝飾 -->
-                                <circle cx="12" cy="12" r="10" stroke-width="0.5"/>
-                            </svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5z" fill="rgba(255,224,138,0.15)"/><path d="M12 6v12M6 12h12"/></svg>
                         </div>
                         <div class="btn-text-wrap">
                             <span class="btn-title">幻境卡池</span>
@@ -131,19 +103,12 @@
                         </div>
                     </button>
 
-                    <!-- 我的角色 -->
+                    <!-- 按鈕 4 -->
                     <button class="lobby-card-btn" data-target="roster">
                         <div class="card-bg"></div>
                         <div class="card-glow"></div>
                         <div class="btn-icon-wrap">
-                            <!-- 塔羅卡牌（精緻版） -->
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round">
-                                <rect x="6" y="3" width="12" height="18" rx="2" fill="rgba(255,224,138,0.1)"/>
-                                <!-- 內部卡牌符文 -->
-                                <path d="M12 7l2 4-2 4-2-4 2-4z" stroke-width="0.8"/>
-                                <path d="M9 17h6" stroke-width="0.8"/>
-                                <path d="M8 3v18M16 3v18" stroke-width="0.5" stroke-dasharray="1 2"/>
-                            </svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="3" width="12" height="18" rx="2" fill="rgba(255,224,138,0.1)"/><path d="M12 7l2 4-2 4-2-4 2-4z" stroke-width="0.8"/><path d="M9 17h6" stroke-width="0.8"/></svg>
                         </div>
                         <div class="btn-text-wrap">
                             <span class="btn-title">我的角色</span>
@@ -151,27 +116,18 @@
                         </div>
                     </button>
 
-                    <!-- 每日任務 -->
+                    <!-- 按鈕 5 -->
                     <button class="lobby-card-btn" data-target="daily">
                         <div class="card-bg"></div>
                         <div class="card-glow"></div>
                         <div class="btn-icon-wrap">
-                            <!-- 任務卷軸（精緻版） -->
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="rgba(255,224,138,0.05)"/>
-                                <path d="M3 9h18"/>
-                                <path d="M7 13h4M7 17h7"/>
-                                <path d="M16 4v5" stroke-dasharray="2 2"/>
-                                <!-- 勾選標記 -->
-                                <path d="M16 14l2 2 3-3" stroke-width="1.5"/>
-                            </svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="rgba(255,224,138,0.05)"/><path d="M3 9h18"/><path d="M7 13h4M7 17h7"/><path d="M16 14l2 2 3-3" stroke-width="1.5"/></svg>
                         </div>
                         <div class="btn-text-wrap">
                             <span class="btn-title">每日任務</span>
                             <span class="btn-sub">DAILY MISSION</span>
                         </div>
                     </button>
-                </div>
                 </div>
             </div>
 
@@ -182,7 +138,7 @@
             <!-- 視圖 1：抽卡 -->
             <div id="gachaView" class="view-panel">
                 <button class="btn-back-lobby">◀ 返回大廳</button>
-                <div class="gacha-panel"> <!-- 原有代码... -->
+                <div class="gacha-panel">
                     <div class="gacha-title">常駐幻境卡池</div>
                     <div class="pity-info">距離 SSR 保底：<span id="pityCount" class="highlight">0</span> / 80</div>
                     <div class="gacha-buttons">
@@ -205,6 +161,38 @@
             <!-- 視圖 3：戰鬥 -->
             <div id="battleView" class="view-panel">
                 <button class="btn-back-lobby" id="btnBackFromBattle">◀ 返回大廳</button>
+                
+                <!-- 步驟一：選關卡 -->
+                <div id="battleStep1" class="step-panel active">
+                    <div class="panel-header-title">異界裂縫 · 選擇關卡</div>
+                    <div class="stage-game-tabs">
+                        <button class="stage-tab active" data-game="senren">千戀＊萬花</button>
+                        <button class="stage-tab" data-game="tenshi">天使紛擾</button>
+                        <button class="stage-tab" data-game="cafe">星光咖啡館</button>
+                        <button class="stage-tab" data-game="sabbat">魔女的夜宴</button>
+                    </div>
+                    <div class="stage-list" id="stageList"></div>
+                </div>
+
+                <!-- 步驟二：選角色 -->
+                <div id="battleStep2" class="step-panel">
+                    <div class="panel-header-title">異界裂縫 · 出戰準備</div>
+                    <div class="selected-stage-info">
+                        當前關卡：<span id="selectedStageNameText" class="highlight-text">未選擇</span>
+                    </div>
+                    
+                    <div class="party-select-panel" style="margin-top: 15px; border: none; background: transparent; padding: 0; box-shadow: none;">
+                        <h3 style="margin-bottom: 10px;">選擇出戰隊伍（最多 3 名）</h3>
+                        <div id="partySelectGrid" class="party-select-grid" style="max-height: 50vh;"></div>
+                        <div class="party-select-footer">
+                            <button class="btn-secondary" id="btnBackToStageSelect">返回選關卡</button>
+                            <span>已選 <span class="count" id="partySelectCount">0</span> / 3</span>
+                            <button class="btn-primary" id="enterStageBtn" disabled>進入戰鬥</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 戰鬥容器 (原本的) -->
                 <div id="battleContainer" class="battle-container" style="display:none;">
                     <div class="enemy-area" id="enemyArea"></div>
                     <div class="mid-area">
@@ -216,65 +204,57 @@
                     </div>
                     <div class="hand-area" id="handArea"></div>
                 </div>
-                
-                <div id="stageSelect" style="text-align:center; padding: 20px; width: 100%; max-width: 900px; margin: 0 auto;">
-                    <h2 style="color:var(--gold-light); margin-bottom:20px; letter-spacing:0.1em;">異界裂縫</h2>
-                    <div class="stage-game-tabs">
-                        <button class="stage-tab active" data-game="senren">千戀＊萬花</button>
-                        <button class="stage-tab" data-game="tenshi">天使紛擾</button>
-                        <button class="stage-tab" data-game="cafe">星光咖啡館</button>
-                        <button class="stage-tab" data-game="sabbat">魔女的夜宴</button>
-                    </div>
-                    <div class="stage-list" id="stageList"></div>
-                    
-                    <div class="party-select-panel" style="margin-top: 20px;">
-                        <h3>選擇出戰隊伍（最多 3 名）</h3>
-                        <div id="partySelectGrid" class="party-select-grid"></div>
-                        <div class="party-select-footer">
-                            <span>已選 <span class="count" id="partySelectCount">0</span> / 3</span>
-                            <button class="btn-primary" id="enterStageBtn" disabled>請先選擇關卡</button>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- 視圖 4：每日任務 -->
             <div id="dailyView" class="view-panel">
                 <button class="btn-back-lobby">◀ 返回大廳</button>
-                <div class="roster-panel" style="width: 800px;">
-                    <div class="gacha-title">每日任務</div>
-                    <div class="daily-progress-container">
-                        <div class="daily-bar-bg"><div id="dailyBarFill" class="daily-bar-fill"></div></div>
-                        <div class="daily-tiers">
-                            <div class="tier" data-tier="20" style="left: 20%"><div class="tier-dot"></div><span>20點</span></div>
-                            <div class="tier" data-tier="40" style="left: 40%"><div class="tier-dot"></div><span>40點</span></div>
-                            <div class="tier" data-tier="60" style="left: 60%"><div class="tier-dot"></div><span>60點</span></div>
-                            <div class="tier" data-tier="80" style="left: 80%"><div class="tier-dot"></div><span>80點</span></div>
-                            <div class="tier" data-tier="100" style="left: 100%"><div class="tier-dot"></div><span>100點</span></div>
+                <div class="daily-panel">
+                    <div class="panel-header-title">每日任務</div>
+                    
+                    <div class="daily-progress-wrap">
+                        <div class="daily-bar-bg">
+                            <div id="dailyBarFill" class="daily-bar-fill"></div>
                         </div>
-                        <div style="text-align: right; margin-top: 10px; color: var(--gold-light); font-weight: bold;">
+                        <div class="daily-tiers">
+                            <!-- 改為由 JS 動態渲染，這裡留空 -->
+                        </div>
+                        <div class="daily-points-display">
                             當前活躍：<span id="dailyPointsText">0</span> / 100
                         </div>
                     </div>
+
                     <div id="dailyTaskList" class="daily-task-list"></div>
                 </div>
             </div>
 
-            <!-- 視圖 5：週常深淵 -->
+            <!-- 視圖 5：星隕迴廊 -->
             <div id="weeklyView" class="view-panel">
                 <button class="btn-back-lobby">◀ 返回大廳</button>
-                <div class="roster-panel" style="width: 950px; max-height: 88vh; overflow-y: auto;">
-                    <div class="gacha-title">週常深淵</div>
-                    <p style="text-align:center; color:var(--text-muted); font-size:13px; margin-bottom:20px;">
+                
+                <!-- 步驟一：選關卡 -->
+                <div id="weeklyStep1" class="step-panel active">
+                    <div class="panel-header-title">星隕迴廊</div>
+                    <p style="text-align:center; color:var(--text-muted); font-size:13px; margin-bottom:15px;">
                         每週一 00:00 重置 · 依通關回合數評分 · 每檔 170 柚幣
                     </p>
-                    <div id="weeklyStageList" class="weekly-stage-list"></div>
-                    <div class="party-select-panel" style="margin-top: 20px;">
-                        <h3>選擇出戰隊伍（最多 3 名）</h3>
-                        <div id="weeklyPartyGrid" class="party-select-grid"></div>
+                    <div id="weeklyStageList" class="weekly-stage-list" style="max-height: 55vh; overflow-y: auto;"></div>
+                </div>
+
+                <!-- 步驟二：選角色 -->
+                <div id="weeklyStep2" class="step-panel">
+                    <div class="panel-header-title">星隕迴廊 · 出戰準備</div>
+                    <div class="selected-stage-info">
+                        挑戰層數：<span id="weeklyStageNameText" class="highlight-text">未選擇</span>
+                    </div>
+                    
+                    <div class="party-select-panel" style="margin-top: 15px; border: none; background: transparent; padding: 0; box-shadow: none;">
+                        <h3 style="margin-bottom: 10px;">選擇出戰隊伍（最多 3 名）</h3>
+                        <div id="weeklyPartyGrid" class="party-select-grid" style="max-height: 50vh;"></div>
                         <div class="party-select-footer">
+                            <button class="btn-secondary" id="btnBackToWeeklySelect">返回選層數</button>
                             <span>已選 <span class="count" id="weeklyPartyCount">0</span> / 3</span>
-                            <button class="btn-primary" id="weeklyEnterBtn" disabled>請先選擇關卡</button>
+                            <button class="btn-primary" id="weeklyEnterBtn" disabled>進入迴廊</button>
                         </div>
                     </div>
                 </div>
@@ -380,6 +360,44 @@
             <p id="storyText" style="line-height: 1.8; font-size: 15px; margin-bottom: 25px; color: #ccc;"></p>
             <div style="text-align: right;">
                 <button id="closeStoryBtn" class="btn-primary">開始戰鬥</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🌟 新手引導對話框 -->
+    <div id="tutorialModal" class="modal-overlay" style="z-index: 10010; align-items: flex-end; padding-bottom: 10vh;">
+        <div class="tutorial-content">
+            <div class="tutorial-avatar">
+                <!-- 這裡可以放一個可愛的妖精或系統 AI 圖標 -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-main)" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            </div>
+            <div class="tutorial-dialog">
+                <h3 id="tutorialTitle">幻境引路人</h3>
+                <p id="tutorialText">歡迎來到幻境樞紐！</p>
+                <div class="tutorial-actions">
+                    <button id="tutorialNextBtn" class="btn-primary" style="padding: 8px 24px; font-size: 14px;">前往探索</button>
+                    <button id="tutorialSkipBtn" class="btn-secondary" style="padding: 8px 20px; font-size: 14px;">跳過教學</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🌟 通用確認彈窗 -->
+    <div id="customConfirmModal" class="modal-overlay" style="z-index: 10020;">
+        <div class="modal-content confirm-modal-content">
+            <div class="confirm-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-main)" stroke-width="1.5">
+                    <!-- 外圍四芒星魔法陣 -->
+                    <path d="M12 2l2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5z" fill="rgba(232,200,116,0.1)"/>
+                    <!-- 中間的驚嘆號 -->
+                    <path d="M12 8v4M12 16h.01" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <h3 id="confirmTitle">提示</h3>
+            <p id="confirmMessage">確定要執行此操作嗎？</p>
+            <div class="confirm-actions">
+                <button id="confirmCancelBtn" class="btn-secondary">取消</button>
+                <button id="confirmOkBtn" class="btn-primary">確定</button>
             </div>
         </div>
     </div>

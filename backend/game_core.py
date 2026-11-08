@@ -209,68 +209,68 @@ BATTLE_STAGES = {
 }
 
 # =========================================================
-# 週常深淵配置
+# 星隕迴廊配置
 # =========================================================
 WEEKLY_STAGES = {
     "weekly-1": {
-        "name": "週常 · 深淵第一層",
-        "story": "深淵的裂縫再次開啟。第一層的守護者已就位，牠們正在等待敢於踏入的挑戰者。",
+        "name": "星隕迴廊 · 第一層",
+        "story": "星隕迴廊的裂縫再次開啟。第一層的守護者已就位，牠們正在等待敢於踏入的挑戰者。",
         "waves": [
             [
-                {"name": "深淵·影衛", "hp": 2000, "mind": "陽", "code": "senren", "index": 3},
-                {"name": "深淵·影衛", "hp": 2000, "mind": "戲", "code": "senren", "index": 2},
+                {"name": "星隕·影衛", "hp": 2000, "mind": "陽", "code": "senren", "index": 3},
+                {"name": "星隕·影衛", "hp": 2000, "mind": "戲", "code": "senren", "index": 2},
             ],
             [
-                {"name": "深淵·咒靈", "hp": 3000, "mind": "靜", "code": "sabbat", "index": 3},
-                {"name": "深淵·咒靈", "hp": 3000, "mind": "和", "code": "sabbat", "index": 4},
+                {"name": "星隕·咒靈", "hp": 3000, "mind": "靜", "code": "sabbat", "index": 3},
+                {"name": "星隕·咒靈", "hp": 3000, "mind": "和", "code": "sabbat", "index": 4},
             ],
             [
-                {"name": "深淵守門者", "hp": 8000, "mind": "羞", "code": "tenshi", "index": 4},
+                {"name": "星隕守門者", "hp": 8000, "mind": "羞", "code": "tenshi", "index": 4},
             ],
         ],
         "grades": {"S": 6, "A": 10},
         "reward_coins": 0,
     },
     "weekly-2": {
-        "name": "週常 · 深淵第二層",
-        "story": "第二層的深淵更加濃稠。這裡的敵人擁有更強的心相抗性，光靠莽撞無法取勝。",
+        "name": "星隕迴廊 · 第二層",
+        "story": "第二層的星光更加濃郁。這裡的敵人擁有更強的心相抗性，光靠莽撞無法取勝。",
         "waves": [
             [
-                {"name": "深淵·噬魂者", "hp": 2500, "mind": "凜", "code": "cafe", "index": 3},
-                {"name": "深淵·噬魂者", "hp": 2500, "mind": "戲", "code": "cafe", "index": 4},
-                {"name": "深淵·噬魂者", "hp": 2500, "mind": "靜", "code": "cafe", "index": 2},
+                {"name": "星隕·噬魂者", "hp": 2500, "mind": "凜", "code": "cafe", "index": 3},
+                {"name": "星隕·噬魂者", "hp": 2500, "mind": "戲", "code": "cafe", "index": 4},
+                {"name": "星隕·噬魂者", "hp": 2500, "mind": "靜", "code": "cafe", "index": 2},
             ],
             [
-                {"name": "深淵·魔女殘影", "hp": 5000, "mind": "羞", "code": "sabbat", "index": 1},
-                {"name": "深淵·魔女殘影", "hp": 5000, "mind": "陽", "code": "sabbat", "index": 2},
+                {"name": "星隕·魔女殘影", "hp": 5000, "mind": "羞", "code": "sabbat", "index": 1},
+                {"name": "星隕·魔女殘影", "hp": 5000, "mind": "陽", "code": "sabbat", "index": 2},
             ],
             [
-                {"name": "深淵支配者", "hp": 12000, "mind": "靜", "code": "tenshi", "index": 1},
+                {"name": "星隕支配者", "hp": 12000, "mind": "靜", "code": "tenshi", "index": 1},
             ],
         ],
         "grades": {"S": 8, "A": 13},
         "reward_coins": 0,
     },
     "weekly-3": {
-        "name": "週常 · 深淵第三層（深淵核心）",
-        "story": "深淵的最深處。這裡沒有退路，只有無盡的黑暗與壓倒性的力量。傳說中，連滿級滿覺的隊伍也難以在短回合內突破……",
+        "name": "星隕迴廊 · 第三層（星核）",
+        "story": "迴廊的最深處。這裡沒有退路，只有無盡的星光與壓倒性的力量。傳說中，連滿級滿覺的隊伍也難以在短回合內突破……",
         "waves": [
             [
-                {"name": "核心·崩壞使徒", "hp": 3000, "mind": "凛", "code": "senren", "index": 1},
-                {"name": "核心·崩壞使徒", "hp": 3000, "mind": "戏", "code": "senren", "index": 2},
-                {"name": "核心·崩壞使徒", "hp": 3000, "mind": "和", "code": "senren", "index": 3},
+                {"name": "星核·崩壞使徒", "hp": 3000, "mind": "凛", "code": "senren", "index": 1},
+                {"name": "星核·崩壞使徒", "hp": 3000, "mind": "戏", "code": "senren", "index": 2},
+                {"name": "星核·崩壞使徒", "hp": 3000, "mind": "和", "code": "senren", "index": 3},
             ],
             [
-                {"name": "核心·虛空巨獸", "hp": 4000, "mind": "静", "code": "cafe", "index": 1},
-                {"name": "核心·虛空巨獸", "hp": 4000, "mind": "阳", "code": "cafe", "index": 3},
-                {"name": "核心·虛空巨獸", "hp": 4000, "mind": "羞", "code": "cafe", "index": 2},
+                {"name": "星核·虛空巨獸", "hp": 4000, "mind": "静", "code": "cafe", "index": 1},
+                {"name": "星核·虛空巨獸", "hp": 4000, "mind": "阳", "code": "cafe", "index": 3},
+                {"name": "星核·虛空巨獸", "hp": 4000, "mind": "羞", "code": "cafe", "index": 2},
             ],
             [
-                {"name": "核心·混沌雙子", "hp": 7000, "mind": "凛", "code": "sabbat", "index": 1},
-                {"name": "核心·混沌雙子", "hp": 7000, "mind": "和", "code": "sabbat", "index": 3},
+                {"name": "星核·混沌雙子", "hp": 7000, "mind": "凛", "code": "sabbat", "index": 1},
+                {"name": "星核·混沌雙子", "hp": 7000, "mind": "和", "code": "sabbat", "index": 3},
             ],
             [
-                {"name": "深淵之主", "hp": 25000, "mind": "戏", "code": "tenshi", "index": 1},
+                {"name": "星核之主", "hp": 25000, "mind": "戏", "code": "tenshi", "index": 1},
             ],
         ],
         "grades": {"S": 12, "A": 18},
@@ -436,6 +436,17 @@ def start_battle(user_id, stage_id, party_names=None):
         return {"ok": False, "error": "關卡不存在"}, 404
 
     owned = _load_owned_cards(user_id)
+    tester = is_tester(user_id)
+
+    if not owned and stage_id == 'senren-1' and party_names:
+        trial_chars = {"朝武芳乃", "叢雨", "常陸茉子"}
+        if set(party_names).issubset(trial_chars):
+            owned = {
+                "朝武芳乃": {"level": 10, "awaken": 0},
+                "叢雨": {"level": 10, "awaken": 0},
+                "常陸茉子": {"level": 10, "awaken": 0}
+            }
+
     if not owned:
         return {"ok": False, "error": "你沒有任何角色，無法戰鬥！"}, 400
 
@@ -446,7 +457,7 @@ def start_battle(user_id, stage_id, party_names=None):
     stats = pd.get("stats") or {}
     cleared = stats.get("cleared_stages") or []
 
-    if not is_weekly and not is_tester(user_id):
+    if not is_weekly and not tester:
         game_prefix = stage_id.split("-")[0]
         stage_num = int(stage_id.split("-")[1])
         if stage_num > 1:
@@ -461,6 +472,7 @@ def start_battle(user_id, stage_id, party_names=None):
         party_names = valid
 
     try:
+        # 🌟 恢復呼叫 battle_engine 建立狀態
         state, err = create_battle(
             user_id, stage_id, stage_cfg, owned, party_names=party_names,
         )
@@ -478,25 +490,23 @@ def get_battle_progress(user_id):
     stats = pd.get("stats", {})
     return {"ok": True, "cleared_stages": stats.get("cleared_stages", [])}, 200
 
-def claim_battle_reward(user_id):
-    result, err = claim_reward(user_id)
-    if err:
-        return {"ok": False, "error": err}, 400
+def claim_battle_reward(user_id, stage_id, turns):
+    # 前端打完後直接傳入 stage_id 和 turns 發獎勵
+    if not stage_id:
+        return {"ok": False, "error": "無效的關卡"}, 400
 
-    stage_id = result["stage_id"]
-    turns = result.get("turns", 0)
-
-    # 週常關卡走獨立結算
     if stage_id in WEEKLY_STAGES:
         return _claim_weekly_battle_reward(user_id, stage_id, turns)
 
-    reward = result["reward"]
     pd = get_player_data(user_id)
-    stats = pd.get("stats", {})
-    cleared = stats.get("cleared_stages", [])
+    if not pd:
+        return {"ok": False, "error": "玩家不存在"}, 404
+        
+    stats = pd.get("stats") or {}
+    cleared = stats.get("cleared_stages") or []
 
     is_first_clear = stage_id not in cleared
-    actual_reward = reward if is_first_clear else 0
+    actual_reward = BATTLE_STAGES[stage_id]["reward_coins"] if is_first_clear else 0
     exp_gain = 100 if is_first_clear else 30
 
     if not db_pool:
@@ -514,13 +524,11 @@ def claim_battle_reward(user_id):
             cur = conn.cursor()
             cur.execute("SELECT coins, stats FROM player_data WHERE user_id = %s FOR UPDATE", (user_id,))
             row = cur.fetchone()
-            coins, stats = row[0], row[1]
+            coins, stats = row[0], row[1] or {}
 
-            stats = stats or {}
-            cleared = stats.get("cleared_stages", [])
-
+            cleared = stats.get("cleared_stages") or []
             is_first_clear = stage_id not in cleared
-            actual_reward = reward if is_first_clear else 0
+            actual_reward = BATTLE_STAGES[stage_id]["reward_coins"] if is_first_clear else 0
             exp_gain = 100 if is_first_clear else 30
 
             stats["exp"] = stats.get("exp", 0) + exp_gain
@@ -1102,7 +1110,7 @@ def _claim_weekly_battle_reward(user_id, stage_id, turns):
     }, 200
 
 def claim_battle_reward(user_id):
-    result, err = claim_reward(user_id)
+    result, err = claim_reward(user_id) # 呼叫 battle_engine 的 claim_reward
     if err:
         return {"ok": False, "error": err}, 400
 
