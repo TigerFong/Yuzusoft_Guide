@@ -1697,3 +1697,87 @@ button { font-family: inherit; }
     .party-info { min-width: 90px; }
     .mini-bar { width: 90px; }
 }
+/* =========================================================
+   手機橫屏專屬佈局優化 (高度極矮時強制生效)
+   ========================================================= */
+@media (max-height: 550px) and (orientation: landscape) {
+    /* 1. 頂部欄瘦身，避開手機瀏海/挖孔 */
+    .game-header {
+        padding: 8px 15px;
+        padding-top: max(8px, env(safe-area-inset-top)); /* 避開瀏海 */
+    }
+    .game-logo { font-size: 15px; }
+    .user-info { gap: 8px; }
+    .user-coins { padding: 4px 10px; font-size: 12px; }
+    
+    /* 2. 大廳佈局：改成多列網格，不再垂直拉伸 */
+    #lobbyView { align-items: center; justify-content: center; }
+    .lobby-header-title { display: none; /* 橫屏時隱藏大標題節省空間 */ }
+    .lobby-menu {
+        margin: 0 auto; width: 95%; max-width: 900px;
+        flex-direction: row; flex-wrap: wrap; justify-content: center;
+        gap: 10px;
+    }
+    .lobby-card-btn {
+        width: calc(33.33% - 10px); min-height: 60px;
+        padding: 8px 12px; border-radius: 8px;
+    }
+    .btn-icon-wrap { width: 24px; height: 24px; margin-right: 10px; }
+    .btn-title-card { font-size: 15px; margin-bottom: 2px; }
+    .btn-sub { display: none; /* 隱藏英文小字 */ }
+    
+    /* 3. 抽卡介面：左右並排，按鈕不再佔滿寬度 */
+    .gacha-stage { flex-direction: row; align-items: center; padding: 0 20px 20px; }
+    .gacha-left { text-align: left; margin-bottom: 0; width: 50%; }
+    .gacha-main-title { font-size: 42px; margin-bottom: 10px; }
+    .gacha-right { width: 50%; align-items: flex-end; }
+    .gacha-actions { flex-direction: row; width: auto; gap: 12px; }
+    .btn-draw-new { width: 130px; height: 60px; }
+    .btn-draw-new.ten { width: 170px; height: 68px; }
+    .btn-draw-new.ten .draw-title { font-size: 16px; }
+    .draw-title { font-size: 14px; }
+    .gacha-footer-links { flex-direction: column; align-items: flex-end; gap: 8px; }
+
+    /* 4. 圖鑑與隊伍選擇：縮小卡片，一排放更多 */
+    .roster-panel { width: 95vw; padding: 20px; }
+    .roster-grid, .party-select-grid {
+        grid-template-columns: repeat(auto-fill, minmax(85px, 1fr));
+        gap: 10px; max-height: 55vh;
+    }
+    .roster-card, .party-select-item { height: 120px; }
+    .roster-card img, .party-select-item img { height: calc(100% - 35px); }
+    .roster-name { font-size: 11px; }
+    .roster-awaken { font-size: 9px; }
+    .roster-info, .party-select-info { padding: 10px 2px 4px; }
+
+    /* 5. 每日任務：改為雙列，減少上下滾動 */
+    .daily-panel { width: 95vw; padding: 20px; max-height: 85vh; overflow-y: auto; }
+    .daily-task-list { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .daily-task-item { padding: 10px 12px; }
+    .task-desc { font-size: 13px; }
+
+    /* 6. 戰鬥介面：進一步壓縮高度 */
+    .battle-container { padding: 5px 10px; }
+    .enemy-area { gap: 20px; padding: 10px 0 0; }
+    .enemy-portrait { width: 100px; height: 140px; }
+    .enemy-info { width: 110px; margin-top: -10px; padding: 5px; }
+    .mid-area { padding: 4px 10px; gap: 10px; }
+    .player-party { gap: 8px; }
+    .player-status { padding: 4px 8px 4px 4px; gap: 6px; }
+    .party-thumb { width: 32px; height: 32px; }
+    .party-info { min-width: 90px; }
+    .mini-bar { width: 90px; }
+    
+    .hand-area { height: 140px; padding-bottom: 5px; }
+    .battle-card { width: 90px; height: 130px; margin: 0 -10px; }
+    .card-thumb { height: 50px; }
+    .card-title { font-size: 10px; }
+    .card-desc { font-size: 9px; }
+    
+    /* 彈窗適配 */
+    .modal-content { padding: 20px; max-height: 95vh; }
+    .gacha-result-content { width: 95vw; padding: 20px; }
+    .gacha-cards-container.ten-pull { grid-template-columns: repeat(5, 90px); gap: 10px; }
+    .flip-card { width: 90px; height: 135px; }
+    .flip-card-back img { height: 90px; }
+}

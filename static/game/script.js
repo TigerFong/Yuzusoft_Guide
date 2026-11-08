@@ -194,7 +194,16 @@ document.addEventListener('DOMContentLoaded', () => {
     startGameBtn.addEventListener('click', () => {
         SFX.click();
         
-        // 🌟 嘗試強制橫屏（需瀏覽器支援，若在 WebView/PWA 中效果最好）
+        // 🌟 核心：請求瀏覽器全螢幕，隱藏網址列和狀態列
+        const docEl = document.documentElement;
+        if (docEl.requestFullscreen) {
+            docEl.requestFullscreen().catch(()=>{});
+        } else if (docEl.webkitRequestFullscreen) { /* Safari */
+            docEl.webkitRequestFullscreen().catch(()=>{});
+        } else if (docEl.msRequestFullscreen) { /* IE11 */
+            docEl.msRequestFullscreen().catch(()=>{});
+        }
+
         try {
             if (screen.orientation && screen.orientation.lock) {
                 screen.orientation.lock('landscape').catch(() => {});
