@@ -150,7 +150,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             confirmOkBtn.onclick = () => {
                 customConfirmModal.classList.remove('show');
-                confirmCancelBtn.style.display = 'block'; // 恢復供 Confirm 使用
+                // 用空字串回退到 CSS 預設值（inline-block），不要硬寫 'block'
+                // 否則接下來的 showConfirm 會因為按鈕變獨佔一行而佈局錯位
+                confirmCancelBtn.style.display = '';
                 resolve(true);
             };
         });
@@ -190,6 +192,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 2. 點擊「進入幻境」
     startGameBtn.addEventListener('click', () => {
+        SFX.click();
+        
+        // 🌟 嘗試強制橫屏（需瀏覽器支援，若在 WebView/PWA 中效果最好）
+        try {
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(() => {});
+            }
+        } catch(e) {}
+
         titleScreen.classList.add('hidden');
         setTimeout(() => {
             titleScreen.style.display = 'none';
@@ -258,6 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     lobbyBtns.forEach(btn => {
         btn.addEventListener('click', () => {
+            SFX.click();
             const targetView = btn.dataset.target;
             
             document.querySelectorAll('.view-panel').forEach(p => {
@@ -317,8 +329,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('weeklyStep1').classList.add('active');
     });
 
-    draw1Btn.addEventListener('click', () => handleDraw(1));
-    draw10Btn.addEventListener('click', () => handleDraw(10));
+    draw1Btn.addEventListener('click', () => { SFX.click(); handleDraw(1); });
+    draw10Btn.addEventListener('click', () => { SFX.click(); handleDraw(10); });
 
     // 5. 初始化
     async function initGame(data) {
@@ -328,6 +340,8 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCoinsUI(playerData.coins);
         updateExpUI(playerData.stats?.exp || 0);
         pityCount.textContent = playerData.pity;
+        const pBar = document.getElementById('pityBarFill');
+        if (pBar) pBar.style.width = Math.min(100, (playerData.pity / 80) * 100) + '%';
         currentWishlist = playerData.wishlist || [];
         
         loginOverlay.style.display = 'none';
@@ -693,7 +707,8 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             el.addEventListener('click', () => {
                 if (isBusy || !currentBattleState || currentBattleState.battle_over) return;
-                if (card.cost > currentBattleState.sp) return showAlert("SP 不足！");
+                if (card.cost > currentBattleState.sp) { SFX.deny(); return showAlert("SP 不足！"); }
+                SFX.select();
                 if (card.target === 'aoe') { doPlayCard(idx, null); return; }
                 selectedCardIndex = (selectedCardIndex === idx) ? null : idx;
                 renderHand(); 
@@ -717,6 +732,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const rollbackState = JSON.parse(JSON.stringify(currentBattleState));
         isBusy = true;
+
+        // 音效：必殺 or 普通出牌
+        if (card.card_type === 'ultimate') SFX.ultimate();
+        else SFX.cardPlay();
 
         // 1. 前端秒反饋：飛牌、預判扣 SP、秒出傷數字
         const cardEls = document.querySelectorAll('.battle-card');
@@ -791,8 +810,9 @@ document.addEventListener('DOMContentLoaded', () => {
             currentBattleState = data.state;
             renderBattle(); 
             
-            // 過濾掉傷害事件（避免數字飛兩次），播放其他事件（眩暈、回血等）
-            const filteredEvents = data.events.filter(ev => ev.type !== 'damage');
+            const filteredEvents = data.events.filter(ev =>
+                ev.type !== 'damage' && ev.type !== 'heal' && ev.type !== 'shield'
+            );
             playEvents(filteredEvents);
             
             if (currentBattleState.battle_over) {
@@ -862,6 +882,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showPlayerDamage(partyIndex, damage) {
         const el = document.querySelector(`.player-status[data-party-index="${partyIndex}"]`);
         if (!el) return;
+        SFX.playerHurt();
         el.style.animation = 'shake 0.3s';
         setTimeout(() => { el.style.animation = ''; }, 300);
         const floatText = document.createElement('div');
@@ -875,6 +896,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showDamageNumber(enemyId, damage, isCrit) {
         const el = document.querySelector(`.enemy-card[data-enemy-id="${enemyId}"]`);
         if (!el) return;
+        SFX.hit(isCrit);
         const floatText = document.createElement('div');
         floatText.className = `damage-float ${isCrit ? 'crit' : ''}`;
         floatText.textContent = `-${damage}`;
@@ -891,6 +913,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showHealFloat(partyIndex, value) {
         const el = document.querySelector(`.player-status[data-party-index="${partyIndex}"]`);
         if (!el || value <= 0) return;
+        SFX.heal();
         const floatText = document.createElement('div');
         floatText.style.cssText = `position: absolute; top: -10px; left: 50%; transform: translateX(-50%); color: #4ade80; font-size: 18px; font-weight: 900; text-shadow: 0 0 8px #4ade80; pointer-events: none; animation: floatUp 0.9s ease-out forwards;`;
         floatText.textContent = `+${value}`;
@@ -902,6 +925,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showShieldFloat(partyIndex, value) {
         const el = document.querySelector(`.player-status[data-party-index="${partyIndex}"]`);
         if (!el || value <= 0) return;
+        SFX.shield();
         const floatText = document.createElement('div');
         floatText.style.cssText = `position: absolute; top: -10px; left: 50%; transform: translateX(-50%); color: #00e5ff; font-size: 16px; font-weight: 900; text-shadow: 0 0 8px #00e5ff; pointer-events: none; animation: floatUp 0.9s ease-out forwards;`;
         floatText.textContent = `🛡️+${value}`;
@@ -913,6 +937,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showSPFloat(value) {
         const spEl = document.getElementById('spValue');
         if (!spEl) return;
+        SFX.spGain();
         const wrap = spEl.parentElement;
         if (!wrap) return;
         wrap.style.position = 'relative';
@@ -925,58 +950,72 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 戰鬥結算
     async function finishBattle(victory) {
+        // 音效
+        if (victory) SFX.victory();
+        else SFX.defeat();
+
+        // 失敗：直接回歸到選關頁（週常或普通）
         if (!victory) {
-            showAlert("戰鬥失敗，全員陣亡...");
+            await showAlert("戰鬥失敗，全員陣亡...");
             document.getElementById('battleContainer').style.display = 'none';
-            document.getElementById('battleStep1').classList.add('active');
+            if (currentBattleIsWeekly) {
+                document.getElementById('weeklyStep2')?.classList.remove('active');
+                document.getElementById('weeklyStep1')?.classList.add('active');
+                loadWeeklyPanel();
+            } else {
+                document.getElementById('battleStep1').classList.add('active');
+            }
             currentBattleState = null;
+            currentBattleIsWeekly = false;
             return;
         }
+
         try {
             const res = await fetchWithTimeout('/api/battle/claim-reward', { method: 'POST' });
             const data = await res.json();
 
             if (data.ok) {
                 if (data.is_weekly) {
-                    showAlert(`週常通關！使用 ${data.turns} 回合，評分 ${data.grade}！（最佳 ${data.best_grade} · ${data.best_turns} 回合）獲得 ${data.exp_gain} EXP。`);
+                    await showAlert(`週常通關！使用 ${data.turns} 回合，評分 ${data.grade}！（最佳 ${data.best_grade} · ${data.best_turns} 回合）獲得 ${data.exp_gain} EXP。`);
                 } else if (data.is_first_clear) {
-                    showAlert(`首通獎勵！獲得 ${data.reward} 柚幣與 ${data.exp_gain} EXP！`);
+                    await showAlert(`首通獎勵！獲得 ${data.reward} 柚幣與 ${data.exp_gain} EXP！`);
                     if (!clearedStages.includes(currentSelectedStageId)) clearedStages.push(currentSelectedStageId);
-                    
+
                     // 🌟 新手引導：打完教學關卡後引導抽卡
                     if (currentSelectedStageId === 'senren-1' && tutorialStep === 1) {
                         tutorialStep = 99;
                         delete playerData.cards["朝武芳乃"];
                         delete playerData.cards["叢雨"];
                         delete playerData.cards["常陸茉子"];
-                        
-                        fetchWithTimeout('/api/auth/me').then(r => r.json()).then(d => {
+
+                        try {
+                            const d = await fetchWithTimeout('/api/auth/me').then(r => r.json());
                             if (d.logged_in) playerData = d.player;
+                        } catch (_) {}
+
+                        document.getElementById('battleContainer').style.display = 'none';
+                        document.querySelectorAll('.view-panel').forEach(p => {
+                            p.classList.remove('active');
+                            p.style.display = 'none';
                         });
-                        
-                        setTimeout(() => {
-                            document.querySelectorAll('.view-panel').forEach(p => {
-                                p.classList.remove('active');
-                                p.style.display = 'none';
-                            });
-                            const lobby = document.getElementById('lobbyView');
-                            lobby.classList.add('active');
-                            lobby.style.display = 'flex';
-                            
-                            showTutorial(
-                                "幻境引路人",
-                                "太棒了！你已經掌握了戰鬥與屬性克制的精髓。但僅靠借用的幻影是無法長久作戰的，去【幻境卡池】邂逅屬於你自己的真正夥伴吧！",
-                                "前往卡池",
-                                () => {
-                                    document.querySelector('.lobby-card-btn[data-target="gacha"]').click();
-                                }
-                            );
-                        }, 800);
+                        const lobby = document.getElementById('lobbyView');
+                        lobby.classList.add('active');
+                        lobby.style.display = 'flex';
+
+                        showTutorial(
+                            "幻境引路人",
+                            "太棒了！你已經掌握了戰鬥與屬性克制的精髓。但僅靠借用的幻影是無法長久作戰的，去【幻境卡池】邂逅屬於你自己的真正夥伴吧！",
+                            "前往卡池",
+                            () => {
+                                document.querySelector('.lobby-card-btn[data-target="gacha"]').click();
+                            }
+                        );
                         currentBattleState = null;
+                        currentBattleIsWeekly = false;
                         return;
                     }
                 } else {
-                    showAlert(`戰鬥勝利！獲得 ${data.exp_gain} EXP。`);
+                    await showAlert(`戰鬥勝利！獲得 ${data.exp_gain} EXP。`);
                 }
 
                 fetchWithTimeout('/api/auth/me').then(r => r.json()).then(d => {
@@ -986,13 +1025,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!data.is_weekly) {
                     const activeTab = document.querySelector('.stage-tab.active');
                     if (activeTab) renderStageList(activeTab.dataset.game);
+                } else {
+                    loadWeeklyPanel();
                 }
-            } else { showAlert(data.error); }
-        } catch (e) { showAlert("結算失敗： " + e.message); }
+            } else {
+                await showAlert(data.error);
+            }
+        } catch (e) {
+            await showAlert("結算失敗： " + e.message);
+        }
 
         document.getElementById('battleContainer').style.display = 'none';
-        document.getElementById('battleStep1').classList.add('active');
+        // 週常打完 → 回週常列表；普通關卡打完 → 回選關頁
+        if (currentBattleIsWeekly) {
+            document.getElementById('weeklyStep2')?.classList.remove('active');
+            document.getElementById('weeklyStep1')?.classList.add('active');
+        } else {
+            document.getElementById('battleStep1').classList.add('active');
+        }
         currentBattleState = null;
+        currentBattleIsWeekly = false;
     }
 
     // =========================================================
@@ -1107,6 +1159,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const data = await res.json();
             if (data.ok) {
+                SFX.upgrade();
                 playerData.cards[currentUpgradeChar].level = data.level;
                 updateExpUI(data.exp);
                 upgradeSlider.value = data.level;
@@ -1134,6 +1187,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             if (!data.ok) showAlert(data.error);
             else {
+                SFX.upgrade();
                 playerData.cards[currentAwakenChar].awaken = data.awaken;
                 playerData.cards[currentAwakenChar].shards = data.shards;
                 await openAwakenModal(currentAwakenChar);
@@ -1244,7 +1298,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    document.getElementById('closeResultBtn')?.addEventListener('click', () => document.getElementById('gachaResultModal').classList.remove('show'));
+    document.getElementById('closeResultBtn')?.addEventListener('click', (e) => {
+        if (e.target.disabled) return;
+        document.getElementById('gachaResultModal').classList.remove('show');
+    });
 
     function renderWishlistGrid() {
         wishlistGrid.innerHTML = '';
@@ -1270,6 +1327,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleDraw(count) {
         if (playerData.coins < 160 * count) return;
         draw1Btn.disabled = true; draw10Btn.disabled = true;
+        
         try {
             const res = await fetchWithTimeout('/api/gacha/draw', {
                 method: 'POST',
@@ -1278,37 +1336,167 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const data = await res.json();
             if (!data.ok) return showAlert(data.error);
+            
             updateCoinsUI(data.coins);
             pityCount.textContent = data.pity;
+            const pBar = document.getElementById('pityBarFill');
+            if (pBar) pBar.style.width = Math.min(100, (data.pity / 80) * 100) + '%';
+            
             const meRes = await fetchWithTimeout('/api/auth/me');
             const meData = await meRes.json();
             if (meData.logged_in) {
                 playerData = meData.player;
                 updateCoinsUI(playerData.coins);
             }
-            showGachaResults(data.results);
-        } catch (e) { showAlert('抽卡失敗：' + e.message); } finally { updateDrawButtons(); }
+            
+            // 🌟 判斷本次抽卡是否包含 SSR
+            const hasSSR = data.results.some(c => c.rarity === 'SSR');
+            
+            playGachaCinematic(() => {
+                showGachaResults(data.results);
+            }, hasSSR);
+            
+        } catch (e) { 
+            showAlert('抽卡失敗：' + e.message); 
+        } finally { 
+            updateDrawButtons(); 
+        }
+    }
+
+    // 🌟 全螢幕過場動畫（加入 SSR 判定）
+    function playGachaCinematic(callback, hasSSR = false) {
+        const cine = document.createElement('div');
+        cine.className = 'gacha-cinematic';
+        
+        // 如果有 SSR，掛上專屬 Class
+        if (hasSSR) {
+            cine.classList.add('has-ssr');
+            if (window.SFX) SFX.ultimate(); // 播放宏大音效
+        } else {
+            if (window.SFX) SFX.click(); // 普通轉場音效
+        }
+
+        cine.innerHTML = `
+            <div class="cinematic-circle"></div>
+            <div class="cinematic-flash"></div>
+        `;
+        document.body.appendChild(cine);
+
+        // 動畫時長：SSR 稍微長一點，讓玩家屏息以待
+        const duration = hasSSR ? 2200 : 1800;
+
+        setTimeout(() => {
+            cine.style.opacity = '0';
+            setTimeout(() => {
+                cine.remove();
+                callback(); 
+            }, 600); 
+        }, duration); 
     }
 
     function showGachaResults(results) {
         const container = document.getElementById('gachaCards');
         const modal = document.getElementById('gachaResultModal');
+        const flipAllBtn = document.getElementById('flipAllBtn');
+        const closeBtn = document.getElementById('closeResultBtn');
+        
         container.innerHTML = '';
+        container.className = 'gacha-cards-container animate-entry'; // 加入飛入動畫 Class
+        
+        if (results.length === 1) {
+            container.classList.add('single-pull');
+        } else {
+            container.classList.add('ten-pull');
+        }
+        
         modal.classList.add('show');
+        
+        let flippedCount = 0;
+        const total = results.length;
+        
+        closeBtn.disabled = true;
+        closeBtn.style.opacity = '0.4';
+        closeBtn.style.cursor = 'not-allowed';
+
+        if (total > 1) {
+            flipAllBtn.style.display = 'inline-block';
+            flipAllBtn.disabled = false;
+        } else {
+            flipAllBtn.style.display = 'none';
+        }
+
+        const flipCard = (cardEl, rarity) => {
+            if (cardEl.classList.contains('flipped')) return;
+            cardEl.classList.add('flipped');
+            
+            if (window.SFX) SFX.gachaReveal(rarity);
+
+            if (rarity === 'SSR') {
+                document.body.style.animation = 'screenShake 0.4s';
+                setTimeout(() => document.body.style.animation = '', 400);
+                const flash = document.createElement('div');
+                flash.style.cssText = 'position:fixed; inset:0; background:white; z-index:99999; pointer-events:none; opacity:0; transition:opacity 0.1s;';
+                document.body.appendChild(flash);
+                requestAnimationFrame(() => {
+                    flash.style.opacity = '0.8';
+                    setTimeout(() => { flash.style.opacity = '0'; setTimeout(() => flash.remove(), 300); }, 100);
+                });
+            }
+            
+            flippedCount++;
+            if (flippedCount === total) {
+                closeBtn.disabled = false;
+                closeBtn.style.opacity = '1';
+                closeBtn.style.cursor = 'pointer';
+                flipAllBtn.style.display = 'none';
+            }
+        };
+
         results.forEach((card, idx) => {
             const info = allCharacters[card.name] || { code: 'game', index: 1 };
-            const div = document.createElement('div');
-            div.className = `card-item ${card.rarity}`;
-            div.style.animationDelay = `${idx * 0.15}s`;
+            
             let tagHtml = `<div class="card-tag">+${card.shards} 碎片</div>`;
             if (card.is_new) tagHtml = `<div class="card-tag new">NEW 解鎖</div>`;
-            else if (card.refund > 0) tagHtml = `<div class="card-tag" style="color: #ffd700; font-weight: bold;">滿覺 返還+${card.refund}幣</div>`;
+            else if (card.refund > 0) tagHtml = `<div class="card-tag gold">滿覺返還 +${card.refund}幣</div>`;
+
+            const div = document.createElement('div');
+            div.className = `flip-card ${card.rarity}`;
+            
+            // SSR 的卡牌飛入時，給予稍微長一點的彈性延遲，並且加重落地感
+            if (card.rarity === 'SSR') {
+                div.style.animationDelay = `${idx * 0.08}s`;
+                div.style.animationDuration = '0.8s'; 
+            } else {
+                div.style.animationDelay = `${idx * 0.08}s`; 
+            }
+            
             div.innerHTML = `
-                <img src="/static/picture/char-${info.code}-${info.index}.png" data-fallback="/static/picture/thumb-${info.code}-${info.index}.png">
-                <div class="card-info"><div class="card-name">${card.name}</div>${tagHtml}</div>
+                <div class="flip-card-inner">
+                    <div class="flip-card-front"></div>
+                    <div class="flip-card-back">
+                        <img src="/static/picture/char-${info.code}-${info.index}.png" data-fallback="/static/picture/thumb-${info.code}-${info.index}.png">
+                        <div class="card-info">
+                            <div class="card-name">${card.name}</div>
+                            ${tagHtml}
+                        </div>
+                    </div>
+                </div>
             `;
+            
+            div.addEventListener('click', () => flipCard(div, card.rarity));
             container.appendChild(div);
         });
+        
+        flipAllBtn.onclick = () => {
+            flipAllBtn.disabled = true;
+            const unflippedCards = container.querySelectorAll('.flip-card:not(.flipped)');
+            unflippedCards.forEach((c, i) => {
+                setTimeout(() => {
+                    const rarity = c.classList.contains('SSR') ? 'SSR' : (c.classList.contains('SR') ? 'SR' : 'R');
+                    flipCard(c, rarity);
+                }, i * 150);
+            });
+        };
     }
 
     // =========================================================
@@ -1384,6 +1572,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const data = await res.json();
             if (data.ok) {
+                SFX.reward();
                 showAlert(`領取成功！獲得 ${data.reward} 柚幣`);
                 loadDailyTasks();
                 fetchWithTimeout('/api/auth/me').then(r => r.json()).then(d => {
@@ -1487,6 +1676,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     const data = await res.json();
                     if (data.ok) {
+                        SFX.reward();
                         showAlert(`領取成功！獲得 ${data.reward} 柚幣`);
                         fetchWithTimeout('/api/auth/me').then(r => r.json()).then(d => {
                             if (d.logged_in) updateCoinsUI(d.player.coins);
@@ -1660,7 +1850,101 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // =========================================================
+    // 帳號設置邏輯
+    // =========================================================
+    const settingsModal = document.getElementById('settingsModal');
+    const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+    const settingsBtn = document.getElementById('settingsBtn');
+    
+    settingsBtn?.addEventListener('click', () => {
+        SFX.click();
+        document.getElementById('oldPassword').value = '';
+        document.getElementById('newPassword').value = '';
+        document.getElementById('confirmPassword').value = '';
+        settingsModal.classList.add('show');
+    });
+    
+    closeSettingsBtn?.addEventListener('click', () => settingsModal.classList.remove('show'));
+
+    // 修改密碼
+    document.getElementById('doChangePwBtn')?.addEventListener('click', async () => {
+        const oldPw = document.getElementById('oldPassword').value;
+        const newPw = document.getElementById('newPassword').value;
+        const confPw = document.getElementById('confirmPassword').value;
+        
+        if (!oldPw || !newPw) return showAlert('請填寫完整密碼資訊');
+        if (newPw !== confPw) return showAlert('兩次輸入的新密碼不一致');
+        if (newPw.length < 6) return showAlert('新密碼長度至少為 6 位');
+        
+        const btn = document.getElementById('doChangePwBtn');
+        btn.disabled = true; btn.textContent = '處理中...';
+        
+        try {
+            const res = await fetchWithTimeout('/api/auth/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ old_password: oldPw, new_password: newPw })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                SFX.upgrade();
+                showAlert('密碼修改成功！請重新登入。');
+                settingsModal.classList.remove('show');
+                setTimeout(() => {
+                    fetchWithTimeout('/api/auth/logout', { method: 'POST' }).then(() => window.location.reload());
+                }, 1500);
+            } else {
+                SFX.deny();
+                showAlert(data.error || '修改失敗');
+            }
+        } catch (e) {
+            showAlert('網路錯誤：' + e.message);
+        } finally {
+            btn.disabled = false; btn.textContent = '確認修改';
+        }
+    });
+
+    // 刪除帳號
+    document.getElementById('deleteAccountBtn')?.addEventListener('click', async () => {
+        const isConfirmed = await showConfirm(
+            '<span style="color:var(--red-bright);font-weight:bold;">警告：</span>刪除後所有進度將無法恢復！<br><br>請輸入您的密碼以確認刪除：<br><br><input type="password" id="deletePwInput" class="settings-input" style="text-align:center;">', 
+            '確認刪除帳號'
+        );
+        
+        if (!isConfirmed) return;
+        
+        const password = document.getElementById('deletePwInput').value;
+        if (!password) return showAlert('請輸入密碼');
+        
+        try {
+            const res = await fetchWithTimeout('/api/auth/delete-account', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password })
+            });
+            const data = await res.json();
+            
+            if (data.ok) {
+                SFX.defeat();
+                showAlert('帳號已成功刪除，再見。');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                SFX.deny();
+                showAlert(data.error || '刪除失敗');
+            }
+        } catch (e) {
+            showAlert('網路錯誤：' + e.message);
+        }
+    });
+
     // 綁定按鈕
-    document.getElementById('endTurnBtn')?.addEventListener('click', doEndTurn);
-    document.getElementById('enterStageBtn')?.addEventListener('click', enterBattle);
+    document.getElementById('endTurnBtn')?.addEventListener('click', () => {
+        SFX.click();
+        doEndTurn();
+    });
+    document.getElementById('enterStageBtn')?.addEventListener('click', () => {
+        SFX.click();
+        enterBattle();
+    });
 });

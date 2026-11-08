@@ -21,6 +21,8 @@ from backend.game_core import (
     toggle_stage_unlock, update_daily_task, get_daily_status, claim_daily_reward,
     get_weekly_status, claim_weekly_reward,
 )
+from werkzeug.security import generate_password_hash, check_password_hash
+from backend.db import db_pool, memory_db
 
 app = Flask(__name__)
 
@@ -77,6 +79,94 @@ def api_me():
         session.clear()
         return jsonify({"logged_in": False}), 401
     return jsonify({"logged_in": True, "user_id": user_id, "username": session.get('username'), "player": player_data})
+
+# =========================================================
+# 帳號安全：修改密碼 & 刪除帳號
+# =========================================================
+@app.route('/api/auth/change-password', methods=['POST'])
+@require_login
+def api_change_password():
+    data = request.json or {}
+    old_pw = data.get('old_password', '')
+    new_pw = data.get('new_password', '')
+    
+    if len(new_pw) < 6:
+        return jsonify({"ok": False, "error": "新密碼長度至少為 6 位"}), 400
+        
+    user_id = session['user_id']
+    username = session.get('username', '')
+    user_key = username.lower()
+    
+    if not db_pool:
+        user = memory_db.users.get(user_key)
+        if not user:
+            return jsonify({"ok": False, "error": "用戶不存在"}), 404
+        if not check_password_hash(user['password_hash'], old_pw):
+            return jsonify({"ok": False, "error": "舊密碼錯誤"}), 400
+        user['password_hash'] = generate_password_hash(new_pw)
+        return jsonify({"ok": True})
+    else:
+        try:
+            conn = db_pool.getconn()
+            cur = conn.cursor()
+            cur.execute("SELECT password_hash FROM users WHERE id = %s", (user_id,))
+            row = cur.fetchone()
+            if not row:
+                cur.close(); db_pool.putconn(conn)
+                return jsonify({"ok": False, "error": "用戶不存在"}), 404
+                
+            if not check_password_hash(row[0], old_pw):
+                cur.close(); db_pool.putconn(conn)
+                return jsonify({"ok": False, "error": "舊密碼錯誤"}), 400
+                
+            new_hash = generate_password_hash(new_pw)
+            cur.execute("UPDATE users SET password_hash = %s WHERE id = %s", (new_hash, user_id))
+            conn.commit()
+            cur.close(); db_pool.putconn(conn)
+            return jsonify({"ok": True})
+        except Exception as e:
+            print("修改密碼失敗:", e)
+            return jsonify({"ok": False, "error": "伺服器內部錯誤"}), 500
+
+@app.route('/api/auth/delete-account', methods=['POST'])
+@require_login
+def api_delete_account():
+    data = request.json or {}
+    password = data.get('password', '')
+    
+    user_id = session['user_id']
+    username = session.get('username', '')
+    user_key = username.lower()
+    
+    if not db_pool:
+        user = memory_db.users.get(user_key)
+        if not user or not check_password_hash(user['password_hash'], password):
+            return jsonify({"ok": False, "error": "密碼錯誤"}), 400
+            
+        del memory_db.users[user_key]
+        if user_id in memory_db.player_data:
+            del memory_db.player_data[user_id]
+        session.clear()
+        return jsonify({"ok": True})
+    else:
+        try:
+            conn = db_pool.getconn()
+            cur = conn.cursor()
+            cur.execute("SELECT password_hash FROM users WHERE id = %s", (user_id,))
+            row = cur.fetchone()
+            if not row or not check_password_hash(row[0], password):
+                cur.close(); db_pool.putconn(conn)
+                return jsonify({"ok": False, "error": "密碼錯誤"}), 400
+                
+            cur.execute("DELETE FROM player_data WHERE user_id = %s", (user_id,))
+            cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+            conn.commit()
+            cur.close(); db_pool.putconn(conn)
+            session.clear()
+            return jsonify({"ok": True})
+        except Exception as e:
+            print("刪除帳號失敗:", e)
+            return jsonify({"ok": False, "error": "伺服器內部錯誤"}), 500
 
 # =========================================================
 # 每日任務

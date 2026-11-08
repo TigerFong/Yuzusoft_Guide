@@ -385,7 +385,7 @@ button { font-family: inherit; }
 .draw-cost { font-size: 12px; opacity: .75; }
 
 /* 抽卡結果 */
-#gachaCards { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; max-width: 840px; margin-top: 10px; }
+#gachaCards { margin-top: 10px; }
 .card-item {
   width: 122px; border-radius: 12px; overflow: hidden; position: relative;
   background: #0d1226; border: 1px solid rgba(255,255,255,.12);
@@ -1190,4 +1190,510 @@ button { font-family: inherit; }
 .confirm-actions button {
     width: 120px;
     padding: 10px 0;
+}
+/* =========================================================
+   全新抽卡介面 - 星織夜境卡池
+   ========================================================= */
+#gachaView {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: flex-end;
+    background-color: #05070d;
+    overflow: hidden;
+}
+#gachaView.active {
+    display: flex;
+}
+
+/* 背景圖（這裡先放個佔位漸變，等你的 AI 圖生成後替換 url） */
+.gacha-bg-overlay {
+    position: absolute; inset: 0; z-index: 1;
+    background-image: 
+        radial-gradient(circle at 70% 30%, rgba(138,122,255,0.15) 0%, transparent 60%),
+        radial-gradient(circle at 30% 80%, rgba(232,200,116,0.1) 0%, transparent 50%),
+        url('/static/picture/gacha_bg.png'); /* 替換成你的圖 */
+    background-size: cover;
+    background-position: center;
+    opacity: 0.8;
+    transition: all 1s ease;
+}
+
+.gacha-bg-overlay::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(0deg, rgba(5,7,13,0.95) 0%, rgba(5,7,13,0.4) 40%, transparent 100%);
+}
+
+/* 舞台佈局 */
+.gacha-stage {
+    position: relative; z-index: 2;
+    width: 100%; max-width: 1200px;
+    margin: 0 auto; padding: 0 40px 50px;
+    display: flex; justify-content: space-between; align-items: flex-end;
+}
+
+/* 左側標題 */
+.gacha-left { flex: 1; margin-bottom: 20px; }
+.gacha-subtitle {
+    color: var(--cyan-accent); font-size: 14px; letter-spacing: 0.3em; font-weight: 700;
+    text-shadow: 0 0 10px rgba(110,231,240,0.5); margin-bottom: 8px;
+}
+.gacha-main-title {
+    font-family: var(--font-display);
+    font-size: clamp(40px, 6vw, 72px);
+    color: #fff; letter-spacing: 0.1em; line-height: 1.1;
+    background: linear-gradient(180deg, #fff 20%, #ffe9a8 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 4px 20px rgba(232,200,116,0.4));
+    margin-bottom: 20px;
+}
+
+/* 保底進度條 */
+.gacha-pity-wrap { max-width: 380px; }
+.pity-bar-bg {
+    width: 100%; height: 6px; background: rgba(255,255,255,0.1);
+    border-radius: 3px; overflow: hidden; margin-bottom: 8px;
+    border: 1px solid rgba(232,200,116,0.2);
+}
+.pity-bar-fill {
+    height: 100%; width: 0%; background: linear-gradient(90deg, #8a7aff, #6ee7f0);
+    box-shadow: 0 0 10px #6ee7f0; transition: width 0.5s ease;
+}
+.pity-text {
+    font-size: 13px; color: var(--text-sub);
+    font-family: monospace; letter-spacing: 0.05em;
+}
+.pity-text .highlight {
+    color: var(--gold-bright); font-weight: 900; font-size: 16px;
+}
+
+/* 右側操作區 */
+.gacha-right { display: flex; flex-direction: column; align-items: flex-end; gap: 20px; }
+.gacha-actions { display: flex; gap: 20px; align-items: flex-end; }
+
+/* 全新的抽卡按鈕 */
+.btn-draw-new {
+    position: relative; width: 160px; height: 72px;
+    background: linear-gradient(135deg, rgba(28,34,68,0.9), rgba(14,18,38,0.9));
+    border: 1px solid rgba(232,200,116,0.4); border-radius: 12px;
+    color: var(--gold-bright); cursor: pointer; transition: all 0.3s;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px); overflow: hidden;
+}
+.btn-draw-new::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(232,200,116,0.1), transparent);
+    transform: translateX(-100%); transition: transform 0.5s;
+}
+.btn-draw-new:hover:not(:disabled) {
+    transform: translateY(-4px); border-color: var(--gold-bright);
+    box-shadow: 0 12px 30px rgba(232,200,116,0.25), inset 0 0 20px rgba(232,200,116,0.1);
+}
+.btn-draw-new:hover:not(:disabled)::before { transform: translateX(100%); }
+
+.btn-draw-new.ten {
+    width: 220px; height: 88px;
+    background: linear-gradient(135deg, #4a38b8, #20156a);
+    border-color: rgba(179,166,255,0.6);
+    color: #fff; border-radius: 16px;
+}
+.btn-draw-new.ten:hover:not(:disabled) {
+    box-shadow: 0 12px 40px rgba(122,92,255,0.5), inset 0 0 30px rgba(122,92,255,0.3);
+    border-color: #fff;
+}
+.btn-draw-new:disabled { opacity: 0.4; cursor: not-allowed; transform: none; filter: grayscale(0.5); }
+
+.draw-title { font-size: 16px; font-weight: 800; letter-spacing: 0.15em; margin-bottom: 4px; }
+.btn-draw-new.ten .draw-title { font-size: 20px; }
+.draw-cost { display: flex; align-items: center; gap: 6px; font-size: 13px; opacity: 0.85; }
+.draw-guarantee {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,0.4); font-size: 10px; padding: 2px 0; color: var(--cyan-accent);
+}
+
+/* 底部按鈕（心願單） */
+.gacha-footer-links { display: flex; align-items: center; gap: 20px; }
+.btn-wishlist-new {
+    display: flex; align-items: center; gap: 8px;
+    background: transparent; border: 1px solid rgba(232,200,116,0.4);
+    color: var(--gold-main); padding: 8px 16px; border-radius: 999px;
+    font-size: 13px; cursor: pointer; transition: all 0.2s;
+}
+.btn-wishlist-new:hover { background: rgba(232,200,116,0.1); color: var(--gold-bright); border-color: var(--gold-bright); }
+.gacha-rate-info { font-size: 11px; color: var(--text-muted); font-family: monospace; }
+
+/* 手機端適配 */
+@media (max-width: 768px) {
+    .gacha-stage { flex-direction: column; align-items: stretch; padding: 0 20px 30px; }
+    .gacha-left { margin-bottom: 30px; text-align: center; }
+    .gacha-pity-wrap { margin: 0 auto; }
+    .gacha-right { align-items: center; }
+    .gacha-actions { flex-direction: column; width: 100%; align-items: stretch; gap: 12px; }
+    .btn-draw-new, .btn-draw-new.ten { width: 100%; }
+    .gacha-footer-links { justify-content: space-between; width: 100%; flex-direction: column; }
+}
+/* =========================================================
+   抽卡 3D 翻牌系統 (5x2 強制排版 + 專屬華麗背景)
+   ========================================================= */
+.gacha-result-content {
+    width: 960px; max-width: 95vw;
+    padding: 30px 20px 40px;
+    text-align: center;
+    /* 🌟 純 CSS 星空 + 魔法陣微光，不需要圖片也有高級感 */
+    background-image: 
+        radial-gradient(circle at 50% 0%, rgba(232, 200, 116, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(138, 122, 255, 0.08) 0%, transparent 60%),
+        linear-gradient(160deg, rgba(14, 20, 45, 0.98) 0%, rgba(5, 8, 18, 1) 100%),
+        url('/static/picture/gacha_bg.png'); /* 有圖就會疊加在最後面 */
+    background-position: center;
+    background-size: cover;
+    border: 1px solid rgba(232, 200, 116, 0.4);
+    border-radius: 20px;
+    box-shadow: 
+        0 30px 80px rgba(0,0,0,0.9), 
+        inset 0 0 60px rgba(0,0,0,0.8),
+        inset 0 0 0 4px rgba(232,200,116,0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+/* 彈窗頂部的金色裝飾線 */
+.gacha-result-content::before {
+    content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(232,200,116,0.8), transparent);
+    box-shadow: 0 0 15px rgba(232,200,116,0.8);
+}
+
+.modal-title {
+    color: var(--gold-bright);
+    font-family: var(--font-display);
+    font-size: 26px;
+    letter-spacing: 0.3em;
+    margin-bottom: 30px;
+    text-shadow: 0 0 20px rgba(232, 200, 116, 0.6);
+}
+
+/* 🌟 網格佈局：強制 5x2 */
+.gacha-cards-container {
+    display: grid;
+    justify-content: center;
+    margin: 0 auto 30px;
+    gap: 20px;
+    min-height: 220px;
+}
+
+/* 十連抽：固定 5 欄 */
+.gacha-cards-container.ten-pull {
+    grid-template-columns: repeat(5, 120px);
+}
+
+/* 單抽：居中 */
+.gacha-cards-container.single-pull {
+    grid-template-columns: 140px;
+}
+
+/* 單抽的卡片稍微放大一點 */
+.gacha-cards-container.single-pull .flip-card {
+    width: 140px; height: 210px;
+}
+.gacha-cards-container.single-pull .flip-card-back img {
+    height: 150px;
+}
+
+/* --- 以下翻牌動畫保持不變 --- */
+.flip-card {
+    perspective: 1200px; width: 120px; height: 180px; cursor: pointer;
+    transition: transform 0.2s;
+}
+.flip-card:hover:not(.flipped) { transform: translateY(-10px) scale(1.02); }
+.flip-card-inner {
+    position: relative; width: 100%; height: 100%;
+    transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+    transform-style: preserve-3d;
+}
+.flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
+
+.flip-card-front, .flip-card-back {
+    position: absolute; width: 100%; height: 100%;
+    backface-visibility: hidden; border-radius: 12px;
+    overflow: hidden; box-sizing: border-box;
+}
+
+/* --- AI 卡背設計 --- */
+.flip-card-front {
+    background: #0b1020 url('/static/picture/card_back.png') center/cover no-repeat;
+    border: 1px solid rgba(232, 200, 116, 0.4);
+}
+
+.flip-card.SR .flip-card-front {
+    border-color: #b3a6ff;
+    box-shadow: 0 0 20px rgba(179, 166, 255, 0.6), inset 0 0 20px rgba(179, 166, 255, 0.3);
+}
+.flip-card.SSR .flip-card-front {
+    border-color: #ffe9a8;
+    box-shadow: 0 0 35px rgba(232, 200, 116, 0.9), inset 0 0 25px rgba(232, 200, 116, 0.5);
+    animation: pulseGold 1.5s infinite alternate;
+}
+@keyframes pulseGold {
+    0% { box-shadow: 0 0 15px rgba(232, 200, 116, 0.5), inset 0 0 15px rgba(232, 200, 116, 0.2); }
+    100% { box-shadow: 0 0 45px rgba(232, 200, 116, 1), inset 0 0 35px rgba(232, 200, 116, 0.6); }
+}
+
+/* --- AI 卡面設計 --- */
+.flip-card-back {
+    transform: rotateY(180deg);
+    background: linear-gradient(180deg, #1a2140 0%, #0c1024 100%);
+    border: 1px solid rgba(255,255,255,0.1);
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    position: relative;
+}
+
+.flip-card-back::after {
+    content: '';
+    position: absolute; inset: 0; z-index: 2;
+    background: url('/static/picture/card_frame.png') center/cover no-repeat;
+    pointer-events: none;
+    filter: drop-shadow(0 0 5px rgba(232,200,116,0.3));
+}
+
+.flip-card.SR .flip-card-back { border-color: #b3a6ff; box-shadow: 0 0 20px rgba(179,166,255,0.4); }
+.flip-card.SSR .flip-card-back { border-color: #ffe9a8; box-shadow: 0 0 30px rgba(232,200,116,0.6); }
+
+.flip-card-back img {
+    width: 90%; height: 125px; object-fit: contain; object-position: bottom;
+    margin-top: 10px; border-radius: 4px; z-index: 1;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
+}
+
+.flip-card-back .card-info {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 3;
+    padding: 18px 4px 8px; text-align: center;
+    background: linear-gradient(180deg, transparent, rgba(5,8,18,0.95) 50%);
+}
+.flip-card-back .card-name { font-size: 13px; font-weight: 700; color: #fff; text-shadow: 0 2px 4px #000; }
+.flip-card-back .card-tag { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+.flip-card-back .card-tag.new { color: var(--green-heal); font-weight: 700; text-shadow: 0 0 8px rgba(94,232,160,0.8); }
+.flip-card-back .card-tag.gold { color: var(--gold-bright); font-weight: bold; text-shadow: 0 0 8px rgba(232,200,116,0.8); }
+
+.gacha-result-actions {
+    display: flex; justify-content: center; gap: 20px; margin-top: 20px;
+}
+#flipAllBtn {
+    background: rgba(138, 122, 255, 0.15);
+    border: 1px solid var(--violet-main);
+    color: var(--violet-soft);
+    padding: 10px 28px;
+    border-radius: 999px;
+    font-size: 14px;
+    letter-spacing: 0.1em;
+    transition: all 0.2s;
+}
+#flipAllBtn:hover:not(:disabled) {
+    background: var(--violet-main);
+    color: #fff;
+    box-shadow: 0 0 15px rgba(138, 122, 255, 0.6);
+}
+
+#closeResultBtn {
+    padding: 10px 40px;
+    font-size: 15px;
+    box-shadow: 0 0 20px rgba(232, 200, 116, 0.3);
+}
+/* =========================================================
+   抽卡過場動畫 (Cinematic)
+   ========================================================= */
+.gacha-cinematic {
+    position: fixed; inset: 0; z-index: 99999;
+    display: flex; align-items: center; justify-content: center;
+    background: #02040a;
+    overflow: hidden;
+    transition: opacity 0.8s ease;
+}
+
+/* 魔法陣背景 */
+.cinematic-circle {
+    position: absolute;
+    width: 600px; height: 600px;
+    background: url('/static/picture/card_back.png') center/contain no-repeat;
+    opacity: 0;
+    transform: scale(0.5) rotate(0deg);
+    animation: circleBurst 2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+/* 魔法陣爆發的動畫 */
+@keyframes circleBurst {
+    0% { opacity: 0; transform: scale(0.5) rotate(0deg); filter: brightness(1); }
+    20% { opacity: 1; transform: scale(0.8) rotate(45deg); filter: brightness(1.5); }
+    50% { opacity: 1; transform: scale(1.1) rotate(90deg); filter: brightness(2) drop-shadow(0 0 50px #ffe9a8); }
+    100% { opacity: 0; transform: scale(2.5) rotate(180deg); filter: brightness(5); }
+}
+
+/* 螢幕爆閃白光 */
+.cinematic-flash {
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at center, #fff 0%, transparent 60%);
+    opacity: 0; pointer-events: none;
+    animation: flashWhite 2s ease-out forwards;
+}
+
+@keyframes flashWhite {
+    0%, 40% { opacity: 0; }
+    50% { opacity: 1; } /* 魔法陣轉到最大的瞬間爆閃 */
+    100% { opacity: 0; }
+}
+
+/* --- 卡牌落地飛入動畫 --- */
+.gacha-cards-container.animate-entry .flip-card {
+    opacity: 0;
+    transform: translateY(100px) scale(0.5) rotate(-10deg);
+    animation: cardLanding 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes cardLanding {
+    to { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+}
+
+/* 讓彈窗內容稍微延遲出現 */
+.gacha-result-content {
+    animation: modalPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes modalPop {
+    from { opacity: 0; transform: scale(0.95) translateY(20px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+/* =========================================================
+   SSR 專屬極致演出 (Cinematic SSR)
+   ========================================================= */
+
+/* 1. 普通轉場（沒出 SSR 時） */
+.gacha-cinematic .cinematic-circle {
+    filter: drop-shadow(0 0 20px rgba(110, 231, 240, 0.6)) hue-rotate(0deg);
+}
+.gacha-cinematic .cinematic-flash {
+    background: radial-gradient(circle at center, rgba(110, 231, 240, 0.8) 0%, transparent 60%);
+}
+
+/* 2. 出 SSR 時：轉場魔法陣變色 + 狂暴化 */
+.gacha-cinematic.has-ssr {
+    animation: cineShake 1.8s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+.gacha-cinematic.has-ssr .cinematic-circle {
+    /* 紅金濾鏡、放大速度更快 */
+    filter: drop-shadow(0 0 40px #ff5e6c) drop-shadow(0 0 80px #ffe9a8) saturate(2);
+    animation: circleBurstSSR 1.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+.gacha-cinematic.has-ssr .cinematic-flash {
+    background: radial-gradient(circle at center, #ffffff 0%, #ffe9a8 30%, #ff5e6c 70%, transparent 100%);
+}
+
+@keyframes circleBurstSSR {
+    0% { opacity: 0; transform: scale(0.5) rotate(0deg); }
+    20% { opacity: 1; transform: scale(0.8) rotate(-45deg); }
+    50% { opacity: 1; transform: scale(1.2) rotate(-90deg); }
+    100% { opacity: 0; transform: scale(3) rotate(-180deg); filter: brightness(10); }
+}
+
+/* 轉場時的畫面震動 */
+@keyframes cineShake {
+    10%, 90% { transform: translate3d(-2px, 0, 0); }
+    20%, 80% { transform: translate3d(4px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+    40%, 60% { transform: translate3d(8px, 0, 0); }
+}
+
+/* 3. 卡牌飛入時：SSR 的卡背強光警告（不用翻牌就知道是大獎） */
+.flip-card.SSR .flip-card-front {
+    animation: ssrWarning 1.5s infinite alternate;
+}
+@keyframes ssrWarning {
+    0% { box-shadow: 0 0 20px rgba(255, 94, 108, 0.8), inset 0 0 20px rgba(255, 94, 108, 0.4); border-color: #ff5e6c; }
+    100% { box-shadow: 0 0 50px rgba(232, 200, 116, 1), inset 0 0 30px rgba(232, 200, 116, 0.8); border-color: #ffe9a8; }
+}
+/* ---------- 帳號設置彈窗 ---------- */
+.btn-settings {
+    background: transparent; border: none; color: var(--text-muted); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; padding: 5px;
+}
+.btn-settings:hover { color: var(--gold-bright); transform: rotate(90deg); }
+
+.settings-input {
+    width: 100%; padding: 12px; margin-bottom: 10px;
+    background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px; color: #fff; font-size: 14px;
+}
+.settings-input:focus { outline: none; border-color: var(--gold-main); }
+#deleteAccountBtn:hover { background: var(--red-bright); color: #fff; box-shadow: 0 0 15px rgba(255,94,108,0.4); }
+
+/* =========================================================
+   手機強制橫屏提示
+   ========================================================= */
+#orientationWarning {
+    display: none; /* 預設隱藏，由媒體查詢控制 */
+    position: fixed;
+    inset: 0;
+    z-index: 999999; /* 絕對最高層級 */
+    background: #05060f;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-main);
+    text-align: center;
+    padding: 20px;
+}
+
+/* 當屏幕寬度小於 1024px 且處於豎屏 (portrait) 時顯示 */
+@media (max-width: 1024px) and (orientation: portrait) {
+    #orientationWarning {
+        display: flex;
+    }
+}
+
+.rotate-phone svg {
+    width: 80px;
+    height: 80px;
+    color: var(--gold-bright);
+    filter: drop-shadow(0 0 20px rgba(232, 200, 116, 0.6));
+    animation: rotateDevice 2.5s infinite ease-in-out;
+    margin-bottom: 24px;
+}
+
+/* 旋轉動畫：先停頓，然後轉 90 度 */
+@keyframes rotateDevice {
+    0%, 20% { transform: rotate(0deg); }
+    50%, 70% { transform: rotate(-90deg); }
+    90%, 100% { transform: rotate(-90deg) scale(1); }
+}
+
+#orientationWarning h2 {
+    font-family: var(--font-display);
+    font-size: 28px;
+    color: var(--gold-bright);
+    letter-spacing: 0.15em;
+    margin-bottom: 12px;
+}
+
+#orientationWarning p {
+    font-size: 15px;
+    color: var(--text-sub);
+    letter-spacing: 0.05em;
+}
+/* 針對手機橫屏（高度較矮）的戰鬥介面微調 */
+@media (max-height: 500px) and (orientation: landscape) {
+    .game-header { padding: 8px 20px; }
+    .hand-area { height: 150px; padding-bottom: 5px; }
+    .battle-card { width: 90px; height: 135px; margin: 0 -10px; }
+    .card-thumb { height: 50px; }
+    .card-title { font-size: 10px; }
+    .card-desc { font-size: 9px; }
+    .enemy-area { gap: 20px; padding: 10px 0 0; }
+    .enemy-portrait { width: 100px; height: 150px; }
+    .enemy-info { width: 110px; margin-top: -10px; }
+    .mid-area { padding: 4px 15px; }
+    .player-party { gap: 8px; }
+    .player-status { padding: 4px 10px 4px 4px; gap: 6px; }
+    .party-thumb { width: 32px; height: 32px; }
+    .party-info { min-width: 90px; }
+    .mini-bar { width: 90px; }
 }

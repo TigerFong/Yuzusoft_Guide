@@ -26,6 +26,18 @@
         </div>
     </div>
 
+    <!-- 強制橫屏遮罩 -->
+    <div id="orientationWarning">
+        <div class="rotate-phone">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                <path d="M12 18h.01"></path>
+            </svg>
+        </div>
+        <h2>請將手機橫置</h2>
+        <p>為了獲得最佳的幻境體驗，請旋轉您的設備以橫屏模式遊玩。</p>
+    </div>
+
     <div id="gameContainer" class="game-container" style="display: none;">
         <header class="game-header">
             <div class="header-left">
@@ -42,7 +54,10 @@
                     <span id="userExp">0</span>
                 </div>
                 <div class="user-info">
-                    <span id="userName">玩家</span>
+                    <span id="userName">玩家名稱</span>
+                    <button id="settingsBtn" class="btn-settings" title="帳號設置">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    </button>
                     <button id="logoutBtn" class="btn-logout">登出</button>
                 </div>
             </div>
@@ -135,17 +150,51 @@
             <!-- 以下為各個子功能視圖 -->
             <!-- ========================================== -->
             
-            <!-- 視圖 1：抽卡 -->
+            <!-- 抽卡視圖 -->
             <div id="gachaView" class="view-panel">
-                <button class="btn-back-lobby">◀ 返回大廳</button>
-                <div class="gacha-panel">
-                    <div class="gacha-title">常駐幻境卡池</div>
-                    <div class="pity-info">距離 SSR 保底：<span id="pityCount" class="highlight">0</span> / 80</div>
-                    <div class="gacha-buttons">
-                        <button class="btn-draw" id="draw1Btn"><span class="draw-name">單次邂逅</span><span class="draw-cost">160 柚幣</span></button>
-                        <button class="btn-draw ten" id="draw10Btn"><span class="draw-name">十連邂逅</span><span class="draw-cost">1,600 柚幣</span></button>
+                <button class="btn-back-lobby" data-target="lobby">◀ 返回大廳</button>
+                
+                <!-- 背景圖容器（由 CSS 控制背景） -->
+                <div class="gacha-bg-overlay"></div>
+
+                <!-- 卡池核心區域 -->
+                <div class="gacha-stage">
+                    <!-- 左側：卡池標題與看板娘（AI圖留白區） -->
+                    <div class="gacha-left">
+                        <div class="gacha-title-wrap">
+                            <div class="gacha-subtitle">常駐 · 幻境交錯</div>
+                            <h1 class="gacha-main-title">星織夜境</h1>
+                            <div class="gacha-pity-wrap">
+                                <div class="pity-bar-bg">
+                                    <div class="pity-bar-fill" id="pityBarFill"></div>
+                                </div>
+                                <div class="pity-text">距離 SSR 保底：<span class="highlight" id="pityCount">0</span> / 80</div>
+                            </div>
+                        </div>
                     </div>
-                    <button class="btn-wishlist" id="openWishlistBtn">⭐ 設定心願單</button>
+
+                    <!-- 右側/底部：操作區域 -->
+                    <div class="gacha-right">
+                        <div class="gacha-actions">
+                            <button class="btn-draw-new" id="draw1Btn">
+                                <span class="draw-title">單次邂逅</span>
+                                <span class="draw-cost"><i class="coin-icon"></i> 160</span>
+                            </button>
+                            <button class="btn-draw-new ten" id="draw10Btn">
+                                <span class="draw-title">十連邂逅</span>
+                                <span class="draw-cost"><i class="coin-icon"></i> 1,600</span>
+                                <span class="draw-guarantee">必得 SR 或以上</span>
+                            </button>
+                        </div>
+
+                        <div class="gacha-footer-links">
+                            <button id="openWishlistBtn" class="btn-wishlist-new">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                                設定心願單
+                            </button>
+                            <div class="gacha-rate-info">SSR 2.0% | SR 15.0% | R 83.0%</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -279,13 +328,17 @@
         </div>
     </div>
 
-    <!-- 抽卡結果彈窗 -->
-    <div id="gachaResultModal" class="modal-overlay">
-        <div class="modal-content gacha-result">
-            <div id="gachaCards" class="cards-container"></div>
-            <button id="closeResultBtn" class="btn-primary">確定</button>
+        <!-- 抽卡結果彈窗 -->
+        <div id="gachaResultModal" class="modal-overlay">
+            <div class="modal-content gacha-result-content">
+                <h2 class="modal-title">邂逅結果</h2>
+                <div id="gachaCards" class="gacha-cards-container"></div>
+                <div class="gacha-result-actions">
+                    <button id="flipAllBtn" class="btn-secondary" style="display: none;">一鍵翻開</button>
+                    <button id="closeResultBtn" class="btn-primary">確 定</button>
+                </div>
+            </div>
         </div>
-    </div>
 
     <!-- 心願單彈窗 -->
     <div id="wishlistModal" class="modal-overlay">
@@ -402,6 +455,30 @@
         </div>
     </div>
 
+    <!-- 帳號設置彈窗 -->
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal-content confirm-modal-content" style="width: 460px;">
+            <h3 style="color: var(--gold-bright); margin-bottom: 20px; letter-spacing: 0.1em;">帳號設置</h3>
+            
+            <div style="text-align: left; margin-bottom: 24px;">
+                <h4 style="color: #fff; margin-bottom: 10px; font-size: 14px;">修改密碼</h4>
+                <input type="password" id="oldPassword" placeholder="請輸入舊密碼" class="settings-input">
+                <input type="password" id="newPassword" placeholder="請輸入新密碼 (至少 6 位)" class="settings-input">
+                <input type="password" id="confirmPassword" placeholder="請確認新密碼" class="settings-input">
+                <button id="doChangePwBtn" class="btn-primary" style="width: 100%; margin-top: 10px;">確認修改</button>
+            </div>
+            
+            <div style="text-align: left; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
+                <h4 style="color: var(--red-bright); margin-bottom: 10px; font-size: 14px;">危險操作</h4>
+                <p style="color: var(--text-sub); font-size: 12px; margin-bottom: 10px;">刪除帳號將永久清除所有角色與進度，且無法恢復。</p>
+                <button id="deleteAccountBtn" style="width: 100%; padding: 10px; background: rgba(255, 94, 108, 0.1); border: 1px solid var(--red-bright); color: var(--red-bright); border-radius: 8px; cursor: pointer; transition: 0.2s;">刪除帳號</button>
+            </div>
+            
+            <button id="closeSettingsBtn" class="btn-secondary" style="margin-top: 24px; width: 100%;">關閉</button>
+        </div>
+    </div>
+
     <script src="/static/game/script.js"></script>
+    <script src="/static/game/audio.js"></script>
 </body>
 </html>

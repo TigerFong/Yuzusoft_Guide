@@ -490,69 +490,6 @@ def get_battle_progress(user_id):
     stats = pd.get("stats", {})
     return {"ok": True, "cleared_stages": stats.get("cleared_stages", [])}, 200
 
-def claim_battle_reward(user_id, stage_id, turns):
-    # 前端打完後直接傳入 stage_id 和 turns 發獎勵
-    if not stage_id:
-        return {"ok": False, "error": "無效的關卡"}, 400
-
-    if stage_id in WEEKLY_STAGES:
-        return _claim_weekly_battle_reward(user_id, stage_id, turns)
-
-    pd = get_player_data(user_id)
-    if not pd:
-        return {"ok": False, "error": "玩家不存在"}, 404
-        
-    stats = pd.get("stats") or {}
-    cleared = stats.get("cleared_stages") or []
-
-    is_first_clear = stage_id not in cleared
-    actual_reward = BATTLE_STAGES[stage_id]["reward_coins"] if is_first_clear else 0
-    exp_gain = 100 if is_first_clear else 30
-
-    if not db_pool:
-        pd = memory_db.player_data.get(user_id)
-        if pd:
-            pd["coins"] = pd.get("coins", 0) + actual_reward
-            stats = pd.setdefault("stats", {})
-            stats["exp"] = stats.get("exp", 0) + exp_gain
-            cleared = stats.setdefault("cleared_stages", [])
-            if stage_id not in cleared:
-                cleared.append(stage_id)
-    else:
-        try:
-            conn = db_pool.getconn()
-            cur = conn.cursor()
-            cur.execute("SELECT coins, stats FROM player_data WHERE user_id = %s FOR UPDATE", (user_id,))
-            row = cur.fetchone()
-            coins, stats = row[0], row[1] or {}
-
-            cleared = stats.get("cleared_stages") or []
-            is_first_clear = stage_id not in cleared
-            actual_reward = BATTLE_STAGES[stage_id]["reward_coins"] if is_first_clear else 0
-            exp_gain = 100 if is_first_clear else 30
-
-            stats["exp"] = stats.get("exp", 0) + exp_gain
-            if stage_id not in cleared:
-                cleared.append(stage_id)
-            stats["cleared_stages"] = cleared
-
-            cur.execute(
-                "UPDATE player_data SET coins = %s, stats = %s WHERE user_id = %s",
-                (coins + actual_reward, Json(stats), user_id),
-            )
-            conn.commit()
-            cur.close()
-            db_pool.putconn(conn)
-        except Exception as e:
-            print("發放獎勵失敗:", e)
-            return {"ok": False, "error": "發放獎勵失敗"}, 500
-
-    update_daily_task(user_id, "battle_win")
-    return {
-        "ok": True, "reward": actual_reward, "exp_gain": exp_gain,
-        "stage_id": stage_id, "is_first_clear": is_first_clear,
-    }, 200
-
 def get_battle_party_info(user_id):
     owned = _load_owned_cards(user_id)
     result = []
@@ -1071,9 +1008,9 @@ def claim_weekly_reward(user_id, stage_id, grade):
 
     return {"ok": True, "grade": grade, "reward": WEEKLY_GRADE_REWARD}, 200
 
-def _claim_weekly_battle_reward(user_id, stage_id, turns):
+def _claim_weekly_battle_reward(user_id, stage_id, turns, exp_bonus=0.0):
     grade = _grade_for_turns(stage_id, turns)
-    exp_gain = 100
+    exp_gain = int(100 * (1 + exp_bonus))
 
     pd = get_player_data(user_id)
     if not pd:
@@ -1110,27 +1047,29 @@ def _claim_weekly_battle_reward(user_id, stage_id, turns):
     }, 200
 
 def claim_battle_reward(user_id):
-    result, err = claim_reward(user_id) # 呼叫 battle_engine 的 claim_reward
+    result, err = claim_reward(user_id)  # battle_engine.claim_reward
     if err:
         return {"ok": False, "error": err}, 400
 
     stage_id = result["stage_id"]
     turns = result.get("turns", 0)
+    exp_bonus = result.get("exp_bonus", 0.0)
 
     if stage_id in WEEKLY_STAGES:
-        return _claim_weekly_battle_reward(user_id, stage_id, turns)
+        return _claim_weekly_battle_reward(user_id, stage_id, turns, exp_bonus)
 
     reward = result["reward"]
     pd = get_player_data(user_id)
     if not pd:
         return {"ok": False, "error": "玩家不存在"}, 404
-        
+
     stats = pd.get("stats") or {}
     cleared = stats.get("cleared_stages") or []
 
     is_first_clear = stage_id not in cleared
     actual_reward = reward if is_first_clear else 0
-    exp_gain = 100 if is_first_clear else 30
+    base_exp = 100 if is_first_clear else 30
+    exp_gain = int(base_exp * (1 + exp_bonus))
 
     if not db_pool:
         pd = memory_db.player_data.get(user_id)
@@ -1152,7 +1091,8 @@ def claim_battle_reward(user_id):
             cleared = stats.get("cleared_stages") or []
             is_first_clear = stage_id not in cleared
             actual_reward = reward if is_first_clear else 0
-            exp_gain = 100 if is_first_clear else 30
+            base_exp = 100 if is_first_clear else 30
+            exp_gain = int(base_exp * (1 + exp_bonus))
 
             stats["exp"] = stats.get("exp", 0) + exp_gain
             if stage_id not in cleared:
